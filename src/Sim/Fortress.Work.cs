@@ -426,8 +426,9 @@ public sealed partial class Fortress
     /// <summary>Soil floor; surface crops need the sky, cave crops need the dark.</summary>
     public bool Farmable(int c, Mat crop)
     {
-        if (World.Shapes[c] != Shape.Floor || BuildingAt.ContainsKey(c)) return false;
-        if (Tables.Mats[World.Mats[c]].Kind != MatKind.Soil) return false;
+        if (World.Shapes[c] != Shape.Floor || BuildingAt.ContainsKey(c) || World.Depth[c] >= 3) return false;
+        // Soil, or mud a flood has left behind.
+        if (Tables.Mats[World.Mats[c]].Kind != MatKind.Soil && !World.Has(c, CellFlag.Wet)) return false;
         bool outside = World.IsOutside(c);
         return crop.Surface ? outside : !outside;
     }
@@ -584,6 +585,8 @@ public sealed partial class Fortress
         W.Desigs[c] = Desig.None;
         Designated.Remove(c);
         Claims.Remove(c);
+        // Digging out the cell under a down stair makes the stair's other end: the way down is open.
+        if (g == Desig.Dig && c + W.W * W.H < W.N && W.Shapes[c + W.W * W.H] is Shape.StairDown or Shape.StairUD) g = Desig.StairUp;
         switch (g)
         {
             case Desig.Dig: W.SetShape(c, Shape.Floor); break;
@@ -614,7 +617,7 @@ public sealed partial class Fortress
                 Count("gathered");
                 return;
         }
-        if (before is Shape.Wall)
+        if (before is Shape.Wall or Shape.Floor && g is not (Desig.Chop or Desig.Gather) && before == Shape.Wall)
         {
             Count("dug");
             int drop = g == Desig.Channel ? d.Cell : c;
@@ -747,6 +750,8 @@ public sealed partial class Fortress
             if (b.OverAir) { World.SetShape(bc, Shape.Floor, b.Mat); World.Set(bc, CellFlag.Built, true); }
         }
         if (b.Def == "door" && b.Locked) World.SetLocked(World.Idx(b.X, b.Y, b.Z), true);
+        // Floodgates are built shut.
+        if (b.Def == "floodgate") { b.Locked = true; World.SetLocked(World.Idx(b.X, b.Y, b.Z), true); }
         if (b.Def == "trap") b.ArmedAt = Tick;
         if (b.D.Kind == BuildKind.Workshop) Say($"{d.FirstName} finished the {b.D.Name.ToLower()}.", LogKind.Info, World.Idx(b.Center));
     }
@@ -754,7 +759,7 @@ public sealed partial class Fortress
     public void RemoveBuilding(Building b)
     {
         Buildings.Remove(b);
-        if (b.Def == "door") World.SetLocked(World.Idx(b.X, b.Y, b.Z), false);
+        if (b.Def is "door" or "floodgate") { World.SetLocked(World.Idx(b.X, b.Y, b.Z), false); World.Stir(World.Idx(b.X, b.Y, b.Z)); }
         if (b.Def == "bridge" && b.Built)
         {
             int bc = World.Idx(b.X, b.Y, b.Z);
@@ -914,8 +919,8 @@ public sealed partial class Fortress
             }
             else
             {
-                // Water: any cell beside a pond, stream or cave pool.
-                var p = Path.Nearest(d.Cell, BesideWater, 30000);
+                // Water: a well if there is one near, else any cell beside a pond, stream or cave pool.
+                var p = (Buildings.Any(b => b.Built && b.Def == "well") ? Path.Nearest(d.Cell, BesideWell, 12000) : null) ?? Path.Nearest(d.Cell, BesideWater, 30000);
                 if (p == null) { d.NoWaterUntil = Tick + 600; return false; }
                 if (p.Count > 1) { SetPath(d, p); t.Stage = 1; return true; }
             }
@@ -935,7 +940,7 @@ public sealed partial class Fortress
         else
         {
             if (!BesideWater(d.Cell)) return false;
-            AddThought(d, "drank_water");
+            AddThought(d, BesideWell(d.Cell) ? "drank_well" : "drank_water");
         }
         d.Thirst = 0;
         Count("drinks");
@@ -947,7 +952,23 @@ public sealed partial class Fortress
         P3 p = World.Pos(c);
         for (int dy = -1; dy <= 1; dy++)
             for (int dx = -1; dx <= 1; dx++)
-                if (World.S(p.X + dx, p.Y + dy, p.Z) == Shape.Water || World.S(p.X + dx, p.Y + dy, p.Z - 1) == Shape.Water && World.S(p.X + dx, p.Y + dy, p.Z) == Shape.Empty) return true;
+            {
+                if (!World.In(p.X + dx, p.Y + dy, p.Z)) continue;
+                int j = World.Idx(p.X + dx, p.Y + dy, p.Z);
+                if (World.WaterAt(j)) return true;
+                if (World.Shapes[j] == Shape.Empty && p.Z > 0 && World.WaterAt(j - World.W * World.H)) return true;
+            }
+        return _anyWell && BesideWell(c);
+    }
+
+    private bool _anyWell => Buildings.Any(b => b.Built && b.Def == "well");
+
+    public bool BesideWell(int c)
+    {
+        P3 p = World.Pos(c);
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                if (World.In(p.X + dx, p.Y + dy, p.Z) && BuildingOn(World.Idx(p.X + dx, p.Y + dy, p.Z)) is { Built: true, Def: "well" }) return true;
         return false;
     }
 
@@ -1173,6 +1194,27 @@ public sealed partial class Fortress
         return n;
     }
 
+    /// <summary>Whether any designation in the box can be worked from somewhere a living dwarf can walk to.</summary>
+    public bool AnyReachable(P3 a, P3 b)
+    {
+        World.EnsureComponents();
+        var comps = new HashSet<int>(Living.Select(d => World.Comp[d.Cell]));
+        Span<int> spots = stackalloc int[16];
+        for (int z = Math.Min(a.Z, b.Z); z <= Math.Max(a.Z, b.Z); z++)
+            for (int y = Math.Min(a.Y, b.Y); y <= Math.Max(a.Y, b.Y); y++)
+                for (int x = Math.Min(a.X, b.X); x <= Math.Max(a.X, b.X); x++)
+                {
+                    if (!World.In(x, y, z)) continue;
+                    int c = World.Idx(x, y, z);
+                    if (World.Desigs[c] == Desig.None) continue;
+                    int n = World.WorkSpots(c, spots);
+                    for (int k = 0; k < n; k++) if (comps.Contains(World.Comp[spots[k]])) return true;
+                    // A stair dug down from above counts once the stair above it is reachable or designated.
+                    if (z + 1 < World.D && World.Desigs[c + World.W * World.H] is Desig.StairDown or Desig.StairUD) return true;
+                }
+        return false;
+    }
+
     /// <summary>Why a building cannot go here, or null when it can.</summary>
     public string CanPlace(string def, int x, int y, int z)
     {
@@ -1193,8 +1235,11 @@ public sealed partial class Fortress
                     continue;
                 }
                 if (def == "bridge") { if (s is not (Shape.Floor or Shape.Empty)) return "a drawbridge goes on a floor or over a gap"; continue; }
+                if (def == "well") { if (s != Shape.Empty || !WaterBelow(c)) return "a well goes over open air with water a few levels below"; continue; }
+                if (World.Depth[c] >= World.Deep) return "under deep liquid";
                 if (s != Shape.Floor) return "needs open floor";
             }
+        if (def is "msmelter" or "mforge" && !MagmaNear(x, y, z, bd.W, bd.H)) return "needs magma close by (beside it, or one level down)";
         return null;
     }
 

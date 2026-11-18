@@ -78,6 +78,17 @@
    screen. Still waiting: generated portraits and banners via ../assetgen (needs a go-ahead:
    it spends Replicate credits).
 
+8. **Water and magma** (done) — liquid depth 0..7 in every cell (four or more cannot be
+   walked); ponds and cavern pools lie in basins and the magma sea at the bottom, all still
+   until disturbed. Breached, liquid falls through open air and spreads to anything lower;
+   still bodies are levelled as a whole. Water meeting magma becomes obsidian. Dwarves and
+   beasts in deep water drown (6 a pass) and in magma burn (25), struggling out if they can;
+   magma burns wood, plants, flesh and leather. Water leaves mud, and mud grows crops.
+   Floodgates (built shut), wells over a shaft with water below, magma smelter and forge
+   (no fuel) beside magma. Puddles under the sky dry up.
+9. **Other races** — next.
+10. **The world** — next.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

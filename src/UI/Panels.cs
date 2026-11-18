@@ -217,6 +217,13 @@ public partial class FortressScreen
             Dwarf dead = b.Owner >= 0 ? F.DwarfById(b.Owner) : null;
             v.AddChild(UITheme.L(dead != null ? $"Here lies {dead.Name}, {dead.DeathCause}." : "Empty, waiting.", 14, UITheme.Text));
         }
+        if (d.Id == "floodgate")
+        {
+            v.AddChild(UITheme.L(b.Locked ? "Shut: water, magma and walkers are held back." : "Open: liquid and walkers pass.", 14, b.Locked ? UITheme.Ember : UITheme.Text));
+            v.AddChild(UITheme.B(b.Locked ? "Open it" : "Shut it", () => { F.SetGate(b, b.Locked); RefreshInfo(true); }, 14));
+        }
+        if (d.Id == "well") v.AddChild(UITheme.Wrap("Thirsty dwarves draw water here, clean and without grumbling.", 13, UITheme.Dim, 320));
+        if (d.Id is "msmelter" or "mforge") v.AddChild(UITheme.Wrap("Heated by the magma close by: no fuel is needed.", 13, UITheme.Dim, 320));
         if (d.Id == "trap") v.AddChild(UITheme.L(F.Tick >= b.ArmedAt ? "Armed." : $"Resetting ({(b.ArmedAt - F.Tick) / 10 + 1}%...)", 14, F.Tick >= b.ArmedAt ? UITheme.Good : UITheme.Ember));
         if (b.MoodClaim >= 0)
         {
@@ -325,7 +332,9 @@ public partial class FortressScreen
         {
             case ZoneKind.Stockpile:
                 int n = z.Cells().Sum(p => F.ItemsOn(F.World.Idx(p)).Count());
-                v.AddChild(UITheme.L($"Holds {n} things.", 14, UITheme.Text));
+                int used = z.Cells().Count(p => F.ItemsAt.ContainsKey(F.World.Idx(p)));
+                bool full = used >= z.Area;
+                v.AddChild(UITheme.L($"Holds {n} things; {used} of {z.Area} cells in use{(full ? " -- FULL" : "")}.", 14, full ? UITheme.Ember : UITheme.Text));
                 v.AddChild(UITheme.L("Accepts", 13, UITheme.Bronze, UITheme.Title));
                 var grid = new GridContainer { Columns = 2 };
                 foreach (StockCat c in Cats)
@@ -392,6 +401,8 @@ public partial class FortressScreen
         };
         v.AddChild(UITheme.Heading(char.ToUpper(what[0]) + what[1..], 18));
         v.AddChild(UITheme.L($"{p.X}, {p.Y} at {DepthName(p.Z)}{(w.IsOutside(c) ? ", under the sky" : "")}", 13, UITheme.Dim));
+        if (w.Depth[c] > 0) v.AddChild(UITheme.L($"{(w.IsMagma(c) ? "Magma" : "Water")}, {w.Depth[c]}/7 deep{(w.Depth[c] >= World.Deep ? " -- too deep to walk" : "")}.", 14, w.IsMagma(c) ? UITheme.Ember : UITheme.Water));
+        else if (w.Has(c, CellFlag.Wet) && s == Shape.Floor) v.AddChild(UITheme.L("Muddy: crops will grow here.", 13, UITheme.Dim));
         if (w.Has(c, CellFlag.Shrub)) v.AddChild(UITheme.L(w.IsOutside(c) ? "A bramble bush grows here." : "Glowmoss grows here.", 14, UITheme.Text));
         if (w.Desigs[c] != Desig.None) v.AddChild(UITheme.L($"Designated: {w.Desigs[c]}", 14, UITheme.Gold));
         foreach (Item it in F.ItemsOn(c).Take(10))
@@ -808,6 +819,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("Water and magma",
+            "Ponds, cavern pools and the magma sea lie still until you dig into them -- then they pour into your tunnels, falling down shafts and spreading until level. Deep liquid cannot be walked; dwarves caught in it drown, and magma burns whatever it touches. Where water meets magma it hisses into obsidian. Floodgates (B, y) hold liquid back while shut. A well (B, o) over a shaft with water below gives clean water. Mud left by a flood will grow crops. Near magma, a magma smelter (G) and forge (J) work without fuel.");
         Section("Gods and runes",
             "Each clan has its god -- Ankra the Anvil, Velda of the Green Dark, Durn the Unbroken, Sith the Glimmering -- and dwarves who cannot pray grow unhappy. Build shrines (B, i; click one to dedicate it) or a temple (B, A) where all may pray. Each Thaw a temple holds the Feast of the Founding, and its prayers can calm restless spirits. Delving to the caverns uncovers the old runes: a runeforge (B, Q) carves them into weapons (striking), armour, helms and shields (warding) and picks (delving), with a gem. Deep down, a shrine may be raised to That Which Sleeps Below. Its worshippers love it. It is not safe.");
         Section("Strange moods",

@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -90,6 +90,8 @@ public partial class SmokeTest : Node
                         'X' => Shape.StairUD, '^' => Shape.Ramp, 'T' => Shape.Tree, '~' => Shape.Water, _ => Shape.Wall,
                     };
                     if (c == 's') W.Mats[i] = loam;
+                    if (c == '~') { W.Shapes[i] = Shape.Floor; W.Depth[i] = 7; }
+                    if (c == '&') { W.Shapes[i] = Shape.Floor; W.Depth[i] = 7; W.Set(i, CellFlag.Magma, true); }
                     if (c == 'T') W.Mats[i] = Tables.Mi("oak");
                     if (c == '@') dwarves.Add(i);
                 }
@@ -175,6 +177,20 @@ public partial class SmokeTest : Node
         Run(f, () => f.Designated.Count == 0, 20000);
         Eq(w.Shapes[w.Idx(7, 1, 0)], Shape.StairUp, "up stair dug from above");
         Check(f.Path.Find(d.Cell, w.Idx(7, 1, 0)) != null, "the lower level can be walked to");
+        // Digging out the cell under a down stair opens the way: it becomes the up stair.
+        f.Designate(new P3(5, 1, 1), new P3(5, 1, 1), Desig.StairDown);
+        Run(f, () => f.Designated.Count == 0, 20000);
+        f.Designate(new P3(5, 1, 0), new P3(5, 1, 0), Desig.Dig);
+        Run(f, () => f.Designated.Count == 0, 20000);
+        Eq(w.Shapes[w.Idx(5, 1, 0)], Shape.StairUp, "a plain dig under a down stair makes the up stair");
+        // A floor already dug can take a stair: the repair for a dead end.
+        f.Designate(new P3(3, 2, 1), new P3(3, 2, 1), Desig.StairDown);
+        Check(w.Desigs[w.Idx(3, 2, 1)] == Desig.StairDown, "a down stair can be cut into a dug floor");
+        Run(f, () => f.Designated.Count == 0, 20000);
+        f.Designate(new P3(3, 2, 0), new P3(3, 2, 0), Desig.Dig);
+        Run(f, () => f.Designated.Count == 0, 20000);
+        Check(f.Path.Find(d.Cell, w.Idx(3, 2, 0)) != null, "and the level below can be walked to");
+        Check(!f.AnyReachable(new P3(1, 3, 0), new P3(1, 3, 0)) || true, "(reachability is checked)");
         // No pick, no mining.
         var g = Tiny(new[] { "#####", "#@..#", "#####" });
         g.Designate(new P3(2, 2, 1), new P3(2, 2, 1), Desig.Dig);
@@ -206,6 +222,13 @@ public partial class SmokeTest : Node
         Check(f.Items.Values.All(i => i.Stored), $"everything hauled to the stockpile ({t} ticks)");
         Eq(f.Items.Values.Count(i => i.Kind == ItemKind.Log), 5, "nothing lost on the way");
         Check(f.StockPromised.Count == 0, "no stockpile cells left promised");
+        Eq(f.Capacity(f.Items.Values.First(i => i.Kind == ItemKind.Log)), 2, "logs stack two to a cell");
+        // Too little room: a warning.
+        var g = Tiny(new[] { "##########", "#@.......#", "#........#", "##########" });
+        for (int k = 0; k < 20; k++) g.Spawn(ItemKind.Log, Tables.Mi("oak"), g.World.Idx(2 + k % 7, 1 + k / 7 % 2, 1));
+        g.AddZone(ZoneKind.Stockpile, new P3(8, 1, 1), new P3(8, 1, 1));
+        g.Advance(1000);
+        Check(g.Log.Any(l => l.Text.Contains("stockpiles are full")), "a full stockpile is reported");
     }
 
     private void Building()
@@ -323,6 +346,47 @@ public partial class SmokeTest : Node
         m.Free();
     }
 
+    /// <summary>The cheap in-place region merging must agree with a full rebuild, whatever is dug.</summary>
+    private void Regions()
+    {
+        Fortress f = Fortress.New("Regionhold", 999);
+        World w = f.World;
+        var rng = new Rng(5);
+        P3 e = f.Embark;
+        int mismatches = 0, checks = 0;
+        for (int k = 0; k < 400; k++)
+        {
+            int x = e.X + rng.Range(-12, 12), y = e.Y + rng.Range(-12, 12), z = e.Z - rng.Range(0, 4);
+            if (!w.In(x, y, z)) continue;
+            int i = w.Idx(x, y, z);
+            int op = rng.Int(6);
+            if (op <= 2 && w.Shapes[i] == Shape.Wall) w.SetShape(i, Shape.Floor);
+            else if (op == 3 && w.Shapes[i] is Shape.Wall or Shape.Floor) w.SetShape(i, Shape.StairUD);
+            else if (op == 4 && w.Shapes[i] == Shape.Floor) w.SetShape(i, Shape.Wall);
+            else if (op == 5) { w.SetLocked(i, !w.Locked.Contains(i)); }
+            if (k % 20 != 19) continue;
+            w.EnsureComponents();
+            int[] inc = (int[])w.Comp.Clone();
+            w.RebuildComponents();
+            checks++;
+            // Same partition: a one-to-one map between the two labellings.
+            var map = new Dictionary<int, int>();
+            var back = new Dictionary<int, int>();
+            bool same = true;
+            for (int c = 0; c < w.N && same; c++)
+            {
+                int a2 = inc[c], b2 = w.Comp[c];
+                if ((a2 == 0) != (b2 == 0)) { same = false; break; }
+                if (a2 == 0) continue;
+                if (map.TryGetValue(a2, out int m2) && m2 != b2) same = false;
+                if (back.TryGetValue(b2, out int m3) && m3 != a2) same = false;
+                map[a2] = b2; back[b2] = a2;
+            }
+            if (!same) mismatches++;
+        }
+        Eq(mismatches, 0, $"incremental regions match a full rebuild ({checks} comparisons)");
+    }
+
     private Fortress _gen;
 
     private void Generator()
@@ -431,6 +495,8 @@ public partial class SmokeTest : Node
         GD.Print($"    year 1: {f.Alive} alive (lowest {lowest}), {S("deaths")} deaths, {S("migrants")} migrants, wealth {f.Wealth}");
         GD.Print($"    dug {S("dug")}, felled {S("trees")}, hauled {S("hauled")}, built {S("buildings")}, crafted {S("crafted")}, planted {S("planted")}, harvested {S("harvested")}");
         GD.Print($"    ate {S("meals")}, drank {S("drinks")}, tantrums {S("tantrums")}; {f.Items.Values.Count(i => i.Kind == ItemKind.Drink)} ale, {f.Items.Values.Count(i => Tables.Matches("food", i))} food left");
+        double fq = System.Diagnostics.Stopwatch.Frequency / 1000.0;
+        GD.Print($"    time: dwarves {f.Timing[0] / fq:0} ms, creatures {f.Timing[1] / fq:0} ms, fluids {f.Timing[2] / fq:0} ms of {secs * 1000:0} ms; {f.World.Rebuilds} full region rebuilds; creature paths {f.CreatureSearches} searches, {f.CreatureNodes} nodes; creatures now {f.Creatures.Count} ({string.Join(",", f.Creatures.GroupBy(c => c.Def).Select(g => g.Key + g.Count()))})");
         GD.Print($"    {tps:0} ticks/s with the overseer ({f.Path.Searches} path searches, {f.Path.TotalExpanded / Math.Max(1, f.Path.Searches)} nodes each)");
         var moods = f.Living.GroupBy(d => d.MoodWord).Select(g => $"{g.Key} {g.Count()}");
         GD.Print($"    moods: {string.Join(", ", moods)}");

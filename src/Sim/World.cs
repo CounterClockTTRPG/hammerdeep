@@ -10,7 +10,7 @@ namespace Hammerdeep;
 public enum Shape : byte { Empty, Floor, Wall, StairUp, StairDown, StairUD, Ramp, Tree, Water, Magma }
 
 [Flags]
-public enum CellFlag : byte { None = 0, Hidden = 1, Built = 2, Shrub = 4, Grass = 8, Smooth = 16, Outside = 32, Wet = 64 }
+public enum CellFlag : byte { None = 0, Hidden = 1, Built = 2, Shrub = 4, Grass = 8, Smooth = 16, Outside = 32, Wet = 64, Magma = 128 }
 
 public enum Desig : byte { None, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Remove }
 
@@ -27,6 +27,11 @@ public sealed class World
     public readonly byte[] Mats;
     public readonly CellFlag[] Flags;
     public readonly Desig[] Desigs;
+    /// <summary>Liquid in each cell, 0..7 (7 full); the Magma flag says which. Four or more cannot be walked.</summary>
+    public readonly byte[] Depth;
+    /// <summary>Cells whose liquid may move: the fluid pass looks only at these.</summary>
+    public readonly HashSet<int> Active = new();
+    public const int Deep = 4;
     /// <summary>Connected-walkable component of each cell (0 = not walkable). Recomputed lazily.</summary>
     public readonly int[] Comp;
     public bool CompDirty = true;
@@ -41,7 +46,7 @@ public sealed class World
     public World(int w, int h, int d)
     {
         W = w; H = h; D = d; N = w * h * d;
-        Shapes = new Shape[N]; Mats = new byte[N]; Flags = new CellFlag[N]; Desigs = new Desig[N]; Comp = new int[N];
+        Shapes = new Shape[N]; Mats = new byte[N]; Flags = new CellFlag[N]; Desigs = new Desig[N]; Comp = new int[N]; Depth = new byte[N];
     }
 
     public int Idx(int x, int y, int z) => (z * H + y) * W + x;
@@ -56,8 +61,40 @@ public sealed class World
 
     public static bool IsWalkable(Shape s) => s is Shape.Floor or Shape.StairUp or Shape.StairDown or Shape.StairUD or Shape.Ramp;
     public static bool IsSolid(Shape s) => s is Shape.Wall or Shape.Tree;
-    public bool Walkable(int i) => IsWalkable(Shapes[i]);
-    public bool Walkable(P3 p) => In(p) && IsWalkable(Shapes[Idx(p)]);
+    public bool Walkable(int i) => IsWalkable(Shapes[i]) && Depth[i] < Deep;
+    public bool Walkable(P3 p) => In(p) && Walkable(Idx(p));
+    public bool IsMagma(int i) => (Flags[i] & CellFlag.Magma) != 0;
+    public bool WaterAt(int i) => Depth[i] > 0 && !IsMagma(i);
+
+    /// <summary>The ground a liquid cell stands on: a floor over solid rock, open air otherwise.</summary>
+    public Shape BaseShape(int i) => i - W * H >= 0 && IsSolid(Shapes[i - W * H]) ? Shape.Floor : Shape.Empty;
+
+    /// <summary>Turn the old whole-cell Water and Magma shapes into liquid depth (generation, old saves).</summary>
+    public void ConvertLiquids()
+    {
+        for (int i = 0; i < N; i++)
+        {
+            if (Shapes[i] is not (Shape.Water or Shape.Magma)) continue;
+            bool magma = Shapes[i] == Shape.Magma;
+            Depth[i] = 7;
+            Set(i, CellFlag.Magma, magma);
+        }
+        for (int i = 0; i < N; i++) if (Shapes[i] is Shape.Water or Shape.Magma) Shapes[i] = BaseShape(i);
+    }
+
+    /// <summary>Wake the liquid around a cell that changed.</summary>
+    public void Stir(int i)
+    {
+        P3 p = Pos(i);
+        for (int dz = -1; dz <= 1; dz++)
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (!In(p.X + dx, p.Y + dy, p.Z + dz)) continue;
+                    int j = Idx(p.X + dx, p.Y + dy, p.Z + dz);
+                    if (Depth[j] > 0) Active.Add(j);
+                }
+    }
 
     private static readonly int[] DX = { 1, -1, 0, 0, 1, 1, -1, -1 };
     private static readonly int[] DY = { 0, 0, 1, -1, 1, -1, 1, -1 };
@@ -77,48 +114,57 @@ public sealed class World
             if ((uint)nx >= (uint)W || (uint)ny >= (uint)H) continue;
             int j = i + DX[k] + DY[k] * W;
             if (Locked.Count > 0 && Locked.Contains(j)) continue;
-            if (IsWalkable(Shapes[j]))
+            if (IsWalkable(Shapes[j]) && Depth[j] < Deep)
             {
                 if (k >= 4 && (IsSolid(Shapes[i + DX[k]]) || IsSolid(Shapes[i + DY[k] * W]))) { }
-                else { to[n] = j; cost[n++] = k < 4 ? Tables.StepTicks : Tables.DiagTicks; }
+                // Wading is slow.
+                else { to[n] = j; cost[n++] = (k < 4 ? Tables.StepTicks : Tables.DiagTicks) + Depth[j] * 3; }
             }
             // Up a ramp: from a ramp under open air to a walkable cell beside it one level up.
             if (here == Shape.Ramp && z + 1 < D && Shapes[i + W * H] == Shape.Empty)
             {
                 int u = j + W * H;
-                if (IsWalkable(Shapes[u]) && IsSolid(Shapes[j])) { to[n] = u; cost[n++] = Tables.DiagTicks + 2; }
+                if (IsWalkable(Shapes[u]) && Depth[u] < Deep && IsSolid(Shapes[j])) { to[n] = u; cost[n++] = Tables.DiagTicks + 2; }
             }
             // Down onto a ramp beside, below.
             if (z > 0 && Shapes[j] == Shape.Empty)
             {
                 int dn = j - W * H;
-                if (Shapes[dn] == Shape.Ramp && IsSolid(Shapes[i - W * H])) { to[n] = dn; cost[n++] = Tables.DiagTicks + 2; }
+                if (Shapes[dn] == Shape.Ramp && Depth[dn] < Deep && IsSolid(Shapes[i - W * H])) { to[n] = dn; cost[n++] = Tables.DiagTicks + 2; }
             }
         }
-        if (z + 1 < D && here is Shape.StairUp or Shape.StairUD && Shapes[i + W * H] is Shape.StairDown or Shape.StairUD)
+        if (z + 1 < D && here is Shape.StairUp or Shape.StairUD && Shapes[i + W * H] is Shape.StairDown or Shape.StairUD && Depth[i + W * H] < Deep)
         { to[n] = i + W * H; cost[n++] = Tables.StairTicks; }
-        if (z > 0 && here is Shape.StairDown or Shape.StairUD && Shapes[i - W * H] is Shape.StairUp or Shape.StairUD)
+        if (z > 0 && here is Shape.StairDown or Shape.StairUD && Shapes[i - W * H] is Shape.StairUp or Shape.StairUD && Depth[i - W * H] < Deep)
         { to[n] = i - W * H; cost[n++] = Tables.StairTicks; }
         return n;
     }
 
+    private int _nextComp;
+    private readonly Dictionary<int, int> _compSize = new();
+    public int Rebuilds;
+
     /// <summary>Recompute the connected components of walkable cells.</summary>
     public void RebuildComponents()
     {
+        Rebuilds++;
         Array.Clear(Comp);
+        _compSize.Clear();
         int next = 0;
         var stack = new Stack<int>();
         Span<int> to = stackalloc int[24];
         Span<int> cost = stackalloc int[24];
         for (int i = 0; i < N; i++)
         {
-            if (Comp[i] != 0 || !IsWalkable(Shapes[i])) continue;
+            if (Comp[i] != 0 || !Walkable(i)) continue;
             next++;
             Comp[i] = next;
             stack.Push(i);
+            int size = 0;
             while (stack.Count > 0)
             {
                 int c = stack.Pop();
+                size++;
                 int k = Neighbors(c, to, cost);
                 for (int a = 0; a < k; a++)
                 {
@@ -128,8 +174,90 @@ public sealed class World
                     stack.Push(j);
                 }
             }
+            _compSize[next] = size;
         }
+        _nextComp = next;
         CompDirty = false;
+    }
+
+    /// <summary>
+    /// A cell has become walkable, or gained ways out (a stair, a ramp): it can only join
+    /// regions together, so merge them in place -- the smaller relabelled into the larger --
+    /// instead of rebuilding the whole map.
+    /// </summary>
+    public void Opened(int i)
+    {
+        if (CompDirty) return;
+        if (!Walkable(i)) { CompDirty = true; return; }
+        Span<int> to = stackalloc int[24];
+        Span<int> cost = stackalloc int[24];
+        int n = Neighbors(i, to, cost);
+        int target = Comp[i];
+        for (int k = 0; k < n; k++)
+        {
+            int c = Comp[to[k]];
+            if (c != 0 && (target == 0 || _compSize.GetValueOrDefault(c) > _compSize.GetValueOrDefault(target))) target = c;
+        }
+        if (target == 0) { target = ++_nextComp; _compSize[target] = 0; }
+        if (Comp[i] != target)
+        {
+            if (Comp[i] != 0) Relabel(i, Comp[i], target);
+            else { Comp[i] = target; _compSize[target] = _compSize.GetValueOrDefault(target) + 1; }
+        }
+        for (int k = 0; k < n; k++)
+        {
+            int c = Comp[to[k]];
+            if (c != target) Relabel(to[k], c, target);
+        }
+    }
+
+    private void Relabel(int start, int from, int into)
+    {
+        var stack = new Stack<int>();
+        Span<int> to = stackalloc int[24];
+        Span<int> cost = stackalloc int[24];
+        Comp[start] = into;
+        stack.Push(start);
+        int moved = 0;
+        while (stack.Count > 0)
+        {
+            int c = stack.Pop();
+            moved++;
+            int n = Neighbors(c, to, cost);
+            for (int k = 0; k < n; k++)
+            {
+                int j = to[k];
+                if (Comp[j] != from || from == 0) { if (from == 0 && Comp[j] == 0 && Walkable(j)) { Comp[j] = into; stack.Push(j); } continue; }
+                Comp[j] = into;
+                stack.Push(j);
+            }
+        }
+        _compSize.Remove(from);
+        _compSize[into] = _compSize.GetValueOrDefault(into) + moved;
+    }
+
+    /// <summary>After a change to whether a cell can be walked, or how: merge cheaply when nothing can have been cut apart.</summary>
+    public void Rewalk(int i, bool wasWalkable, Shape was)
+    {
+        bool now = Walkable(i);
+        bool opensOnly = now && (!wasWalkable || Shapes[i] is Shape.StairUp or Shape.StairDown or Shape.StairUD or Shape.Ramp || was == Shapes[i]);
+        // A solid cell turned to floor no longer props up a ramp beside it, or a ramp's top; play it safe.
+        bool rampsNear = false;
+        if (opensOnly && !wasWalkable && IsSolid(was))
+        {
+            P3 p = Pos(i);
+            for (int dy = -1; dy <= 1 && !rampsNear; dy++)
+                for (int dx = -1; dx <= 1 && !rampsNear; dx++)
+                    if (In(p.X + dx, p.Y + dy, p.Z) && Shapes[Idx(p.X + dx, p.Y + dy, p.Z)] == Shape.Ramp) rampsNear = true;
+        }
+        if (opensOnly && !rampsNear) Opened(i);
+        else if (wasWalkable || now) CompDirty = true;
+        // A wall dug out above opens the cell below's ramp top, and so on: neighbours above and below can gain links.
+        if (opensOnly && !CompDirty)
+        {
+            if (i + W * H < N && Walkable(i + W * H)) Opened(i + W * H);
+            if (i - W * H >= 0 && Walkable(i - W * H)) Opened(i - W * H);
+        }
     }
 
     public void EnsureComponents() { if (CompDirty) RebuildComponents(); }
@@ -137,7 +265,15 @@ public sealed class World
     public void SetLocked(int i, bool locked)
     {
         if (locked ? !Locked.Add(i) : !Locked.Remove(i)) return;
-        CompDirty = true;
+        if (locked) CompDirty = true;
+        else
+        {
+            // Unlocking only joins: the cell and whatever lies beyond it.
+            Opened(i);
+            Span<int> to = stackalloc int[24];
+            Span<int> cost = stackalloc int[24];
+            if (Walkable(i)) { int n = Neighbors(i, to, cost); for (int k = 0; k < n; k++) Opened(to[k]); }
+        }
         Topology++;
         Changed.Add(i);
     }
@@ -145,12 +281,15 @@ public sealed class World
     /// <summary>Change a cell's shape (and optionally material), marking everything that depends on it.</summary>
     public void SetShape(int i, Shape s, int mat = -1)
     {
+        Shape was = Shapes[i];
+        bool wasWalkable = Walkable(i);
         Shapes[i] = s;
         if (mat >= 0) Mats[i] = (byte)mat;
-        CompDirty = true;
+        Rewalk(i, wasWalkable, was);
         Topology++;
         Changed.Add(i);
         if (i + W * H < N) Changed.Add(i + W * H);
+        Stir(i);
     }
 
     // ---- what is known ----------------------------------------------------------------
@@ -214,8 +353,8 @@ public sealed class World
         {
             Desig.None => true,
             Desig.Dig => s == Shape.Wall && !built,
-            Desig.StairUD or Desig.StairUp => s == Shape.Wall && !built,
-            Desig.StairDown => (s == Shape.Wall && !built) || s == Shape.Floor,
+            // Stairs can be cut into rock or into a floor that is already dug.
+            Desig.StairUD or Desig.StairUp or Desig.StairDown => (s == Shape.Wall && !built) || (s == Shape.Floor && !built),
             Desig.Channel => s is Shape.Floor or Shape.Wall && !built && Pos(i).Z > 0,
             Desig.Chop => s == Shape.Tree,
             Desig.Gather => s == Shape.Floor && Has(i, CellFlag.Shrub),
@@ -241,7 +380,7 @@ public sealed class World
         if (d is Desig.StairUD or Desig.StairUp or Desig.Dig && p.Z + 1 < D && Shapes[i + W * H] is Shape.StairDown or Shape.StairUD) spots[n++] = i + W * H;
         if (d is Desig.StairUD or Desig.StairDown or Desig.Dig && p.Z > 0 && Shapes[i - W * H] is Shape.StairUp or Shape.StairUD) spots[n++] = i - W * H;
         // Floor-ish targets can be worked standing on them.
-        if (d is Desig.StairDown or Desig.Gather && IsWalkable(Shapes[i])) spots[n++] = i;
+        if (d is Desig.StairDown or Desig.StairUp or Desig.StairUD or Desig.Gather && Walkable(i)) spots[n++] = i;
         return n;
     }
 

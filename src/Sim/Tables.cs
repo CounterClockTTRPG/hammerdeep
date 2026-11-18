@@ -320,6 +320,10 @@ public static class Tables
         B("shrine", "Shrine", BuildKind.Furniture, 1, 1, Labor.Construction, 120, 'i', "i", "A small altar to one god, where its faithful pray.", new Need("stone"));
         B("temple", "Temple", BuildKind.Workshop, 3, 3, Labor.Construction, 600, 'A', "A", "A house for all the gods: anyone may pray here, the prayers are stronger, it holds the Feast of the Founding each Thaw and can calm restless spirits.", new Need("buildmat", 4));
         B("runeforge", "Runeforge", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'Q', "Q", "Carves the old runes into weapons, armour and picks, with a gem. The runes must first be found in the deep.", new Need("stone", 2), new Need("gem"));
+        B("well", "Well", BuildKind.Furniture, 1, 1, Labor.Construction, 200, 'O', "o", "Over a shaft with water below: clean water, without the grumbling.", new Need("stone"), new Need("barrel"));
+        B("floodgate", "Floodgate", BuildKind.Furniture, 1, 1, Labor.Construction, 150, 'H', "y", "Holds back water and magma when shut (it is built shut); opened, lets them through.", new Need("mechanism"), new Need("buildmat"));
+        B("msmelter", "Magma smelter", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'G', "G", "A smelter heated by magma close by: no fuel needed.", new Need("stone", 3));
+        B("mforge", "Magma forge", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'J', "J", "A forge heated by magma close by: no fuel needed.", new Need("stone", 3));
         B("coffin", "Coffin", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '0', "o", "A resting place for one of the dead. Dig a quiet tomb for them.", new Need("coffin"));
         B("bridge", "Drawbridge", BuildKind.Furniture, 1, 1, Labor.Construction, 150, '=', "g", "Spans a gap or sits on a floor. Raised, it drops whatever is on it into the gap, or seals the way.", new Need("mechanism"), new Need("buildmat"));
         B("trap", "Stonefall trap", BuildKind.Furniture, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself.", new Need("mechanism"), new Need("stone"));
@@ -359,6 +363,13 @@ public static class Tables
         R("charcoal", "Charcoal", "furnace", Labor.Smelting, 250, Log, new Output(ItemKind.Charcoal, 2));
         R("smelt", "Smelt ore", "smelter", Labor.Smelting, 350, new[] { new Need("ore"), new Need("fuel") }, new Output(ItemKind.Bar, 2));
         R("bronze", "Bronze alloy", "smelter", Labor.Smelting, 400, new[] { new Need("bar:copper"), new Need("bar:tin"), new Need("fuel") }, new Output(ItemKind.Bar, 2, "bronze"));
+        R("msmelt", "Smelt ore", "msmelter", Labor.Smelting, 300, new[] { new Need("ore") }, new Output(ItemKind.Bar, 2));
+        R("mbronze", "Bronze alloy", "msmelter", Labor.Smelting, 350, new[] { new Need("bar:copper"), new Need("bar:tin") }, new Output(ItemKind.Bar, 2, "bronze"));
+        R("mpick", "Pick", "mforge", Labor.Smithing, 350, new[] { new Need("toolbar") }, new Output(ItemKind.Pick));
+        R("maxe", "Axe", "mforge", Labor.Smithing, 350, new[] { new Need("toolbar") }, new Output(ItemKind.Axe));
+        R("mhammer", "War hammer", "mforge", Labor.Smithing, 450, new[] { new Need("toolbar") }, new Output(ItemKind.Weapon));
+        R("marmor", "Breastplate", "mforge", Labor.Smithing, 600, new[] { new Need("toolbar"), new Need("toolbar") }, new Output(ItemKind.Armor));
+        R("mhelm", "Helm", "mforge", Labor.Smithing, 350, new[] { new Need("toolbar") }, new Output(ItemKind.Helm));
         R("pick", "Pick", "forge", Labor.Smithing, 400, new[] { new Need("toolbar"), new Need("fuel") }, new Output(ItemKind.Pick));
         R("axe", "Axe", "forge", Labor.Smithing, 400, new[] { new Need("toolbar"), new Need("fuel") }, new Output(ItemKind.Axe));
         R("hammer", "War hammer", "forge", Labor.Smithing, 500, new[] { new Need("toolbar"), new Need("fuel") }, new Output(ItemKind.Weapon));
@@ -401,6 +412,7 @@ public static class Tables
         T("alarm", "is hiding from danger", -3, 1);
         T("laid_to_rest", "saw a friend laid to rest", 4, 3);
         T("petted", "petted an animal", 3, 1);
+        T("drank_well", "drank clean water from a well", 1, 1);
         T("made_artifact", "made a legendary artifact", 30, 24);
         T("prayed", "prayed at a shrine", 5, 3);
         T("prayed_temple", "prayed at the temple", 8, 3);
@@ -481,6 +493,7 @@ public static class Tables
             case "seed": return it.Kind == ItemKind.Seed;
             case "mechanism": return it.Kind == ItemKind.Mechanism;
             case "coffin": return it.Kind == ItemKind.Coffin;
+            case "barrel": return it.Kind == ItemKind.Barrel;
             case "gem": return it.Kind is ItemKind.RoughGem or ItemKind.CutGem;
             case "shiny": return (it.Kind == ItemKind.Bar && m.Key is "silver" or "gold") || it.Kind == ItemKind.CutGem;
             case "bar": return it.Kind == ItemKind.Bar;

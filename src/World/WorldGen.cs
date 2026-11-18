@@ -151,7 +151,8 @@ public static class WorldGen
                 int fi = W.Idx(x, y, floorZ);
                 W.Mats[fi] = W.Mats[fi - w * h];
                 float r = Noise.Hash01(x, y, 3, s);
-                if (c > 0.7f && Noise.Value2(x / 7f, y / 7f, s + 23) > 0.72f) W.Shapes[fi] = Shape.Water;
+                // Pools lie in a basin one level down, so they stay put until disturbed.
+                if (c > 0.7f && Noise.Value2(x / 7f, y / 7f, s + 23) > 0.72f && floorZ > 1) { W.Shapes[fi] = Shape.Empty; W.Shapes[fi - w * h] = Shape.Water; }
                 else if (r < 0.06f) { W.Shapes[fi] = Shape.Tree; W.Mats[fi] = stalk; }
                 else if (r < 0.12f) W.Set(fi, CellFlag.Shrub, true);
             }
@@ -187,7 +188,8 @@ public static class WorldGen
                     if (dx * dx + dy * dy > rad * rad + rng.Int(3)) continue;
                     int x = cx + dx, y = cy + dy;
                     if (!W.In(x, y, level) || height[y * w + x] != level) continue;
-                    W.Shapes[W.Idx(x, y, level)] = Shape.Water;
+                    W.Shapes[W.Idx(x, y, level)] = Shape.Empty;
+                    W.Shapes[W.Idx(x, y, level - 1)] = Shape.Water;
                 }
         }
 
@@ -248,6 +250,7 @@ public static class WorldGen
                             if (W.In(p.X + dx, p.Y + dy, p.Z + dz)) W.Flags[W.Idx(p.X + dx, p.Y + dy, p.Z + dz)] &= ~CellFlag.Hidden;
             }
 
+        W.ConvertLiquids();
         W.SurfaceZ = embark.Z;
         W.RebuildComponents();
         W.Changed.Clear();
@@ -271,7 +274,7 @@ public static class WorldGen
                     if (!W.In(nx, ny, 0)) { score += 100; continue; }
                     int gg = height[ny * w + nx];
                     score += Math.Abs(gg - g) * 10;
-                    if (W.Shapes[W.Idx(nx, ny, gg)] == Shape.Water) score += 50;
+                    if (W.Shapes[W.Idx(nx, ny, gg)] == Shape.Empty) score += 50;
                 }
             // Near water is good, near the mountain is good.
             score += Math.Abs(x - w / 2) / 4;

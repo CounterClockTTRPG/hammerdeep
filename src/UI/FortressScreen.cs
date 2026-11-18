@@ -551,8 +551,12 @@ public partial class FortressScreen : Control
         if (g != null)
         {
             int n = F.Designate(a, b, g.Value);
-            if (n == 0) { Toast(g == Desig.None ? "Nothing designated there." : "Nothing there can take that designation."); Sfx.Deny(); }
-            else Sfx.Place();
+            if (n == 0) { Toast(g == Desig.None ? "Nothing designated there." : "Nothing there can take that designation."); Sfx.Deny(); return; }
+            Sfx.Place();
+            if (g != Desig.None && !F.AnyReachable(a, b))
+                Toast(a.Z != F.World.SurfaceZ || b.Z != F.World.SurfaceZ
+                    ? "Nobody can reach that yet. Dig a way down first: J (down stair) on the level above, U (up stair) or X (up/down) beneath it."
+                    : "Nobody can reach that yet: it needs a way in from where the dwarves can walk.");
             return;
         }
         if (a.Z != b.Z) b = new P3(b.X, b.Y, a.Z);

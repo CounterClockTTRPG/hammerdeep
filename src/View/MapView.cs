@@ -160,6 +160,15 @@ public partial class MapView : Node2D
         }
         Shape s = W.Shapes[i];
         Mat m = Tables.Mats[W.Mats[i]];
+        int dep = W.Depth[i];
+        bool hot = W.IsMagma(i);
+        if (dep >= World.Deep)
+        {
+            if (hot) PaintLiquid(i, ox, oy, new Rgb(170, 40, 10), new Rgb(255, 150, 40));
+            else PaintLiquid(i, ox, oy, new Rgb(34, 78, 140).Scale(0.85f + dep * 0.03f), new Rgb(70, 130, 200));
+            if (bright < 0.999f) Dim(ox, oy, bright);
+            return;
+        }
         switch (s)
         {
             case Shape.Empty:
@@ -176,6 +185,7 @@ public partial class MapView : Node2D
                 else if (W.Has(i, CellFlag.Shrub)) PaintShrub(i, ox, oy);
                 break;
         }
+        if (dep > 0) Tint(ox, oy, hot ? new Rgb(240, 110, 30) : new Rgb(50, 110, 190), 0.22f + dep * 0.1f);
         if (bright < 0.999f) Dim(ox, oy, bright);
     }
 
@@ -260,6 +270,7 @@ public partial class MapView : Node2D
         bool built = W.Has(i, CellFlag.Built);
         // Recessed ground: darker than walls; under the sky a little brighter.
         Rgb baseC = grass ? GrassColor((uint)i) : m.Color.Scale(outside ? 0.62f : 0.46f);
+        if (!grass && W.Has(i, CellFlag.Wet)) baseC = baseC.Mix(new Rgb(52, 44, 34), 0.45f);
         for (int j = 0; j < A; j++)
             for (int k = 0; k < A; k++)
             {
@@ -504,7 +515,7 @@ public partial class MapView : Node2D
                 DrawCircle(c + new Vector2(0, 3), 5, new Color(0.15f, 0.1f, 0.08f));
                 DrawCircle(c + new Vector2(0, 3), 3, busy ? new Color(0.3f, 0.9f, 1f) : new Color(0.2f, 0.35f, 0.4f));
                 break;
-            case "smelter": case "forge": case "furnace": case "kitchen":
+            case "smelter": case "forge": case "furnace": case "kitchen": case "msmelter": case "mforge":
                 DrawCircle(c, 7, new Color(0.15f, 0.1f, 0.08f));
                 DrawCircle(c, 5, busy ? hot : new Color(0.35f, 0.15f, 0.1f));
                 break;
@@ -559,6 +570,15 @@ public partial class MapView : Node2D
                 DrawRect(new Rect2(r.Position + new Vector2(2, 6), new Vector2(12, 2)), mc.Lightened(0.1f));
                 DrawCircle(c + new Vector2(0, -3 + MathF.Sin(Time * 7 + b.Id) * 0.6f), 2.4f, gc);
                 DrawCircle(c + new Vector2(0, -3), 5, new Color(gc, 0.18f));
+                break;
+            case "well":
+                DrawCircle(c, 6.5f, mc.Darkened(0.2f));
+                DrawCircle(c, 4.5f, new Color(0.15f, 0.3f, 0.55f));
+                DrawLine(c + new Vector2(-6, -7), c + new Vector2(6, -7), new Color(0.45f, 0.3f, 0.16f), 2);
+                break;
+            case "floodgate":
+                DrawRect(r.Grow(-1), b.Locked ? mc.Darkened(0.3f) : new Color(0, 0, 0, 0.2f));
+                for (int k = 3; k < 16; k += 4) DrawLine(r.Position + new Vector2(k, 1), r.Position + new Vector2(k, 15), b.Locked ? new Color(0.65f, 0.65f, 0.7f) : new Color(0.65f, 0.65f, 0.7f, 0.35f), 1.5f);
                 break;
             case "coffin":
                 DrawColoredPolygon(new[] { r.Position + new Vector2(5, 1), r.Position + new Vector2(11, 1), r.Position + new Vector2(13, 5), r.Position + new Vector2(10, 15), r.Position + new Vector2(6, 15), r.Position + new Vector2(3, 5) }, mc.Darkened(0.2f));

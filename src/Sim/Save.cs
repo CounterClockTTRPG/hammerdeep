@@ -22,7 +22,7 @@ public static class Save
         public int Version;
         public Fortress Fortress;
         public int W, H, D, SurfaceZ;
-        public string Shapes, Mats, Flags, Desigs;
+        public string Shapes, Mats, Flags, Desigs, Depth;
     }
 
     public static byte[] Write(Fortress f)
@@ -35,6 +35,7 @@ public static class Save
             Mats = Convert.ToBase64String(w.Mats),
             Flags = Convert.ToBase64String(Array.ConvertAll(w.Flags, s => (byte)s)),
             Desigs = Convert.ToBase64String(Array.ConvertAll(w.Desigs, s => (byte)s)),
+            Depth = Convert.ToBase64String(w.Depth),
         };
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(file, Options);
         using var ms = new MemoryStream();
@@ -55,6 +56,9 @@ public static class Save
             fl = Convert.FromBase64String(file.Flags), de = Convert.FromBase64String(file.Desigs);
         for (int i = 0; i < w.N; i++) { w.Shapes[i] = (Shape)s[i]; w.Flags[i] = (CellFlag)fl[i]; w.Desigs[i] = (Desig)de[i]; }
         Array.Copy(m, w.Mats, w.N);
+        // Older saves kept liquid as whole-cell shapes.
+        if (file.Depth != null) Array.Copy(Convert.FromBase64String(file.Depth), w.Depth, w.N);
+        else w.ConvertLiquids();
         Fortress f = file.Fortress;
         f.Attach(w);
         w.RebuildComponents();

@@ -20,6 +20,7 @@ public sealed partial class Fortress
         (Labor.Masonry, "mason", new[] { ItemKind.Statue, ItemKind.Table, ItemKind.Door }, "stone"),
         (Labor.Crafting, "craftsdwarf", new[] { ItemKind.Craft, ItemKind.CutGem }, "stone"),
         (Labor.Smithing, "forge", new[] { ItemKind.Weapon, ItemKind.Armor, ItemKind.Helm }, "bar"),
+        (Labor.Smithing, "mforge", new[] { ItemKind.Weapon, ItemKind.Armor, ItemKind.Helm }, "bar"),
         (Labor.Leatherwork, "leatherworks", new[] { ItemKind.Armor, ItemKind.Helm }, "leather"),
     };
 

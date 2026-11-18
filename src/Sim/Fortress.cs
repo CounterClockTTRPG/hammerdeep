@@ -58,6 +58,10 @@ public sealed partial class Fortress
     [JsonIgnore] public int Alive => Dwarves.Count(d => !d.Dead);
     [JsonIgnore] public IEnumerable<Dwarf> Living => Dwarves.Where(d => !d.Dead);
 
+    /// <summary>Where a tick's time goes (stopwatch ticks): dwarves, creatures, fluids.</summary>
+    [JsonIgnore] public readonly long[] Timing = new long[3];
+    [JsonIgnore] public long CreatureNodes, CreatureSearches;
+
     public void Count(string stat, int n = 1) => Stats[stat] = Stats.GetValueOrDefault(stat) + n;
 
     // ---- making one ---------------------------------------------------------------------
@@ -89,7 +93,7 @@ public sealed partial class Fortress
         foreach (Building b in Buildings)
         {
             IndexBuilding(b);
-            if (b.Def == "door" && b.Built && b.Locked) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
+            if (b.Def is "door" or "floodgate" && b.Built && b.Locked) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
             if (b.Def == "bridge" && b.Built && b.Raised && !b.OverAir) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
         }
         RefreshStored();
@@ -282,7 +286,26 @@ public sealed partial class Fortress
 
     public void RefreshStored() { foreach (Item it in Items.Values) RefreshStored(it); }
 
-    public int Capacity(Item it) => it.Def.Small ? 4 : 1;
+    /// <summary>How many share a stockpile cell: small things five, logs, stone and blocks two, the rest one.</summary>
+    public int Capacity(Item it) => it.Def.Small ? 5 : it.Kind is ItemKind.Log or ItemKind.Boulder or ItemKind.Block ? 2 : 1;
+
+    private long _fullSaid = -100000;
+
+    /// <summary>Once in a while: if things lie about because no stockpile has room, say so.</summary>
+    private void StockWarning()
+    {
+        if (Tick - _fullSaid < Tables.TicksPerDay * 3 || Loose.Count < 15 || !Zones.Any(z => z.Kind == ZoneKind.Stockpile)) return;
+        World.EnsureComponents();
+        int homeless = 0;
+        foreach (int id in Loose.Take(200))
+        {
+            Item it = Items[id];
+            if (it.Free && StockSpot(it, World.Comp[it.Cell]) < 0) homeless++;
+        }
+        if (homeless < 10) return;
+        _fullSaid = Tick;
+        Say($"The stockpiles are full: {homeless}{(Loose.Count > 200 ? "+" : "")} things lie about with nowhere to go. Lay out more stockpile room (P).", LogKind.Bad);
+    }
 
     /// <summary>Items lying on a stockpile cell, plus the ones promised to it.</summary>
     public int StockLoad(int cell) => (ItemsAt.TryGetValue(cell, out var l) ? l.Count : 0) + StockPromised.GetValueOrDefault(cell);
@@ -320,6 +343,7 @@ public sealed partial class Fortress
         _berserkers = 0;
         foreach (Dwarf b in Dwarves) if (!b.Dead && b.Insane == "berserk") _berserkers++;
         // Many dwarves move per tick; a tick never sees a half-updated map.
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         for (int k = 0; k < Dwarves.Count; k++)
         {
             Dwarf d = Dwarves[k];
@@ -328,9 +352,17 @@ public sealed partial class Fortress
             if (d.Dead) continue;
             Act(d);
         }
+        long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
+        long n0 = Path.TotalExpanded, s0 = Path.Searches;
         StepCreatures();
+        CreatureNodes += Path.TotalExpanded - n0; CreatureSearches += Path.Searches - s0;
+        long t2 = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (Tick % FluidEvery == 0) Fluids();
+        long t3 = System.Diagnostics.Stopwatch.GetTimestamp();
+        Timing[0] += t1 - t0; Timing[1] += t2 - t1; Timing[2] += t3 - t2;
         if (Tick % 50 == 0) Growth();
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
+        if (Tick % 500 == 250) StockWarning();
         if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
