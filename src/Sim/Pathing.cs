@@ -86,7 +86,7 @@ public sealed class Pathing
     }
 
     /// <summary>The cells from <paramref name="from"/> to <paramref name="to"/>, both included; null when there is no way.</summary>
-    public List<int> Find(int from, int to, int maxNodes = 120000)
+    public List<int> Find(int from, int to, int maxNodes = 120000, Func<int, bool> blocked = null)
     {
         if (from == to) return new List<int> { from };
         if (!_w.Walkable(to) || !_w.Walkable(from)) return null;
@@ -108,6 +108,7 @@ public sealed class Pathing
             {
                 int j = nb[k], g = _g[c] + cost[k];
                 if (_stamp[j] == _gen && _g[j] <= g) continue;
+                if (blocked != null && j != to && blocked(j)) continue;
                 _stamp[j] = _gen; _g[j] = g; _parent[j] = c;
                 Push(j, g + H(j, to));
             }
@@ -117,7 +118,7 @@ public sealed class Pathing
     }
 
     /// <summary>The walk to the nearest cell that passes <paramref name="goal"/>, by walking time; null when none is found.</summary>
-    public List<int> Nearest(int from, Func<int, bool> goal, int maxNodes = 40000)
+    public List<int> Nearest(int from, Func<int, bool> goal, int maxNodes = 40000, Func<int, bool> blocked = null)
     {
         if (!_w.Walkable(from)) return null;
         Begin();
@@ -136,6 +137,7 @@ public sealed class Pathing
             {
                 int j = nb[k], g = _g[c] + cost[k];
                 if (_stamp[j] == _gen && _g[j] <= g) continue;
+                if (blocked != null && blocked(j)) continue;
                 _stamp[j] = _gen; _g[j] = g; _parent[j] = c;
                 Push(j, g);
             }

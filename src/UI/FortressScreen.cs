@@ -38,6 +38,14 @@ public partial class FortressScreen : Control
     public object Selected;
 
     private UITheme.Drawn _names;
+    private Button _alarm;
+
+    public void ToggleAlarm()
+    {
+        F.Alarm = !F.Alarm;
+        F.Say(F.Alarm ? "The alarm sounds! Everyone to the meeting hall." : "The alarm is lifted.", F.Alarm ? LogKind.Bad : LogKind.Info);
+        RefreshHud();
+    }
     private Label _name, _date, _stats, _depth, _toolHint;
     private readonly Button[] _speedButtons = new Button[4];
     private VBoxContainer _info, _log, _toolbar;
@@ -104,6 +112,9 @@ public partial class FortressScreen : Control
         _depth.CustomMinimumSize = new Vector2(150, 0);
         _depth.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_depth);
+        _alarm = UITheme.B("Alarm", ToggleAlarm, 14, "Sound the alarm: civilians drop everything and shelter in the meeting hall (A)");
+        _alarm.ToggleMode = true;
+        row.AddChild(_alarm);
         row.AddChild(UITheme.B("Menu", OpenMenu, 14, "Esc"));
     }
 
@@ -144,6 +155,7 @@ public partial class FortressScreen : Control
         Section("View");
         _toolbar.AddChild(Small("V  Dwarves", () => Open(new DwarfList(this))));
         _toolbar.AddChild(Small("L  Labors", () => Open(new LaborGrid(this))));
+        _toolbar.AddChild(Small("K  Military", () => Open(new MilitaryPanel(this))));
         _toolbar.AddChild(Small("I  Stocks", () => Open(new Stocks(this))));
         _toolbar.AddChild(Small("?  Help", () => Open(new HelpPanel(this))));
         _toolHint = UITheme.Wrap("", 12, UITheme.Dim, 150);
@@ -202,7 +214,7 @@ public partial class FortressScreen : Control
     private int _alertCell = -1;
 
     /// <summary>Anchor a control (already added) to fractions of the screen, with pixel offsets.</summary>
-    public static void Anchor(Control c, float l, float t, float r, float b, float ol, float ot, float or, float ob)
+    public static new void Anchor(Control c, float l, float t, float r, float b, float ol, float ot, float or, float ob)
     {
         c.AnchorLeft = l; c.AnchorTop = t; c.AnchorRight = r; c.AnchorBottom = b;
         c.OffsetLeft = ol; c.OffsetTop = ot; c.OffsetRight = or; c.OffsetBottom = ob;
@@ -283,6 +295,11 @@ public partial class FortressScreen : Control
         _stats.Text = $"{F.Alive} dwarves ({idle} idle)  ·  {F.Items.Values.Count(i => i.Kind == ItemKind.Drink)} ale  ·  {F.Items.Values.Count(i => Tables.Matches("food", i))} food  ·  wealth {F.Wealth}";
         _depth.Text = $"{DepthName(Map.Z)}  (z {Map.Z})";
         foreach (var kv in _toolButtons) kv.Value.SetPressedNoSignal(kv.Key == Tool);
+        _alarm.SetPressedNoSignal(F.Alarm);
+        _alarm.Text = F.Alarm ? "ALARM!" : "Alarm";
+        _alarm.AddThemeColorOverride("font_color", F.Alarm ? UITheme.Bad : UITheme.Text);
+        int foes = F.Hostiles.Count();
+        if (foes > 0) _stats.Text = $"{foes} foes about  ·  " + _stats.Text;
         RefreshLog();
         RefreshInfo();
     }
@@ -552,10 +569,12 @@ public partial class FortressScreen : Control
 
     private void SelectAt(P3 c)
     {
-        // A dwarf first (the nearest within a cell), then a building, then a zone.
+        // A dwarf first (the nearest within a cell), then a creature, a building, a zone.
         Dwarf d = F.Living.Where(x => F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= 1)
             .OrderBy(x => F.World.Pos(x.Cell).Dist(c)).FirstOrDefault();
         if (d != null) { SelectThing(d); return; }
+        Creature cr = F.Creatures.Where(x => !x.Dead && F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= 1).OrderBy(x => F.World.Pos(x.Cell).Dist(c)).FirstOrDefault();
+        if (cr != null) { SelectThing(cr); return; }
         int cell = F.World.Idx(c);
         Building b = F.BuildingOn(cell);
         if (b != null) { SelectThing(b); return; }
@@ -570,6 +589,7 @@ public partial class FortressScreen : Control
         Map.SelDwarf = o is Dwarf d ? d.Id : -1;
         Map.SelBuilding = o is Building b ? b.Id : -1;
         Map.SelZone = o is Zone z ? z.Id : -1;
+        Map.SelCreature = o is Creature cr ? cr.Id : -1;
         if (o is not Dwarf) Follow = null;
         RefreshInfo(true);
     }
@@ -622,6 +642,8 @@ public partial class FortressScreen : Control
             case 'v': Open(new DwarfList(this)); return true;
             case 'l': Open(new LaborGrid(this)); return true;
             case 'i': Open(new Stocks(this)); return true;
+            case 'k': Open(new MilitaryPanel(this)); return true;
+            case 'a': ToggleAlarm(); return true;
             case '?': Open(new HelpPanel(this)); return true;
             case 'c': CenterHome(); return true;
         }
@@ -631,7 +653,7 @@ public partial class FortressScreen : Control
     private bool OverlayKey(InputEventKey k)
     {
         char ch = char.ToLower((char)k.Unicode);
-        return (Overlay is DwarfList && ch == 'v') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
+        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
     }
 
     private void ShowNamesToggle() => Map.ShowNames = !Map.ShowNames;

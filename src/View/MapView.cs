@@ -377,6 +377,7 @@ public partial class MapView : Node2D
         DrawBuildings(view);
         DrawItems(x0, y0, x1, y1);
         DrawDwarves(view);
+        DrawCreatures(view);
         DrawCursor();
     }
 
@@ -593,6 +594,69 @@ public partial class MapView : Node2D
         }
     }
 
+    public int SelCreature = -1;
+
+    private Vector2 CreaturePos(Creature c)
+    {
+        Vector2 at = CellCenter(c.Cell);
+        if (F.CStepping.TryGetValue(c.Id, out var st) && c.Path != null && st.total > 0)
+        {
+            float t = 1f - Math.Clamp(c.MoveWait / (float)st.total, 0, 1);
+            at = CellCenter(st.from).Lerp(at, t);
+        }
+        return at;
+    }
+
+    private void DrawCreatures(Rect2 view)
+    {
+        foreach (Creature c in F.Creatures)
+        {
+            if (c.Dead || W.Pos(c.Cell).Z != Z) continue;
+            Vector2 at = CreaturePos(c);
+            if (!view.HasPoint(at)) continue;
+            CreatureDef d = c.D;
+            Color col = UITheme.C(d.Color);
+            float s = d.Size;
+            bool foe = d.Hostile || c.Angry;
+            DrawCircle(at + new Vector2(0, 4 * s), 5 * s, new Color(0, 0, 0, 0.3f));
+            switch (d.Home)
+            {
+                case Habitat.Raider:
+                    DrawCircle(at + new Vector2(0, 1.5f) * s, 4.6f * s, col.Darkened(0.35f));
+                    DrawCircle(at + new Vector2(0, -3) * s, 3.2f * s, col);
+                    DrawCircle(at + new Vector2(-1.2f, -3.4f) * s, 0.8f * s, new Color(1, 0.85f, 0.2f));
+                    DrawCircle(at + new Vector2(1.2f, -3.4f) * s, 0.8f * s, new Color(1, 0.85f, 0.2f));
+                    DrawLine(at + new Vector2(4, 1) * s, at + new Vector2(7, -5) * s, new Color(0.6f, 0.55f, 0.5f), 1.5f * s);
+                    break;
+                case Habitat.Cavern:
+                    for (int k = -1; k <= 1; k++)
+                    {
+                        float wig = MathF.Sin(Time * 10 + c.Id + k) * 1.2f;
+                        DrawLine(at + new Vector2(-6, k * 3 + wig) * s, at + new Vector2(6, k * 3 - wig) * s, col.Darkened(0.4f), 1.2f);
+                    }
+                    DrawCircle(at, 4.5f * s, col);
+                    DrawCircle(at + new Vector2(0, -3.5f) * s, 2.5f * s, col.Lightened(0.2f));
+                    DrawCircle(at + new Vector2(-1, -4) * s, 0.7f * s, new Color(1, 0.3f, 0.3f));
+                    DrawCircle(at + new Vector2(1, -4) * s, 0.7f * s, new Color(1, 0.3f, 0.3f));
+                    break;
+                default:
+                    DrawRect(new Rect2(at + new Vector2(-6, -2.5f) * s, new Vector2(11, 6) * s), col);
+                    DrawCircle(at + new Vector2(5.5f, -2.5f) * s, 2.8f * s, col.Lightened(0.15f));
+                    DrawLine(at + new Vector2(-5, 3.5f) * s, at + new Vector2(-5, 6) * s, col.Darkened(0.4f), 1.2f);
+                    DrawLine(at + new Vector2(3, 3.5f) * s, at + new Vector2(3, 6) * s, col.Darkened(0.4f), 1.2f);
+                    if (d.Timid) { DrawLine(at + new Vector2(5, -5) * s, at + new Vector2(3, -9) * s, new Color(0.8f, 0.7f, 0.5f), 1); DrawLine(at + new Vector2(6.5f, -5) * s, at + new Vector2(8.5f, -9) * s, new Color(0.8f, 0.7f, 0.5f), 1); }
+                    break;
+            }
+            if (foe) DrawArc(at + new Vector2(0, 1), 8 * s, 0, Mathf.Tau, 20, new Color(1, 0.25f, 0.2f, 0.7f), 1);
+            if (c.Hp < d.Hp)
+            {
+                DrawRect(new Rect2(at + new Vector2(-6, -10 * s), new Vector2(12, 2)), new Color(0.1f, 0, 0));
+                DrawRect(new Rect2(at + new Vector2(-6, -10 * s), new Vector2(12 * c.Hp / (float)d.Hp, 2)), UITheme.Bad);
+            }
+            if (c.Id == SelCreature) DrawArc(at + new Vector2(0, 2), 10 * s, 0, Mathf.Tau, 24, UITheme.Gold, 1.5f);
+        }
+    }
+
     private static readonly Color[] Beards = { new(0.45f, 0.28f, 0.14f), new(0.7f, 0.3f, 0.12f), new(0.75f, 0.72f, 0.68f), new(0.85f, 0.7f, 0.35f), new(0.2f, 0.15f, 0.12f) };
 
     public Vector2 DwarfPos(Dwarf d)
@@ -616,6 +680,11 @@ public partial class MapView : Node2D
             if (!view.HasPoint(at)) continue;
             if (d.Dead) continue;
             DrawDwarf(d, at, this, 1f, Time);
+            if (d.Hp < Tables.MaxHp)
+            {
+                DrawRect(new Rect2(at + new Vector2(-6, -11), new Vector2(12, 2)), new Color(0.1f, 0, 0));
+                DrawRect(new Rect2(at + new Vector2(-6, -11), new Vector2(12 * d.Hp / (float)Tables.MaxHp, 2)), d.Wounded ? UITheme.Bad : UITheme.Good);
+            }
             if (d.Id == SelDwarf)
             {
                 DrawArc(at + new Vector2(0, 2), 9, 0, Mathf.Tau, 24, UITheme.Gold, 1.5f);
@@ -655,6 +724,9 @@ public partial class MapView : Node2D
             on.DrawLine(hand, hand + new Vector2(MathF.Cos(swing - 1), MathF.Sin(swing - 1)) * 6 * s, new Color(0.7f, 0.6f, 0.45f), 1.2f * s);
         }
         if (d.Breaking > 0) on.DrawString(UITheme.Title, at + new Vector2(-2, -8) * s, "!", HorizontalAlignment.Left, -1, (int)(12 * s), UITheme.Bad);
+        if (d.Weapon >= 0) on.DrawLine(at + new Vector2(-4, 2) * s, at + new Vector2(-7, -4) * s, new Color(0.75f, 0.75f, 0.8f), 1.5f * s);
+        if (d.Armor >= 0) on.DrawArc(at + new Vector2(0, 1.5f) * s, 4.2f * s, 0.3f, Mathf.Pi - 0.3f, 8, new Color(0.7f, 0.72f, 0.78f), 1.2f * s);
+        if (d.Squad >= 0) on.DrawRect(new Rect2(at + new Vector2(-1, -9) * s, new Vector2(2, 2) * s), UITheme.Gold);
     }
 
     private void DrawCursor()

@@ -31,7 +31,7 @@ public enum ItemKind : byte
 {
     Boulder, Log, Block, Bar, RoughGem, CutGem, Seed, Plant, Meal, Drink, Charcoal,
     Pick, Axe, Weapon, Armor, Helm, Shield,
-    Bed, Table, Chair, Door, Chest, Barrel, Statue, Craft, Corpse,
+    Bed, Table, Chair, Door, Chest, Barrel, Statue, Craft, Corpse, Mechanism,
 }
 
 public sealed class ItemDef
@@ -101,6 +101,25 @@ public sealed class TraitDef
     public string Id, Name, Text;
 }
 
+public enum Habitat : byte { Cavern, Surface, Raider }
+
+public sealed class CreatureDef
+{
+    public string Key, Name;
+    public int Hp, Damage, Skill;
+    /// <summary>Step time multiplier: 1 is a dwarf's pace, lower is faster.</summary>
+    public float Pace = 1;
+    public bool Hostile, Bashes, Timid;
+    public Habitat Home;
+    public Rgb Color;
+    public float Size = 1;
+    /// <summary>What it may drop: an item kind and a metal, with a chance.</summary>
+    public ItemKind? Loot;
+    public string LootMat;
+    public float LootChance;
+    public string Verb = "bites";
+}
+
 public sealed class ClanDef
 {
     public string Id, Name, Motto;
@@ -154,6 +173,15 @@ public static class Tables
     public static readonly Dictionary<string, ThoughtDef> Thoughts = new();
     public static readonly List<TraitDef> Traits = new();
     public static readonly List<ClanDef> Clans = new();
+    public static readonly Dictionary<string, CreatureDef> Creatures = new();
+
+    // ---- combat ------------------------------------------------------------------------
+    public const int AttackTicks = 30, DwarfDamage = 9, SightRange = 16, DefendRadius = 14;
+    public static readonly string[] BodyParts = { "head", "left arm", "right arm", "left leg", "right leg", "upper body", "lower body", "beard", "left hand", "right foot" };
+    public static float WeaponMult(Item w) => w == null ? 0.7f : (w.Kind switch { ItemKind.Weapon => 1.9f, ItemKind.Axe => 1.5f, ItemKind.Pick => 1.3f, _ => 1f }) * MetalMult(w) * (1 + 0.08f * w.Quality);
+    public static float MetalMult(Item i) => i.M.Key switch { "iron" => 1.25f, "bronze" => 1.15f, "silver" => 0.95f, "gold" => 0.85f, _ => 1f };
+    /// <summary>The share of each blow that armour stops.</summary>
+    public static float ArmorStop(Item armor, Item helm) => (armor != null ? 0.35f * MetalMult(armor) : 0) + (helm != null ? 0.1f * MetalMult(helm) : 0);
 
     public static readonly string[] NameA = { "Dur", "Bal", "Thra", "Kil", "Mor", "Gim", "Bor", "Har", "Dun", "Fal", "Grim", "Thor", "Nal", "Ov", "Brun", "Eld", "Tor", "Kaz", "Rud", "Sig", "Ulf", "Ast", "Dag", "Hel", "Ing", "Ket", "Lod", "Mab", "Os", "Vod" };
     public static readonly string[] NameB = { "in", "ak", "ur", "ek", "im", "or", "an", "ola", "rik", "unn", "ga", "dis", "ra", "da", "ul", "eth", "va", "om", "ri", "a" };
@@ -246,6 +274,7 @@ public static class Tables
         I(ItemKind.Statue, "statue", 20, StockCat.Furniture, '&', places: "statue");
         I(ItemKind.Craft, "figurine", 6, StockCat.Finished, '\'', true);
         I(ItemKind.Corpse, "corpse", 0, StockCat.Refuse, 'x');
+        I(ItemKind.Mechanism, "mechanism", 3, StockCat.Finished, '*', true, places: "trap");
 
         void B(string id, string name, BuildKind kind, int w, int h, Labor labor, int work, char glyph, string key, string help, params Need[] cost) =>
             Add(new BuildDef { Id = id, Name = name, Kind = kind, W = w, H = h, Labor = labor, Work = work, Glyph = glyph, Key = key, Help = help, Cost = cost });
@@ -263,6 +292,7 @@ public static class Tables
         B("door", "Door", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '+', "d", "Keeps things out (soon).", new Need("door"));
         B("chest", "Chest", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'c', "c", "Somewhere to keep things.", new Need("chest"));
         B("statue", "Statue", BuildKind.Furniture, 1, 1, Labor.Construction, 80, '&', "s", "Dwarves admire fine statues.", new Need("statue"));
+        B("trap", "Stonefall trap", BuildKind.Furniture, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself.", new Need("mechanism"), new Need("stone"));
         Add(new BuildDef { Id = "wall", Name = "Wall", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 120, Glyph = '#', Key = "w", Makes = Shape.Wall, Cost = new[] { new Need("buildmat") }, Help = "A built wall." });
         Add(new BuildDef { Id = "floor", Name = "Floor", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 80, Glyph = '+', Key = "f", Makes = Shape.Floor, Cost = new[] { new Need("buildmat") }, Help = "A floor over open air." });
         Add(new BuildDef { Id = "stairs", Name = "Up/down stairs", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 120, Glyph = 'X', Key = "x", Makes = Shape.StairUD, Cost = new[] { new Need("buildmat") }, Help = "Built stairs (match them above and below)." });
@@ -282,6 +312,8 @@ public static class Tables
         R("sdoor", "Stone door", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Door));
         R("statue", "Statue", "mason", Labor.Masonry, 900, new[] { new Need("stone"), new Need("stone") }, new Output(ItemKind.Statue));
         R("figurine", "Stone figurine", "craftsdwarf", Labor.Crafting, 250, Stone, new Output(ItemKind.Craft, 2));
+        R("mechanism", "Mechanism", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Mechanism));
+        R("shield", "Shield", "carpenter", Labor.Carpentry, 300, Log, new Output(ItemKind.Shield));
         R("cutgem", "Cut a gem", "craftsdwarf", Labor.Crafting, 400, new[] { new Need("roughgem") }, new Output(ItemKind.CutGem));
         R("charcoal", "Charcoal", "furnace", Labor.Smelting, 250, Log, new Output(ItemKind.Charcoal, 2));
         R("smelt", "Smelt ore", "smelter", Labor.Smelting, 350, new[] { new Need("ore"), new Need("fuel") }, new Output(ItemKind.Bar, 2));
@@ -320,6 +352,12 @@ public static class Tables
         T("caravan", "saw a caravan arrive", 6, 3);
         T("rain", "was caught in the rain", -2, 1);
         T("darkness", "has not seen the sky for ages", -1, 1);
+        T("hurt", "was hurt in a fight", -10, 3);
+        T("killed", "slew a foe", 6, 3);
+        T("killed_brave", "slew a foe and loved it", 12, 4);
+        T("saw_corpse", "saw a rotting corpse", -4, 1);
+        T("raid_won", "saw the raiders driven off", 10, 4);
+        T("alarm", "is hiding from danger", -3, 1);
 
         void Tr(string id, string name, string text) => Traits.Add(new TraitDef { Id = id, Name = name, Text = text });
         Tr("cheerful", "Cheerful", "Good moods last longer; bad ones fade fast.");
@@ -337,6 +375,19 @@ public static class Tables
 
         void C(string id, string name, uint color, string motto, string grudge, params Labor[] leans) =>
             Clans.Add(new ClanDef { Id = id, Name = name, Color = Rgb.Hex(color), Motto = motto, Grudge = grudge, Leans = leans });
+        void Cr(string key, string name, Habitat home, int hp, int dmg, int skill, float pace, uint color, bool hostile, string verb, float size = 1, Action<CreatureDef> more = null)
+        {
+            var c = new CreatureDef { Key = key, Name = name, Home = home, Hp = hp, Damage = dmg, Skill = skill, Pace = pace, Color = Rgb.Hex(color), Hostile = hostile, Verb = verb, Size = size };
+            more?.Invoke(c);
+            Creatures[key] = c;
+        }
+        Cr("crawler", "cave crawler", Habitat.Cavern, 40, 10, 3, 0.9f, 0x8a5fb0, true, "bites", 0.8f);
+        Cr("stalker", "deep stalker", Habitat.Cavern, 150, 26, 8, 0.8f, 0x3b3550, true, "rakes", 1.4f);
+        Cr("fellbuck", "fellbuck", Habitat.Surface, 45, 6, 2, 0.7f, 0x9c7a4f, false, "butts", 1.1f, c => c.Timid = true);
+        Cr("badger", "dire badger", Habitat.Surface, 60, 14, 4, 0.9f, 0x5a5550, false, "mauls", 0.9f);
+        Cr("raider", "grimling raider", Habitat.Raider, 70, 14, 5, 1f, 0x6f8a52, true, "hacks", 1f, c => { c.Loot = ItemKind.Weapon; c.LootMat = "copper"; c.LootChance = 0.4f; });
+        Cr("brute", "grimling brute", Habitat.Raider, 140, 24, 6, 1.15f, 0x56703f, true, "clubs", 1.35f, c => { c.Bashes = true; c.Loot = ItemKind.Armor; c.LootMat = "iron"; c.LootChance = 0.5f; });
+
         C("ironhand", "Ironhand", 0xb8513a, "Strike while it glows.", "mossbeard", Labor.Mining, Labor.Smithing, Labor.Smelting);
         C("mossbeard", "Mossbeard", 0x5d8a3a, "Every cave can be a garden.", "ironhand", Labor.Farming, Labor.Brewing, Labor.Cooking, Labor.Gathering);
         C("stoneward", "Stoneward", 0x6f7f96, "The wall does not fall.", "gemhollow", Labor.Masonry, Labor.Construction, Labor.Fighting);
@@ -365,7 +416,12 @@ public static class Tables
             case "food": return it.Kind == ItemKind.Meal || (it.Kind == ItemKind.Plant && m.Edible);
             case "drink": return it.Kind == ItemKind.Drink;
             case "seed": return it.Kind == ItemKind.Seed;
+            case "mechanism": return it.Kind == ItemKind.Mechanism;
         }
+        if (tag == "weapon") return it.Kind is ItemKind.Weapon;
+        if (tag == "armor") return it.Kind is ItemKind.Armor;
+        if (tag == "helm") return it.Kind is ItemKind.Helm;
+        if (tag == "shield") return it.Kind is ItemKind.Shield;
         if (tag.StartsWith("bar:")) return it.Kind == ItemKind.Bar && m.Key == tag[4..];
         if (tag.StartsWith("seed:")) return it.Kind == ItemKind.Seed && m.Key == tag[5..];
         // A furniture tag names its item kind.

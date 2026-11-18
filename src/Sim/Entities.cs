@@ -60,7 +60,7 @@ public sealed class Thought
     public int Value;
 }
 
-public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store }
+public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter }
 
 /// <summary>What a dwarf is doing, as plain data: kind, targets and how far along it is.</summary>
 public sealed class Task
@@ -109,6 +109,11 @@ public sealed class Dwarf
     /// <summary>Opinion of other dwarves by id, -100 .. 100.</summary>
     public Dictionary<int, int> Opinion = new();
     public long Arrived;
+    /// <summary>Military: the squad (or -1), what is worn and wielded, and the tally.</summary>
+    public int Squad = -1, Weapon = -1, Armor = -1, Helm = -1, Shield = -1, Kills;
+    public int AttackWait;
+    public long LastHurt = -100000;
+    [JsonIgnore] public bool Wounded => Hp < Tables.MaxHp / 2;
 
     public static int Level(int xp) => Math.Min(15, (int)Math.Sqrt(xp / 40.0));
     public int Skill(Labor l) => Level(Xp[(int)l]);
@@ -154,6 +159,9 @@ public sealed class Building
     public int Quality;
     /// <summary>A bed's sleeper.</summary>
     public int Owner = -1;
+    /// <summary>A door kept shut to everyone; a trap's reload time.</summary>
+    public bool Locked;
+    public long ArmedAt;
     public List<Order> Orders = new();
     [JsonIgnore] public BuildDef D => Tables.Build[Def];
     [JsonIgnore] public int W => D.W;
@@ -164,6 +172,40 @@ public sealed class Building
 }
 
 public enum ZoneKind : byte { Stockpile, Farm, Meeting }
+
+/// <summary>Anything alive that is not a dwarf: beasts of the caves and the surface, raiders.</summary>
+public sealed class Creature
+{
+    public int Id;
+    public string Def;
+    public int Cell;
+    public int Hp;
+    public bool Dead;
+    public List<int> Path;
+    public int PathAt, MoveWait;
+    public int Target = -1;
+    public int AttackWait;
+    public bool Raider;
+    /// <summary>When raiders give up and leave.</summary>
+    public long Leave;
+    public long NextThink;
+    /// <summary>Ticks spent battering a door.</summary>
+    public int Bash;
+    /// <summary>The beast has been provoked (wild animals turn on whoever came too close).</summary>
+    public bool Angry;
+    [JsonIgnore] public CreatureDef D => Tables.Creatures[Def];
+}
+
+public enum SquadOrder : byte { OffDuty, Station, Defend, Charge }
+
+public sealed class Squad
+{
+    public int Id;
+    public string Name;
+    public List<int> Members = new();
+    public SquadOrder Order;
+    public P3 Station;
+}
 
 public sealed class Zone
 {

@@ -68,6 +68,7 @@ public sealed partial class Fortress
         var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ };
         f.Attach(gen.World);
         f.Settle();
+        f.SpawnWildlife();
         return f;
     }
 
@@ -84,7 +85,11 @@ public sealed partial class Fortress
         ItemsAt.Clear(); Loose.Clear(); Designated.Clear(); BuildingAt.Clear();
         foreach (Item it in Items.Values) if (it.Cell >= 0 && it.HeldBy < 0) AddAt(it);
         for (int i = 0; i < World.N; i++) if (World.Desigs[i] != Desig.None) Designated.Add(i);
-        foreach (Building b in Buildings) IndexBuilding(b);
+        foreach (Building b in Buildings)
+        {
+            IndexBuilding(b);
+            if (b.Def == "door" && b.Built && b.Locked) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
+        }
         RefreshStored();
     }
 
@@ -214,7 +219,7 @@ public sealed partial class Fortress
         if (it.HeldBy > 0)
         {
             Dwarf d = Dwarves.FirstOrDefault(x => x.Id == it.HeldBy);
-            if (d != null) { if (d.Carry == it.Id) d.Carry = -1; if (d.Pick == it.Id) d.Pick = -1; if (d.Axe == it.Id) d.Axe = -1; }
+            if (d != null) Unequip(d, it.Id);
         }
         RemoveAt(it);
         it.HeldBy = -1;
@@ -234,12 +239,23 @@ public sealed partial class Fortress
         b.Parts.Add(it.Id);
     }
 
+    private static void Unequip(Dwarf d, int id)
+    {
+        if (d.Carry == id) d.Carry = -1;
+        if (d.Pick == id) d.Pick = -1;
+        if (d.Axe == id) d.Axe = -1;
+        if (d.Weapon == id) d.Weapon = -1;
+        if (d.Armor == id) d.Armor = -1;
+        if (d.Helm == id) d.Helm = -1;
+        if (d.Shield == id) d.Shield = -1;
+    }
+
     public void Destroy(Item it)
     {
         if (it.HeldBy > 0)
         {
             Dwarf d = DwarfById(it.HeldBy);
-            if (d != null) { if (d.Carry == it.Id) d.Carry = -1; if (d.Pick == it.Id) d.Pick = -1; if (d.Axe == it.Id) d.Axe = -1; }
+            if (d != null) Unequip(d, it.Id);
         }
         RemoveAt(it);
         Loose.Remove(it.Id);
@@ -300,15 +316,17 @@ public sealed partial class Fortress
         if (Fallen) return;
         Tick++;
         // Many dwarves move per tick; a tick never sees a half-updated map.
-        foreach (Dwarf d in Dwarves)
+        for (int k = 0; k < Dwarves.Count; k++)
         {
+            Dwarf d = Dwarves[k];
             if (d.Dead) continue;
             Needs(d);
             if (d.Dead) continue;
             Act(d);
         }
+        StepCreatures();
         if (Tick % 50 == 0) Growth();
-        if (Tick % 100 == 0) Moods();
+        if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
         if (Alive == 0 && !Fallen)
@@ -329,6 +347,7 @@ public sealed partial class Fortress
     private void NewSeason()
     {
         Say($"{Tables.Seasons[Season]} has arrived (year {Year}).", LogKind.Info);
+        SeasonalDangers();
         // Migrants follow word of a thriving hold.
         if (Tick < Tables.TicksPerSeason || Alive == 0) return;
         int wealth = Wealth;
@@ -411,8 +430,9 @@ public sealed partial class Fortress
         if (d.Dead) return;
         Release(d);
         if (d.Carry >= 0 && Items.TryGetValue(d.Carry, out Item c)) Drop(c, d.Cell);
-        if (d.Pick >= 0 && Items.TryGetValue(d.Pick, out Item p)) Drop(p, d.Cell);
-        if (d.Axe >= 0 && Items.TryGetValue(d.Axe, out Item a)) Drop(a, d.Cell);
+        foreach (int id in new[] { d.Pick, d.Axe, d.Weapon, d.Armor, d.Helm, d.Shield })
+            if (id >= 0 && Items.TryGetValue(id, out Item worn)) Drop(worn, d.Cell);
+        Discharge(d);
         d.Dead = true;
         d.DeathCause = cause;
         d.Activity = "Dead";

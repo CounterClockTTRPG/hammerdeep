@@ -159,7 +159,8 @@ public sealed class Overseer
     {
         var (a, b) = HallBox();
         // Shops along the north wall, stockpiles in the middle, dining to the south.
-        string[] shops = { "kitchen", "brewery", "craftsdwarf", "furnace", "smelter", "forge" };
+        string[] shops = { "kitchen", "brewery", "craftsdwarf", "furnace", "smelter" };
+        F.Place("forge", b.X - 2, b.Y - 2, _hallZ);
         int x = a.X;
         foreach (string s in shops)
         {
@@ -211,6 +212,8 @@ public sealed class Overseer
         PlaceFurniture(ItemKind.Table, "table", DiningSpots(true));
         PlaceFurniture(ItemKind.Chair, "chair", DiningSpots(false));
 
+        Defend();
+
         // More room as the hold grows: more bedrooms, and mining for ore.
         if (F.Rng.Chance(0.1) && F.Designated.Count < 40) Explore();
         if (F.Rng.Chance(0.05) && F.Designated.Count(c => W.Desigs[c] == Desig.Chop) < 5) ChopNear(F.Embark, 10);
@@ -241,7 +244,7 @@ public sealed class Overseer
 
     private void PlaceFurniture(ItemKind kind, string def, IEnumerable<P3> spots)
     {
-        int spare = F.Items.Values.Count(i => i.Kind == kind && i.ReservedBy < 0 && i.InBuilding < 0) - F.Buildings.Count(b => b.Def == def && !b.Built);
+        int spare = F.Items.Values.Count(i => i.Kind == kind && i.ReservedBy < 0 && i.InBuilding < 0 && i.HeldBy < 0) - F.Buildings.Count(b => b.Def == def && !b.Built);
         foreach (P3 p in spots)
         {
             if (spare <= 0) return;
@@ -250,6 +253,55 @@ public sealed class Overseer
             F.Place(def, p.X, p.Y, p.Z);
             spare--;
         }
+    }
+
+    private bool _refuse;
+
+    /// <summary>A squad at the stair head, kit from the forge, a door on the hall, traps on the way in, the alarm in a raid.</summary>
+    private void Defend()
+    {
+        if (!_refuse)
+        {
+            P3 e = F.Embark;
+            for (int t = 0; t < 30 && !_refuse; t++)
+            {
+                P3 p = new(e.X - 14 + F.Rng.Range(-3, 3), e.Y + 10 + F.Rng.Range(-3, 3), e.Z);
+                if (!W.In(p) || !W.Walkable(p)) continue;
+                Zone z = F.AddZone(ZoneKind.Stockpile, p, new P3(p.X + 2, p.Y + 2, p.Z));
+                z.Cats = StockCat.Refuse;
+                z.Name = "Refuse pile";
+                F.RefreshStored();
+                _refuse = true;
+            }
+        }
+        int want = F.Alive >= 30 ? 6 : F.Alive >= 8 ? 3 : 0;
+        if (want > 0)
+        {
+            Squad s = F.Squads.FirstOrDefault();
+            if (s == null)
+            {
+                s = F.NewSquad();
+                F.SetOrder(s, SquadOrder.Defend, new P3(_shaft.X, _shaft.Y + 2, _shaft.Z));
+                _notes.Add($"Raised a squad: {s.Name}");
+            }
+            foreach (Dwarf d in F.Living.Where(d => d.Squad < 0 && !d.Wounded).OrderByDescending(d => d.Skill(Labor.Fighting) * 3 + (d.Clan == "stoneward" ? 4 : 0) - d.Skill(Labor.Mining)).Take(want - s.Members.Count))
+                F.Enlist(s, d);
+        }
+        int soldiers = F.Squads.Sum(s => s.Members.Count);
+        Order("forge", "hammer", soldiers, Have(i => i.Kind == ItemKind.Weapon) + F.Living.Count(d => d.Weapon >= 0));
+        Order("forge", "armor", soldiers, Have(i => i.Kind == ItemKind.Armor) + F.Living.Count(d => d.Armor >= 0));
+        Order("forge", "helm", soldiers, Have(i => i.Kind == ItemKind.Helm) + F.Living.Count(d => d.Helm >= 0));
+        Order("carpenter", "shield", soldiers, Have(i => i.Kind == ItemKind.Shield) + F.Living.Count(d => d.Shield >= 0));
+        // A door on the hall, traps round the stair head.
+        Order("carpenter", "wdoor", 1, Have(i => i.Kind == ItemKind.Door) + F.Buildings.Count(b => b.Def == "door"));
+        PlaceFurniture(ItemKind.Door, "door", new[] { new P3(_shaft.X + 1, _shaft.Y, _hallZ) });
+        Order("mason", "mechanism", 3, Have(i => i.Kind == ItemKind.Mechanism) + F.Buildings.Count(b => b.Def == "trap"));
+        var trapSpots = new[] { new P3(_shaft.X - 2, _shaft.Y, _shaft.Z), new P3(_shaft.X + 2, _shaft.Y, _shaft.Z), new P3(_shaft.X, _shaft.Y - 2, _shaft.Z) };
+        PlaceFurniture(ItemKind.Mechanism, "trap", trapSpots);
+        // The alarm for as long as raiders are about.
+        bool raid = F.RaidUnderway;
+        if (raid && !F.Alarm) { F.Alarm = true; _notes.Add($"Sounded the alarm ({F.Date})"); }
+        if (!raid && F.Alarm) F.Alarm = false;
     }
 
     private int _explore;

@@ -14,7 +14,8 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
     ./play.sh                   play
     ./play.sh --build           compile only (dotnet, ~5 s)
     ./play.sh --check           headless self-check -- run after every change
-    ./play.sh --check --only X  just the sections whose name contains X (Year plays a whole year with the overseer)
+    ./play.sh --check --only X  just the sections whose name contains X (Year plays a whole year with the overseer;
+                                --only LongRun plays three, a line a season -- the balance view, not run by default)
     ./play.sh --shots [X]       windowed walkthrough, writes shots/*.png -- look at them
     ./play.sh --agent           remote control for an agent playtester; drive it with
                                 scripts/agent.sh "state; key d; drag 10 10 20 20" ('help' lists
@@ -42,7 +43,7 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   (repainted from `World.Changed`), open air showing lower levels; zones, designations,
   buildings, items and dwarves drawn over it each frame.
 - `src/UI` -- `FortressScreen` (clock, camera, tools, HUD; `Panels.cs`: info panel and the
-  overlays: dwarves, labors, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
+  overlays: dwarves, labors, military, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
   widget builders, `Anchor` -- always anchor a control *after* adding it).
 - `src/Core` -- `Root` (screen flow, CLI flags), `Profile` (settings, slots), `Sfx` (synthesised).
 - `src/Dev` -- `ShotRunner` (the walkthrough), `AgentRunner` (remote control).

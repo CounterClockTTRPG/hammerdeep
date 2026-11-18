@@ -121,6 +121,19 @@ public partial class ShotRunner : Node
             m.ShowNames = false;
             s.ShowAlert("A sample alert: something needs your attention.", f.World.Idx(f.Embark));
             await Shot("21-alert");
+            // A raid at the gates.
+            f.LaunchRaid(8);
+            for (int k = 0; k < 40 && !f.Creatures.Any(c => c.Raider && f.World.Pos(c.Cell).Dist(f.Embark) < 14); k++) { o.Think(); f.Advance(50); }
+            for (int k = 0; k < 4; k++) { o.Think(); f.Advance(40); }
+            Creature r = f.Creatures.Where(c => c.Raider).OrderBy(c => f.World.Pos(c.Cell).Dist(f.Embark)).FirstOrDefault();
+            m.Cam.Zoom = new Vector2(2.6f, 2.6f);
+            s.SetSpeed(0);
+            if (r != null) { s.Jump(f.World.Pos(r.Cell)); s.SelectThing(r); }
+            await Shot("22-raid");
+            s.SelectThing(null);
+            s.Open(new MilitaryPanel(s));
+            await Shot("23-military");
+            s.CloseOverlay();
             GD.Print($"{_count} shots in {_dir}");
         }
         catch (Exception e) { GD.PrintErr("shots failed: " + e); }

@@ -18,6 +18,8 @@ public partial class FortressScreen
                 return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
             case Zone z:
                 return $"z{z.Id}:{z.Cats}:{z.Crop}:{F.Zones.Contains(z)}:{(int)(F.Tick / 100)}";
+            case Creature cr:
+                return $"cr{cr.Id}:{cr.Hp}:{cr.Dead}:{cr.Angry}:{cr.Target}";
             case P3 p:
                 int c = F.World.Idx(p);
                 return $"c{p}:{F.World.Shapes[c]}:{F.World.Desigs[c]}:{string.Join(",", F.ItemsOn(c).Select(i => i.Id))}";
@@ -30,6 +32,7 @@ public partial class FortressScreen
         switch (Selected)
         {
             case Dwarf d: DwarfInfo(v, d); return true;
+            case Creature cr when !cr.Dead && F.Creatures.Contains(cr): CreatureInfo(v, cr); return true;
             case Building b when F.Buildings.Contains(b): BuildingInfo(v, b); return true;
             case Zone z when F.Zones.Contains(z): ZoneInfo(v, z); return true;
             case P3 p when F.World.In(p): CellInfo(v, p); return true;
@@ -65,6 +68,10 @@ public partial class FortressScreen
         v.AddChild(UITheme.L($"of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
         if (d.Dead) { v.AddChild(UITheme.L($"Dead: {d.DeathCause}.", 16, UITheme.Bad)); return; }
         v.AddChild(UITheme.L(d.Activity, 16, UITheme.Text));
+        HBoxContainer hp = UITheme.H(6);
+        hp.AddChild(UITheme.Bar(d.Hp / (float)Tables.MaxHp, d.Hp > 70 ? UITheme.Good : d.Hp > 40 ? UITheme.Ember : UITheme.Bad, 140, 9));
+        hp.AddChild(UITheme.L(d.Hp >= Tables.MaxHp ? "unhurt" : d.Wounded ? "badly hurt" : "bruised", 13, d.Wounded ? UITheme.Bad : UITheme.Dim));
+        v.AddChild(Row("Health", hp));
         NeedBar(v, "Food", d.Hunger, Tables.HungryAt, Tables.StarvingAt);
         NeedBar(v, "Drink", d.Thirst, Tables.ThirstyAt, Tables.ParchedAt);
         NeedBar(v, "Rest", d.Fatigue, Tables.TiredAt, Tables.ExhaustedAt);
@@ -75,6 +82,10 @@ public partial class FortressScreen
         v.AddChild(Row("Mood", mood));
         v.AddChild(Row("Nature", UITheme.Wrap(string.Join(", ", d.Traits.Select(t => Tables.Traits.First(x => x.Id == t).Name)) + $"; likes {Tables.M(d.LikesMat).Name}", 14, UITheme.Text, 240)));
         if (d.Bed >= 0) v.AddChild(Row("Bed", UITheme.L("has their own bed", 14, UITheme.Text)));
+        Squad sq = F.SquadOf(d);
+        var kit = new[] { F.WeaponOf(d), Gear(d.Armor), Gear(d.Helm), Gear(d.Shield) }.Where(i => i != null).Select(i => i.Name).ToList();
+        if (sq != null || kit.Count > 0 || d.Kills > 0)
+            v.AddChild(Row("Arms", UITheme.Wrap((sq != null ? $"{sq.Name} ({OrderName(sq.Order)}). " : "") + (kit.Count > 0 ? string.Join(", ", kit) : "unarmed") + (d.Kills > 0 ? $"; {d.Kills} kills" : ""), 14, UITheme.Text, 240)));
         v.AddChild(UITheme.L("Thoughts", 13, UITheme.Bronze, UITheme.Title));
         foreach (Thought t in d.Thoughts.OrderBy(t => -Math.Abs(t.Value)).Take(7))
             v.AddChild(UITheme.L($"{(t.Value >= 0 ? "+" : "")}{t.Value}  {Tables.Thoughts[t.Id].Text}", 13, t.Value >= 0 ? UITheme.Good : UITheme.Ember));
@@ -98,6 +109,30 @@ public partial class FortressScreen
         h.AddChild(UITheme.B("Prev", () => Cycle(d, -1), 14));
         h.AddChild(UITheme.B("Next", () => Cycle(d, 1), 14));
         v.AddChild(h);
+    }
+
+    private Item Gear(int id) => id >= 0 && F.Items.TryGetValue(id, out Item it) ? it : null;
+
+    public static string OrderName(SquadOrder o) => o switch
+    {
+        SquadOrder.OffDuty => "off duty",
+        SquadOrder.Station => "holding a station",
+        SquadOrder.Defend => "defending a station",
+        _ => "charging",
+    };
+
+    private void CreatureInfo(VBoxContainer v, Creature c)
+    {
+        CreatureDef d = c.D;
+        v.AddChild(UITheme.Heading(d.Name.ToUpperFirst(), 20));
+        v.AddChild(UITheme.L(c.Raider ? "A grimling raider, come for loot and blood." : d.Hostile ? "A beast of the deep. It hunts dwarves." : c.Angry ? "Provoked, and furious." : d.Timid ? "Shy; it bolts from dwarves." : "Wild, and best left alone.", 14, d.Hostile || c.Angry ? UITheme.Ember : UITheme.Dim));
+        HBoxContainer hp = UITheme.H(6);
+        hp.AddChild(UITheme.Bar(c.Hp / (float)d.Hp, UITheme.Bad, 140, 9));
+        hp.AddChild(UITheme.L($"{c.Hp}/{d.Hp}", 13, UITheme.Dim));
+        v.AddChild(Row("Health", hp));
+        Dwarf t = c.Target >= 0 ? F.DwarfById(c.Target) : null;
+        if (t != null) v.AddChild(Row("After", UITheme.L(t.Name, 14, UITheme.Bad)));
+        if (d.Bashes) v.AddChild(UITheme.L("Strong enough to smash doors.", 13, UITheme.Ember));
     }
 
     private void Cycle(Dwarf d, int dir)
@@ -130,6 +165,12 @@ public partial class FortressScreen
             return;
         }
         if (d.Id == "bed") v.AddChild(UITheme.L(b.Owner >= 0 ? $"Sleeper: {F.DwarfById(b.Owner)?.Name}" : "Nobody has claimed it yet.", 14, UITheme.Text));
+        if (d.Id == "door")
+        {
+            v.AddChild(UITheme.L(b.Locked ? "Locked: nobody passes." : "Dwarves pass; beasts and raiders do not (brutes may batter it down).", 14, UITheme.Text));
+            v.AddChild(UITheme.B(b.Locked ? "Unlock" : "Lock", () => { F.SetLock(b, !b.Locked); RefreshInfo(true); }, 14));
+        }
+        if (d.Id == "trap") v.AddChild(UITheme.L(F.Tick >= b.ArmedAt ? "Armed." : $"Resetting ({(b.ArmedAt - F.Tick) / 10 + 1}%...)", 14, F.Tick >= b.ArmedAt ? UITheme.Good : UITheme.Ember));
         if (d.Kind == BuildKind.Workshop) WorkshopOrders(v, b);
         v.AddChild(UITheme.B("Take it down", () => { F.Deconstruct(b); SelectThing(null); }, 14));
     }
@@ -337,6 +378,74 @@ public partial class DwarfList : Overlay
     }
 }
 
+public partial class MilitaryPanel : Overlay
+{
+    public MilitaryPanel(FortressScreen s) : base(s, "Military", new Vector2(900, 560)) { }
+
+    protected override string Signature() => $"{F.Alarm}:" + string.Join(";", F.Squads.Select(q => $"{q.Id}{q.Order}{q.Station}{string.Join(",", q.Members)}")) + ":" + string.Join(",", F.Living.Select(d => $"{d.Weapon}{d.Armor}{d.Hp / 25}"));
+
+    protected override void Fill()
+    {
+        HBoxContainer top = UITheme.H(10);
+        top.AddChild(UITheme.B(F.Alarm ? "Lift the alarm" : "Sound the alarm", () => S.ToggleAlarm(), 15, "Civilians drop everything and shelter in the meeting hall."));
+        top.AddChild(UITheme.B("Raise a new squad", () => F.NewSquad(), 15));
+        int foes = F.Hostiles.Count();
+        top.AddChild(UITheme.L(foes == 0 ? "No foes in sight." : $"{foes} foes about.", 15, foes == 0 ? UITheme.Dim : UITheme.Bad));
+        Body.AddChild(top);
+        Body.AddChild(UITheme.Wrap("Soldiers on duty fetch weapons, armour, helms and shields from the stores. Station: stand at a place. Defend: also fight whatever comes near it. Charge: hunt every foe that can be reached. The station is set to where the camera looks.", 13, UITheme.Dim, 860));
+        foreach (Squad q in F.Squads.ToList())
+        {
+            var v = UITheme.V(4);
+            Body.AddChild(UITheme.Panel(v, UITheme.PanelFill2));
+            HBoxContainer h = UITheme.H(8);
+            Label name = UITheme.Heading(q.Name, 18);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            h.AddChild(name);
+            h.AddChild(UITheme.L(FortressScreen.OrderName(q.Order) + (q.Order != SquadOrder.OffDuty ? $" at {q.Station.X},{q.Station.Y} ({S.DepthName(q.Station.Z)})" : ""), 14, UITheme.Text));
+            v.AddChild(h);
+            HBoxContainer orders = UITheme.H(6);
+            orders.AddChild(UITheme.B("Off duty", () => F.SetOrder(q, SquadOrder.OffDuty), 13));
+            orders.AddChild(UITheme.B("Station here", () => F.SetOrder(q, SquadOrder.Station, CameraCell()), 13));
+            orders.AddChild(UITheme.B("Defend here", () => F.SetOrder(q, SquadOrder.Defend, CameraCell()), 13));
+            orders.AddChild(UITheme.B("Charge!", () => F.SetOrder(q, SquadOrder.Charge), 13));
+            orders.AddChild(UITheme.B("Disband", () => F.Disband(q), 13));
+            v.AddChild(orders);
+            foreach (int id in q.Members.ToList())
+            {
+                Dwarf d = F.DwarfById(id);
+                if (d == null) continue;
+                HBoxContainer m = UITheme.H(8);
+                Label n = UITheme.L(d.Name, 14, UITheme.Text);
+                n.CustomMinimumSize = new Vector2(220, 0);
+                m.AddChild(n);
+                m.AddChild(UITheme.L($"fighting {d.Skill(Labor.Fighting)}", 13, UITheme.Dim));
+                m.AddChild(UITheme.Bar(d.Hp / (float)Tables.MaxHp, d.Wounded ? UITheme.Bad : UITheme.Good, 60, 8));
+                string kit = (F.WeaponOf(d)?.Name ?? "unarmed") + (d.Armor >= 0 ? ", armoured" : "");
+                Label k = UITheme.L(kit, 13, UITheme.Dim);
+                k.CustomMinimumSize = new Vector2(260, 0);
+                m.AddChild(k);
+                m.AddChild(UITheme.B("Dismiss", () => F.Discharge(d), 12));
+                v.AddChild(m);
+            }
+            if (q.Members.Count < 10)
+            {
+                HBoxContainer add = UITheme.H(4);
+                add.AddChild(UITheme.L("Enlist:", 13, UITheme.Bronze));
+                foreach (Dwarf d in F.Living.Where(d => d.Squad < 0).OrderByDescending(d => d.Skill(Labor.Fighting) * 2 + (d.Clan == "stoneward" ? 3 : 0)).Take(6))
+                    add.AddChild(UITheme.B(d.FirstName, () => F.Enlist(q, d), 12, $"{d.Name}, fighting {d.Skill(Labor.Fighting)}"));
+                v.AddChild(add);
+            }
+        }
+        if (F.Squads.Count == 0) Body.AddChild(UITheme.L("No squads yet. Raise one, and enlist the stout of heart.", 15, UITheme.Faint));
+    }
+
+    private P3 CameraCell()
+    {
+        Vector2 c = S.Map.Cam.Position / MapView.T;
+        return new P3((int)c.X, (int)c.Y, S.Map.Z);
+    }
+}
+
 public partial class LaborGrid : Overlay
 {
     public LaborGrid(FortressScreen s) : base(s, "Labors", new Vector2(1180, 580)) { }
@@ -425,6 +534,8 @@ public partial class HelpPanel : Overlay
             "1. Dig a staircase down and a hall.  2. P: lay a stockpile -- haulers will tidy the wagon's load into it.  3. B: build a carpenter's and a mason's shop, then click them and order beds, tables, chairs.  4. Place the beds (B, then b) and tables and chairs (t, h) side by side.  5. F: a farm plot on soil -- underground for dimcaps, outside for wheat -- and a brewery to turn the harvest into ale. Dwarves without ale grow miserable.");
         Section("Industry",
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
+        Section("Danger",
+            "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
         Section("Moods",
             "Each dwarf has thoughts that come and go: good meals and ale, beds and tables, friends; bad ones like water to drink, sleeping on rock, seeing death, feuding clans. A long run of misery builds stress, and stress breaks out in tantrums.");
         Section("Ironman",

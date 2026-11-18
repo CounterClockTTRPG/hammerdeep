@@ -16,6 +16,7 @@ public sealed partial class Fortress
 
     private void Needs(Dwarf d)
     {
+        Heal(d);
         d.Hunger += d.Has("glutton") && Tick % 3 == 0 ? 2 : 1;
         d.Thirst++;
         if (d.Task?.Kind != TaskKind.Sleep) d.Fatigue += d.Has("lazy") && Tick % 4 == 0 ? 2 : 1;
@@ -26,6 +27,8 @@ public sealed partial class Fortress
     private void Act(Dwarf d)
     {
         if (d.Breaking > 0) d.Breaking--;
+        if (CombatReflex(d) && d.Breaking == 0) { Release(d); d.Task = null; d.NextThink = Tick; }
+        if (d.Dead) return;
         if (d.Path != null)
         {
             if (--d.MoveWait > 0) return;
@@ -33,7 +36,7 @@ public sealed partial class Fortress
             return;
         }
         // Urgent needs interrupt work.
-        if (d.Task != null && d.Task.Kind is not (TaskKind.Eat or TaskKind.Drink or TaskKind.Sleep or TaskKind.Tantrum))
+        if (d.Task != null && d.Task.Kind is not (TaskKind.Eat or TaskKind.Drink or TaskKind.Sleep or TaskKind.Tantrum or TaskKind.Fight or TaskKind.Flee))
         {
             bool urgent = d.Thirst > Tables.ParchedAt || d.Hunger > Tables.StarvingAt || d.Fatigue > Tables.ExhaustedAt;
             if (urgent && Tick >= d.NextInterrupt) { d.NextInterrupt = Tick + 500; Release(d); d.Task = null; }
@@ -134,9 +137,11 @@ public sealed partial class Fortress
     {
         Task t = null;
         if (d.Breaking > 0) { d.Task = new Task { Kind = TaskKind.Tantrum }; return; }
-        if (d.Thirst > Tables.ThirstyAt) t = PlanDrink(d);
+        t = PlanThreat(d);
+        if (t == null && d.Thirst > Tables.ThirstyAt) t = PlanDrink(d);
         if (t == null && d.Hunger > Tables.HungryAt) t = PlanEat(d);
         if (t == null && d.Fatigue > Tables.TiredAt) t = new Task { Kind = TaskKind.Sleep };
+        t ??= PlanOrders(d);
         if (t == null)
         {
             ClanDef clan = Tables.Clan(d.Clan);
@@ -477,6 +482,11 @@ public sealed partial class Fortress
             case TaskKind.Plant: case TaskKind.Harvest: return DoFarm(d, t);
             case TaskKind.Tantrum: return DoTantrum(d, t);
             case TaskKind.Wander: return DoWander(d, t);
+            case TaskKind.Fight: return DoFight(d, t);
+            case TaskKind.Flee: return DoFlee(d, t);
+            case TaskKind.Shelter: return DoShelter(d, t);
+            case TaskKind.Duty: return DoDuty(d, t);
+            case TaskKind.Equip: return DoEquip(d, t);
             case TaskKind.Arrive:
                 d.Activity = "Arriving";
                 if (t.Stage == 0) { int r = Walk(d, FindStandable(World.Pos(t.Dest), 3)); if (r == 0) { t.Stage = 1; return true; } return false; }
@@ -609,7 +619,8 @@ public sealed partial class Fortress
         if (opened > 40 && !CavernFound)
         {
             CavernFound = true;
-            Say("You have broken into a cavern! Strange things grow here in the dark.", LogKind.Alert, c);
+            Say("You have broken into a cavern! Strange things grow here in the dark -- and something stirs.", LogKind.Alert, c);
+            for (int k = 0; k < 2; k++) { int at = CavernCell(); if (at >= 0) SpawnCreature("crawler", at); }
         }
     }
 
@@ -709,12 +720,15 @@ public sealed partial class Fortress
         }
         b.Built = true;
         Count("buildings");
+        if (b.Def == "door" && b.Locked) World.SetLocked(World.Idx(b.X, b.Y, b.Z), true);
+        if (b.Def == "trap") b.ArmedAt = Tick;
         if (b.D.Kind == BuildKind.Workshop) Say($"{d.FirstName} finished the {b.D.Name.ToLower()}.", LogKind.Info, World.Idx(b.Center));
     }
 
     public void RemoveBuilding(Building b)
     {
         Buildings.Remove(b);
+        if (b.Def == "door") World.SetLocked(World.Idx(b.X, b.Y, b.Z), false);
         for (int y = b.Y; y < b.Y + b.H; y++)
             for (int x = b.X; x < b.X + b.W; x++)
             {
@@ -1060,6 +1074,7 @@ public sealed partial class Fortress
             foreach (Order o in b.Orders) if (o.Worker == d.Id) o.Worker = -1;
         }
         foreach (var kv in Seats.Where(kv => kv.Value == d.Id).ToList()) Seats.Remove(kv.Key);
+        if (t.Kind == TaskKind.Equip && t.Item >= 0 && Items.TryGetValue(t.Item, out Item eq) && eq.HeldBy == d.Id) Drop(eq, d.Cell);
         foreach (var kv in Crops.Where(kv => kv.Value.Claim == d.Id).ToList())
         {
             if (kv.Value.Planted > Tick) Crops.Remove(kv.Key);

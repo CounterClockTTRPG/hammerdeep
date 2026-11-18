@@ -27,10 +27,14 @@
    needs (food, drink, sleep), thoughts, moods, stress and tantrums, skills, labors, clans and
    feuds, friendships, migrants by wealth, the fortress falling; title, HUD, info panels,
    overlays, ironman slots; self-check, walkthrough, agent control.
-2. **Threats and combat** — health and wounds; hostile creatures in the caverns (woken when
-   breached) and wild beasts on the surface; seasonal raids by an original goblinoid people;
-   squads with equipment and standing orders; doors that lock, traps, a drawbridge; an
-   alert that sends civilians to a safe burrow; corpses, burial, grief.
+2. **Threats and combat** (done, but for the drawbridge and burial) — health and wounds;
+   cave crawlers and deep stalkers in the caverns (woken when breached, more each season),
+   fellbuck and dire badgers on the surface (badgers turn on whoever comes close); grimling
+   raids from the first autumn, sized by wealth and year, brutes that batter doors down;
+   squads that arm and armour themselves from the stores and stand, defend or charge;
+   doors that keep beasts out and lock against everyone; stonefall traps; the alarm that
+   sends civilians to the meeting hall; corpses that upset passers-by until hauled to a
+   refuse pile. Still to come: a drawbridge, tombs and burial.
 3. **Animals and husbandry** — wild animals, livestock from the wagon and caravans, pastures,
    breeding, butchery (meat, leather, bone), a tanner and a leatherworker, pets, war beasts.
 4. **Trade caravans** — seasonal caravans from the mountainhome and the outside, a trade
@@ -67,5 +71,12 @@
   Cheerful and gloomy dwarves weigh thoughts differently.
 - **Skills.** Level = sqrt(xp / 40), capped at 15; speed = 1 + 12% a level (x1.2 hard-working,
   x0.8 lazy). Quality of crafted goods rolls from skill (artistic +2): ordinary to masterful.
+- **Combat.** Melee every 30 ticks. To hit: 60% + 5% per point of skill difference (15-92%).
+  Dwarf blow 9 x weapon (war hammer 1.9, axe 1.5, pick 1.3, bare 0.7; iron x1.25, bronze
+  x1.15; +8% a quality level) x (1 + 4% per Fighting level). Armour stops 35% (breastplate)
+  and 10% (helm), shields block a quarter of blows. Health 100; regain 1 per 30 ticks, per 6
+  asleep. Soldiers on duty drill (+1 xp every 40 ticks). Raids: 30% + wealth/20000 + 10% a
+  year (at most 85%) each season from the first autumn; 2-4 + wealth/4000 + 2 a year strong,
+  a brute in every four; they leave after two and a half days.
 - **Migrants.** Each new season: 1-3, plus one per 4000 wealth (up to 12), plus 2 while the
   hold is under ten; they walk in from the map edge.

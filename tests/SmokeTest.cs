@@ -25,13 +25,15 @@ public partial class SmokeTest : Node
         int at = Array.IndexOf(args, "--only");
         if (at >= 0 && at + 1 < args.Length) _only = args[at + 1];
         foreach (Action s in Sections()) Run(s);
+        // The long run only when asked for: --only Long.
+        if (_only != null && "LongRun".Contains(_only, StringComparison.OrdinalIgnoreCase)) Run(LongRun);
         GD.Print($"{_checks} checks, {_failures} failed, {(Time.GetTicksMsec() - started) / 1000.0:0.0} s");
         GetTree().Quit(_failures == 0 ? 0 : 1);
     }
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -84,7 +86,7 @@ public partial class SmokeTest : Node
                     int i = W.Idx(x, y, z);
                     W.Shapes[i] = c switch
                     {
-                        '#' => Shape.Wall, '.' or '@' or 's' => Shape.Floor, ' ' => Shape.Empty, '<' => Shape.StairUp, '>' => Shape.StairDown,
+                        '#' => Shape.Wall, '.' or '@' or 's' or '+' => Shape.Floor, ' ' => Shape.Empty, '<' => Shape.StairUp, '>' => Shape.StairDown,
                         'X' => Shape.StairUD, '^' => Shape.Ramp, 'T' => Shape.Tree, '~' => Shape.Water, _ => Shape.Wall,
                     };
                     if (c == 's') W.Mats[i] = loam;
@@ -367,6 +369,27 @@ public partial class SmokeTest : Node
         Check(!g.Fallen && g.Alive > 0, "a loaded fortress plays on");
     }
 
+    /// <summary>Three years with the overseer, a line a season: how raids, beasts and moods go over time.</summary>
+    private void LongRun()
+    {
+        Fortress f = Fortress.New("Longhold", 2026);
+        var o = new Overseer(f);
+        int season = -1;
+        string S(string k) => f.Stats.GetValueOrDefault(k).ToString();
+        for (long t = 0; t < Tables.TicksPerYear * 3 && !f.Fallen; t += 250)
+        {
+            o.Think();
+            f.Advance(250);
+            int sz = (int)(f.Tick / Tables.TicksPerSeason);
+            if (sz == season) continue;
+            season = sz;
+            int soldiers = f.Squads.Sum(q => q.Members.Count);
+            GD.Print($"    {f.Date,-22} {f.Alive,3} alive  deaths {S("deaths"),2} (slain {S("slain")})  raids {S("raids")}/{S("raids_beaten")} broken  kills {S("kills")}  trapped {S("trapped")}  beasts {f.Creatures.Count(c => c.D.Hostile)}  soldiers {soldiers} armed {f.Living.Count(d => d.Weapon >= 0)}  wealth {f.Wealth}  {string.Join(",", f.Living.GroupBy(d => d.MoodWord).Select(g => g.Key[..3] + g.Count()))}");
+        }
+        foreach (LogEntry e in f.Log.Where(l => l.Kind == LogKind.Alert).TakeLast(12)) GD.Print($"    alert {Fortress.ShortDate(e.Tick)}: {e.Text}");
+        Check(!f.Fallen, "the hold stands after three years");
+    }
+
     /// <summary>A whole year with the overseer in charge: the balance report.</summary>
     private void Year()
     {
@@ -389,9 +412,11 @@ public partial class SmokeTest : Node
         GD.Print($"    {tps:0} ticks/s with the overseer ({f.Path.Searches} path searches, {f.Path.TotalExpanded / Math.Max(1, f.Path.Searches)} nodes each)");
         var moods = f.Living.GroupBy(d => d.MoodWord).Select(g => $"{g.Key} {g.Count()}");
         GD.Print($"    moods: {string.Join(", ", moods)}");
+        GD.Print($"    {S("raids")} raids ({S("raids_beaten")} broken), {S("kills")} kills, {S("slain")} dwarves slain, {S("trapped")} trapped; squads: {string.Join(", ", f.Squads.Select(s => s.Name + " x" + s.Members.Count))}");
         foreach (string n in o.Notes) GD.Print("    overseer: " + n);
         Check(!f.Fallen, "the fortress survives its first year");
-        Check(f.Stats.GetValueOrDefault("deaths") <= 2, "hardly anyone dies in a quiet first year");
+        Check(f.Stats.GetValueOrDefault("deaths") <= 4, "few die in the first year");
+        Check(f.Squads.Count > 0, "a squad is raised");
         Check(f.Stats.GetValueOrDefault("dug") > 300, "a good deal is dug");
         Check(f.Stats.GetValueOrDefault("crafted") > 10, "things are made");
         Check(f.Stats.GetValueOrDefault("harvested") > 0, "a harvest comes in");

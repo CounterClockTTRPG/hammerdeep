@@ -35,6 +35,8 @@ public sealed class World
     /// <summary>Bumped on any change to walkability.</summary>
     public int Topology;
     public int SurfaceZ;
+    /// <summary>Cells nobody may pass: locked doors.</summary>
+    public readonly HashSet<int> Locked = new();
 
     public World(int w, int h, int d)
     {
@@ -74,6 +76,7 @@ public sealed class World
             int nx = x + DX[k], ny = y + DY[k];
             if ((uint)nx >= (uint)W || (uint)ny >= (uint)H) continue;
             int j = i + DX[k] + DY[k] * W;
+            if (Locked.Count > 0 && Locked.Contains(j)) continue;
             if (IsWalkable(Shapes[j]))
             {
                 if (k >= 4 && (IsSolid(Shapes[i + DX[k]]) || IsSolid(Shapes[i + DY[k] * W]))) { }
@@ -130,6 +133,14 @@ public sealed class World
     }
 
     public void EnsureComponents() { if (CompDirty) RebuildComponents(); }
+
+    public void SetLocked(int i, bool locked)
+    {
+        if (locked ? !Locked.Add(i) : !Locked.Remove(i)) return;
+        CompDirty = true;
+        Topology++;
+        Changed.Add(i);
+    }
 
     /// <summary>Change a cell's shape (and optionally material), marking everything that depends on it.</summary>
     public void SetShape(int i, Shape s, int mat = -1)
