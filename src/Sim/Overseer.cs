@@ -21,6 +21,12 @@ public sealed class Overseer
     private bool _farmUnderground;
     private readonly List<string> _notes = new();
     public IReadOnlyList<string> Notes => _notes;
+    public P3 Shaft => _shaft;
+    public int HallZ => _hallZ;
+    public int BedZ => _bedZ;
+    public int FarmZ => _farmZ;
+    public int MineZ => _mineZ;
+    public P3 HallCenter => new(_hall0.X + 7, _hall0.Y + 5, _hallZ);
 
     public Overseer(Fortress f) { F = f; }
 

@@ -158,6 +158,10 @@ public static class Tables
     public static readonly string[] NameA = { "Dur", "Bal", "Thra", "Kil", "Mor", "Gim", "Bor", "Har", "Dun", "Fal", "Grim", "Thor", "Nal", "Ov", "Brun", "Eld", "Tor", "Kaz", "Rud", "Sig", "Ulf", "Ast", "Dag", "Hel", "Ing", "Ket", "Lod", "Mab", "Os", "Vod" };
     public static readonly string[] NameB = { "in", "ak", "ur", "ek", "im", "or", "an", "ola", "rik", "unn", "ga", "dis", "ra", "da", "ul", "eth", "va", "om", "ri", "a" };
 
+    public static readonly string[] FortA = { "Bolk", "Thurn", "Gal", "Dor", "Kel", "Mor", "Az", "Ur", "Bar", "Vel", "Grun", "Hald", "Ost", "Brand", "Cairn", "Ember", "Iron", "Glum" };
+    public static readonly string[] FortB = { "deep", "hold", "delve", "gard", "heim", "rock", "forge", "hall", "mount", "barrow", "vault", "spire" };
+    public static string FortName(Rng r) => r.Pick(FortA) + r.Pick(FortB);
+
     public static readonly Labor[] AllLabors = (Labor[])Enum.GetValues(typeof(Labor));
 
     public static string LaborName(Labor l) => l switch
@@ -292,13 +296,13 @@ public static class Tables
 
         void T(string id, string text, int value, int days) => Thoughts[id] = new ThoughtDef { Id = id, Text = text, Value = value, Ticks = days * TicksPerDay };
         T("ate_meal", "enjoyed a hearty stew", 6, 2);
-        T("ate_raw", "ate something raw and plain", -2, 1);
+        T("ate_raw", "ate something raw and plain", -1, 1);
         T("ate_floor", "ate without a table", -2, 1);
         T("ate_table", "dined at a proper table", 3, 1);
         T("drank_ale", "drank good ale", 5, 1);
         T("drank_water", "had to drink water", -5, 2);
         T("no_ale", "has gone without ale", -8, 1);
-        T("slept_floor", "slept on the bare floor", -6, 2);
+        T("slept_floor", "slept on the bare floor", -4, 1);
         T("slept_bed", "slept in a bed", 3, 1);
         T("slept_own", "slept in their own bed", 6, 1);
         T("hungry", "is hungry", -6, 1);

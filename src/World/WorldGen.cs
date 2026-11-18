@@ -218,9 +218,9 @@ public static class WorldGen
             {
                 int g = height[y * w + x];
                 int i = W.Idx(x, y, g);
-                if (W.Shapes[i] != Shape.Floor) continue;
                 bool soil = Tables.Mats[W.Mats[i - w * h]].Kind == MatKind.Soil;
-                if (soil) W.Set(i, CellFlag.Grass, true);
+                if (soil && W.Shapes[i] is Shape.Floor or Shape.Ramp) W.Set(i, CellFlag.Grass, true);
+                if (W.Shapes[i] != Shape.Floor) continue;
                 if (Math.Abs(x - embark.X) < 7 && Math.Abs(y - embark.Y) < 7) continue;
                 float wood = Noise.Fbm2(x / 22f, y / 22f, s + 41, 3);
                 float r = Noise.Hash01(x, y, 5, s);

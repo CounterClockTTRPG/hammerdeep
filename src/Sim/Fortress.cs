@@ -19,6 +19,7 @@ public sealed partial class Fortress
     [JsonIgnore] public int Season => (int)(Tick / Tables.TicksPerSeason % Tables.SeasonsPerYear);
     [JsonIgnore] public int Day => (int)(Tick / Tables.TicksPerDay % Tables.DaysPerSeason) + 1;
     [JsonIgnore] public string Date => $"{Day} {Tables.Seasons[Season]}, year {Year}";
+    public static string ShortDate(long tick) => $"{tick / Tables.TicksPerDay % Tables.DaysPerSeason + 1} {Tables.Seasons[(int)(tick / Tables.TicksPerSeason % Tables.SeasonsPerYear)]}";
     [JsonIgnore] public float DayFraction => Tick % Tables.TicksPerDay / (float)Tables.TicksPerDay;
 
     [JsonIgnore] public World World;
@@ -145,15 +146,21 @@ public sealed partial class Fortress
     /// <summary>A walkable cell near <paramref name="p"/> (searching outward), or the cell itself.</summary>
     public int FindStandable(P3 p, int radius)
     {
+        // Somewhere random within the radius first, so things scatter; then outward.
+        World.EnsureComponents();
+        for (int t = 0; t < 40; t++)
+        {
+            int x = p.X + Rng.Range(-radius, radius), y = p.Y + Rng.Range(-radius, radius);
+            for (int dz = -1; dz <= 1; dz++)
+                if (World.Walkable(new P3(x, y, p.Z + dz)) && World.Comp[World.Idx(x, y, p.Z + dz)] == World.Comp[World.Idx(p)]) return World.Idx(x, y, p.Z + dz);
+        }
         for (int r = 0; r <= radius + 8; r++)
             for (int t = 0; t < 12; t++)
             {
                 int x = p.X + Rng.Range(-r, r), y = p.Y + Rng.Range(-r, r);
                 for (int dz = 0; dz <= 2; dz++)
-                {
                     foreach (int z in new[] { p.Z + dz, p.Z - dz })
                         if (World.Walkable(new P3(x, y, z))) return World.Idx(x, y, z);
-                }
             }
         return World.Idx(p);
     }

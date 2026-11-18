@@ -440,8 +440,9 @@ public sealed partial class Fortress
     private Task PlanIdle(Dwarf d)
     {
         Zone meet = Zones.FirstOrDefault(z => z.Kind == ZoneKind.Meeting);
-        P3 c = meet != null ? new P3((meet.X0 + meet.X1) / 2, (meet.Y0 + meet.Y1) / 2, meet.Z) : World.Pos(d.Cell);
-        return new Task { Kind = TaskKind.Wander, Dest = WanderSpot(d, c, meet != null ? 4 : 5), Total = Rng.Range(40, 120) };
+        // Idlers loiter at the meeting hall, or else round the wagon, rather than drifting off.
+        P3 c = meet != null ? new P3((meet.X0 + meet.X1) / 2, (meet.Y0 + meet.Y1) / 2, meet.Z) : Embark;
+        return new Task { Kind = TaskKind.Wander, Dest = WanderSpot(d, c, meet != null ? Math.Max(2, Math.Min(meet.X1 - meet.X0, meet.Y1 - meet.Y0) / 2) : 6), Total = Rng.Range(40, 120) };
     }
 
     private int WanderSpot(Dwarf d, P3 around, int r)

@@ -1,0 +1,721 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+
+namespace Hammerdeep;
+
+public enum Tool { Select, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Undesignate, Stockpile, Farm, Meeting, Build, Deconstruct }
+
+/// <summary>
+/// Playing a fortress: the clock (pause, 1x, 3x, 10x), the camera and the
+/// level in view, the tools (designate, zone, build, select), and the HUD
+/// around the map -- top bar, toolbar, info panel, log -- plus the screens
+/// that open over it (<see cref="FortressScreen"/> partials in Panels.cs).
+/// </summary>
+public partial class FortressScreen : Control
+{
+    public Root Root;
+    public Fortress F;
+    public MapView Map;
+
+    public const float BaseTps = 20;
+    public static readonly int[] Speeds = { 0, 1, 3, 10 };
+    public int Speed = 1;
+    public bool Paused => Speed == 0 || Overlay != null || _menu != null;
+    private int _lastSpeed = 1;
+    private double _acc;
+    private int _season;
+    public Tool Tool = Tool.Select;
+    private int _shownZ = -1;
+    public string BuildDef;
+    private P3? _dragFrom;
+    private bool _panning;
+    private readonly HashSet<Key> _held = new();
+    public string Alert;
+    public Dwarf Follow;
+    /// <summary>The thing the info panel shows.</summary>
+    public object Selected;
+
+    private UITheme.Drawn _names;
+    private Label _name, _date, _stats, _depth, _toolHint;
+    private readonly Button[] _speedButtons = new Button[4];
+    private VBoxContainer _info, _log, _toolbar;
+    private PanelContainer _infoPanel, _alertPanel, _buildPanel;
+    private Label _alertText;
+    public Control Overlay;
+    private Control _menu;
+    private string _infoSig, _logSig;
+    private double _refresh;
+    private readonly Dictionary<Tool, Button> _toolButtons = new();
+
+    public override void _Ready()
+    {
+        FortressScreen.Anchor(this, 0, 0, 1, 1, 0, 0, 0, 0);
+        MouseFilter = MouseFilterEnum.Ignore;
+        Theme = UITheme.Theme;
+        _season = F.Season;
+        BuildTop();
+        BuildToolbar();
+        BuildInfo();
+        BuildLog();
+        BuildAlert();
+        var names = new UITheme.Drawn { OnDraw = DrawNames, MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(names);
+        Anchor(names, 0, 0, 1, 1, 0, 0, 0, 0);
+        MoveChild(names, 0);
+        _names = names;
+        Pick(Tool.Select);
+    }
+
+    // ---- layout -------------------------------------------------------------------------
+
+    private void BuildTop()
+    {
+        var bar = new PanelContainer();
+        bar.AddThemeStyleboxOverride("panel", UITheme.Box(UITheme.PanelFill, UITheme.Edge, 1, 0, 10));
+        AddChild(bar);
+        Anchor(bar, 0, 0, 1, 0, 0, 0, 0, 42);
+        var row = UITheme.H(14);
+        bar.AddChild(row);
+        _name = UITheme.L(F.Name, 22, UITheme.Gold, UITheme.Title);
+        row.AddChild(_name);
+        _date = UITheme.L("", 16, UITheme.Text);
+        _date.CustomMinimumSize = new Vector2(230, 0);
+        row.AddChild(_date);
+        var speeds = UITheme.H(3);
+        string[] names = { "II", ">", ">>", ">>>" };
+        string[] tips = { "Pause (Space)", "Normal speed (1)", "Fast (2)", "Fastest (3)" };
+        for (int k = 0; k < 4; k++)
+        {
+            int s = k;
+            Button b = UITheme.B(names[k], () => SetSpeed(s), 14, tips[k]);
+            b.CustomMinimumSize = new Vector2(40, 0);
+            b.ToggleMode = true;
+            _speedButtons[k] = b;
+            speeds.AddChild(b);
+        }
+        row.AddChild(speeds);
+        _stats = UITheme.L("", 15, UITheme.Dim, UITheme.Body);
+        _stats.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _stats.HorizontalAlignment = HorizontalAlignment.Right;
+        row.AddChild(_stats);
+        _depth = UITheme.L("", 16, UITheme.Gold, UITheme.LabelFont);
+        _depth.CustomMinimumSize = new Vector2(150, 0);
+        _depth.HorizontalAlignment = HorizontalAlignment.Right;
+        row.AddChild(_depth);
+        row.AddChild(UITheme.B("Menu", OpenMenu, 14, "Esc"));
+    }
+
+    private void BuildToolbar()
+    {
+        var panel = new PanelContainer();
+        panel.Position = new Vector2(0, 46);
+        panel.CustomMinimumSize = new Vector2(176, 0);
+        AddChild(panel);
+        _toolbar = UITheme.V(3);
+        panel.AddChild(_toolbar);
+        void Section(string t) => _toolbar.AddChild(UITheme.L(t, 13, UITheme.Bronze, UITheme.Title));
+        void ToolB(Tool t, string label, string key, string tip)
+        {
+            Button b = UITheme.B($"{label}", () => Pick(t), 14, tip);
+            b.Alignment = HorizontalAlignment.Left;
+            b.ToggleMode = true;
+            b.Text = $"{key}  {label}";
+            _toolButtons[t] = b;
+            _toolbar.AddChild(b);
+        }
+        Section("Designate");
+        ToolB(Tool.Dig, "Dig", "D", "Mine out rock and soil, leaving floor.");
+        ToolB(Tool.Channel, "Channel", "H", "Dig away the floor, leaving a ramp below.");
+        ToolB(Tool.StairUD, "Up/down stairs", "X", "Stairs going both ways: dig a shaft of these between levels.");
+        ToolB(Tool.StairDown, "Down stair", "J", "The top of a shaft.");
+        ToolB(Tool.StairUp, "Up stair", "U", "The bottom of a shaft.");
+        ToolB(Tool.Chop, "Fell trees", "T", "Woodcutters fell trees for logs.");
+        ToolB(Tool.Gather, "Gather plants", "G", "Pick wild shrubs for fruit and seed.");
+        ToolB(Tool.Undesignate, "Undesignate", "R", "Clear designations.");
+        Section("Zones");
+        ToolB(Tool.Stockpile, "Stockpile", "P", "Where hauled goods are kept.");
+        ToolB(Tool.Farm, "Farm plot", "F", "Soil to grow crops in: caves for dimcaps, sky for wheat and brambles.");
+        ToolB(Tool.Meeting, "Meeting hall", "M", "Where idle dwarves gather and talk.");
+        Section("Build");
+        ToolB(Tool.Build, "Build...", "B", "Workshops, furniture and constructions.");
+        ToolB(Tool.Deconstruct, "Remove", "N", "Take down a building or remove a zone.");
+        Section("View");
+        _toolbar.AddChild(Small("V  Dwarves", () => Open(new DwarfList(this))));
+        _toolbar.AddChild(Small("L  Labors", () => Open(new LaborGrid(this))));
+        _toolbar.AddChild(Small("I  Stocks", () => Open(new Stocks(this))));
+        _toolbar.AddChild(Small("?  Help", () => Open(new HelpPanel(this))));
+        _toolHint = UITheme.Wrap("", 12, UITheme.Dim, 150);
+        _toolbar.AddChild(_toolHint);
+    }
+
+    private Button Small(string text, Action a)
+    {
+        Button b = UITheme.B(text, a, 14);
+        b.Alignment = HorizontalAlignment.Left;
+        return b;
+    }
+
+    private void BuildInfo()
+    {
+        _infoPanel = new PanelContainer();
+        AddChild(_infoPanel);
+        Anchor(_infoPanel, 1, 0, 1, 1, -356, 46, -4, -8);
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(330, 0), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _infoPanel.AddChild(scroll);
+        _info = UITheme.V(4);
+        _info.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_info);
+        _infoPanel.Visible = false;
+    }
+
+    private void BuildLog()
+    {
+        var panel = new PanelContainer();
+        panel.AddThemeStyleboxOverride("panel", UITheme.Box(new Color(0.05f, 0.045f, 0.04f, 0.82f), UITheme.Edge, 1, 4, 8));
+        panel.CustomMinimumSize = new Vector2(640, 0);
+        AddChild(panel);
+        Anchor(panel, 0, 1, 0, 1, 184, -8, 824, -8);
+        panel.GrowVertical = GrowDirection.Begin;
+        _log = UITheme.V(1);
+        panel.AddChild(_log);
+    }
+
+    private void BuildAlert()
+    {
+        _alertPanel = new PanelContainer();
+        _alertPanel.AddThemeStyleboxOverride("panel", UITheme.Box(new Color(0.16f, 0.07f, 0.04f, 0.96f), UITheme.Ember, 2, 4, 12));
+        _alertPanel.CustomMinimumSize = new Vector2(600, 0);
+        AddChild(_alertPanel);
+        Anchor(_alertPanel, 0.5f, 0, 0.5f, 0, -300, 54, 300, 54);
+        var row = UITheme.H(10);
+        _alertPanel.AddChild(row);
+        _alertText = UITheme.Wrap("", 16, UITheme.Text, 440);
+        _alertText.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        row.AddChild(_alertText);
+        row.AddChild(UITheme.B("Go there", () => { if (_alertCell >= 0) Jump(F.World.Pos(_alertCell)); }, 14));
+        row.AddChild(UITheme.B("Resume", () => { _alertPanel.Visible = false; if (Speed == 0) SetSpeed(_lastSpeed); }, 14));
+        _alertPanel.Visible = false;
+    }
+
+    private int _alertCell = -1;
+
+    /// <summary>Anchor a control (already added) to fractions of the screen, with pixel offsets.</summary>
+    public static void Anchor(Control c, float l, float t, float r, float b, float ol, float ot, float or, float ob)
+    {
+        c.AnchorLeft = l; c.AnchorTop = t; c.AnchorRight = r; c.AnchorBottom = b;
+        c.OffsetLeft = ol; c.OffsetTop = ot; c.OffsetRight = or; c.OffsetBottom = ob;
+    }
+
+    // ---- the clock ----------------------------------------------------------------------
+
+    public void SetSpeed(int s)
+    {
+        if (s > 0) _lastSpeed = s;
+        Speed = s;
+        if (s > 0) _alertPanel.Visible = false;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (F == null) return;
+        Pan(delta);
+        if (AgentRunner.Running && !Paused && !F.Fallen)
+        {
+            _acc += delta * BaseTps * Speeds[Speed];
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            int steps = 0;
+            while (_acc >= 1 && sw.Elapsed.TotalMilliseconds < 14)
+            {
+                F.Step();
+                _acc -= 1;
+                steps++;
+                if (F.PauseFor != null) break;
+            }
+            // Falling behind is fine; catching up in a burst is not.
+            if (_acc > 30) _acc = 0;
+        }
+        if (F.PauseFor != null)
+        {
+            LogEntry last = F.Log.LastOrDefault(l => l.Kind == LogKind.Alert);
+            ShowAlert(F.PauseFor, last?.Cell ?? -1);
+            F.PauseFor = null;
+        }
+        if (F.Season != _season)
+        {
+            _season = F.Season;
+            if (!Profile.Scratch) Profile.SaveFortress(F);
+        }
+        _names.QueueRedraw();
+        if (F.Fallen && Overlay is not FallenPanel) Open(new FallenPanel(this));
+        if (Follow != null && !Follow.Dead)
+        {
+            Map.Cam.Position = Map.DwarfPos(Follow);
+            Map.SetZ(F.World.Pos(Follow.Cell).Z);
+        }
+        _refresh -= delta;
+        if (_refresh <= 0 || Map.Z != _shownZ) { _refresh = 0.25; _shownZ = Map.Z; RefreshHud(); }
+    }
+
+    public void ShowAlert(string text, int cell)
+    {
+        if (Profile.Current.PauseOnAlerts && Speed > 0) { _lastSpeed = Speed; Speed = 0; }
+        _alertText.Text = text;
+        _alertCell = cell;
+        _alertPanel.Visible = true;
+        Sfx.Alert();
+    }
+
+    // ---- the HUD ------------------------------------------------------------------------
+
+    public string DepthName(int z)
+    {
+        int d = z - F.World.SurfaceZ;
+        return d == 0 ? "Surface" : d > 0 ? $"Surface +{d}" : $"Depth {-d}";
+    }
+
+    private void RefreshHud()
+    {
+        _date.Text = $"{F.Date}  ·  {TimeOfDay()}";
+        for (int k = 0; k < 4; k++) _speedButtons[k].SetPressedNoSignal(Speed == k);
+        int idle = F.Living.Count(d => d.Activity == "Idle");
+        _stats.Text = $"{F.Alive} dwarves ({idle} idle)  ·  {F.Items.Values.Count(i => i.Kind == ItemKind.Drink)} ale  ·  {F.Items.Values.Count(i => Tables.Matches("food", i))} food  ·  wealth {F.Wealth}";
+        _depth.Text = $"{DepthName(Map.Z)}  (z {Map.Z})";
+        foreach (var kv in _toolButtons) kv.Value.SetPressedNoSignal(kv.Key == Tool);
+        RefreshLog();
+        RefreshInfo();
+    }
+
+    private string TimeOfDay()
+    {
+        float f = F.DayFraction;
+        return f < 0.25f ? "night" : f < 0.35f ? "dawn" : f < 0.7f ? "day" : f < 0.8f ? "dusk" : "night";
+    }
+
+    private void RefreshLog()
+    {
+        var last = F.Log.Skip(Math.Max(0, F.Log.Count - 7)).ToList();
+        string sig = last.Count + ":" + (last.LastOrDefault()?.Tick ?? 0) + (last.LastOrDefault()?.Text ?? "");
+        if (sig == _logSig) return;
+        _logSig = sig;
+        foreach (Node n in _log.GetChildren()) n.QueueFree();
+        foreach (LogEntry e in last)
+        {
+            Color c = e.Kind switch { LogKind.Good => UITheme.Good, LogKind.Bad => UITheme.Ember, LogKind.Alert => UITheme.Bad, _ => UITheme.Dim };
+            var b = new Button { Text = $"{Fortress.ShortDate(e.Tick)}  {e.Text}", Flat = true, Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, ClipText = true };
+            b.CustomMinimumSize = new Vector2(620, 0);
+            b.AddThemeFontSizeOverride("font_size", 14);
+            b.AddThemeColorOverride("font_color", c);
+            b.AddThemeColorOverride("font_hover_color", UITheme.Gold);
+            b.AddThemeStyleboxOverride("normal", new StyleBoxEmpty());
+            b.AddThemeStyleboxOverride("hover", new StyleBoxEmpty());
+            b.AddThemeStyleboxOverride("pressed", new StyleBoxEmpty());
+            int cell = e.Cell;
+            if (cell >= 0) b.Pressed += () => Jump(F.World.Pos(cell));
+            _log.AddChild(b);
+        }
+    }
+
+    public void RefreshInfo(bool force = false)
+    {
+        string sig = InfoSignature();
+        if (!force && sig == _infoSig) return;
+        _infoSig = sig;
+        foreach (Node n in _info.GetChildren()) n.QueueFree();
+        _infoPanel.Visible = FillInfo(_info);
+    }
+
+    // ---- input --------------------------------------------------------------------------
+
+    public void Pick(Tool t)
+    {
+        Tool = t;
+        _dragFrom = null;
+        Map.Box = null;
+        Map.Ghost = null;
+        if (t != Tool.Build) BuildDef = null;
+        if (_buildPanel != null) { _buildPanel.QueueFree(); _buildPanel = null; }
+        if (t == Tool.Build) { OpenBuildPalette(); }
+        _toolHint.Text = t switch
+        {
+            Tool.Select => "Click a dwarf, building or zone. Arrow keys or middle-drag to pan; wheel zooms; < > or Shift+wheel change level.",
+            Tool.Build => BuildDef == null ? "Choose what to build." : $"Click to place the {Tables.Build[BuildDef].Name.ToLower()}. Right-click to stop.",
+            Tool.Deconstruct => "Click a building or zone to remove it.",
+            _ => "Drag a box. Change level mid-drag to make it 3D. Right-click to stop.",
+        };
+        Map.BoxColor = t switch
+        {
+            Tool.Undesignate or Tool.Deconstruct => new Color(1f, 0.4f, 0.35f, 0.3f),
+            Tool.Stockpile => new Color(0.95f, 0.82f, 0.45f, 0.3f),
+            Tool.Farm => new Color(0.55f, 0.85f, 0.35f, 0.3f),
+            Tool.Meeting => new Color(0.55f, 0.7f, 1f, 0.3f),
+            _ => new Color(1, 0.85f, 0.3f, 0.3f),
+        };
+        RefreshHud();
+    }
+
+    private void OpenBuildPalette()
+    {
+        _buildPanel = new PanelContainer();
+        _buildPanel.Position = new Vector2(182, 46);
+        AddChild(_buildPanel);
+        var v = UITheme.V(3);
+        _buildPanel.AddChild(v);
+        v.AddChild(UITheme.Heading("Build", 18));
+        foreach (BuildKind kind in new[] { BuildKind.Workshop, BuildKind.Furniture, BuildKind.Construction })
+        {
+            v.AddChild(UITheme.L(kind switch { BuildKind.Workshop => "Workshops", BuildKind.Furniture => "Furniture (made in shops first)", _ => "Constructions" }, 13, UITheme.Bronze, UITheme.Title));
+            foreach (BuildDef d in Tables.Buildings.Where(b => b.Kind == kind))
+            {
+                string cost = string.Join(", ", d.Cost.Select(c => (c.Count > 1 ? c.Count + " " : "") + Tables.NeedName(c.Tag)));
+                int have = CountFor(d);
+                Button b = UITheme.B($"{d.Key}  {d.Name}", () => ChooseBuild(d.Id), 14, $"{d.Help}\nNeeds: {cost}");
+                b.Alignment = HorizontalAlignment.Left;
+                b.CustomMinimumSize = new Vector2(260, 0);
+                if (have == 0) b.AddThemeColorOverride("font_color", UITheme.Faint);
+                v.AddChild(b);
+            }
+        }
+    }
+
+    private int CountFor(BuildDef d)
+    {
+        Need n = d.Cost[0];
+        return F.Items.Values.Count(i => i.Free && Tables.Matches(n.Tag, i));
+    }
+
+    private void ChooseBuild(string id)
+    {
+        BuildDef = id;
+        if (_buildPanel != null) { _buildPanel.QueueFree(); _buildPanel = null; }
+        Map.Ghost = id;
+        _toolHint.Text = $"Click to place: {Tables.Build[id].Name}. Right-click to stop.";
+    }
+
+    public void Jump(P3 p)
+    {
+        Follow = null;
+        Map.CenterOn(p);
+    }
+
+    private void Pan(double delta)
+    {
+        float speed = 700f / Map.Cam.Zoom.X * (float)delta * (_held.Contains(Key.Shift) ? 2.5f : 1);
+        Vector2 v = Vector2.Zero;
+        if (_held.Contains(Key.Up)) v.Y -= 1;
+        if (_held.Contains(Key.Down)) v.Y += 1;
+        if (_held.Contains(Key.Left)) v.X -= 1;
+        if (_held.Contains(Key.Right)) v.X += 1;
+        if (v != Vector2.Zero) { Follow = null; Map.Cam.Position += v * speed; ClampCam(); }
+    }
+
+    private void ClampCam()
+    {
+        Vector2 max = new(F.World.W * MapView.T, F.World.H * MapView.T);
+        Map.Cam.Position = Map.Cam.Position.Clamp(Vector2.Zero, max);
+    }
+
+    public void ChangeZ(int dz)
+    {
+        Follow = null;
+        Map.SetZ(Map.Z + dz);
+        if (_dragFrom != null) UpdateDrag(GetViewport().GetMousePosition());
+        RefreshHud();
+    }
+
+    public override void _UnhandledInput(InputEvent e)
+    {
+        if (e is InputEventKey k)
+        {
+            if (k.Pressed) _held.Add(k.Keycode); else _held.Remove(k.Keycode);
+            if (!k.Pressed || k.Echo && k.Keycode is not (Key.Pageup or Key.Pagedown or Key.Comma or Key.Period)) return;
+            if (HandleKey(k)) GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (Overlay != null || _menu != null) return;
+        if (e is InputEventMouseButton mb)
+        {
+            if (mb.ButtonIndex == MouseButton.WheelUp || mb.ButtonIndex == MouseButton.WheelDown)
+            {
+                if (!mb.Pressed) return;
+                int dir = mb.ButtonIndex == MouseButton.WheelUp ? 1 : -1;
+                if (mb.ShiftPressed || mb.CtrlPressed) ChangeZ(dir);
+                else Zoom(dir, mb.Position);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (mb.ButtonIndex == MouseButton.Middle) { _panning = mb.Pressed; return; }
+            if (mb.ButtonIndex == MouseButton.Right && mb.Pressed)
+            {
+                if (_dragFrom != null) { _dragFrom = null; Map.Box = null; }
+                else if (Tool != Tool.Select) Pick(Tool.Select);
+                else { Selected = null; Follow = null; Map.SelDwarf = Map.SelBuilding = Map.SelZone = -1; RefreshInfo(true); }
+                return;
+            }
+            if (mb.ButtonIndex == MouseButton.Left) Click(mb);
+            return;
+        }
+        if (e is InputEventMouseMotion mm)
+        {
+            if (_panning) { Map.Cam.Position -= mm.Relative / Map.Cam.Zoom; Follow = null; ClampCam(); }
+            Map.Hover = Map.CellAt(mm.Position);
+            if (Map.Ghost != null && Map.Hover is P3 h) Map.GhostOk = F.CanPlace(Map.Ghost, h.X, h.Y, h.Z) == null;
+            if (_dragFrom != null) UpdateDrag(mm.Position);
+        }
+    }
+
+    private void Zoom(int dir, Vector2 at)
+    {
+        float z = Math.Clamp(Map.Cam.Zoom.X * (dir > 0 ? 1.2f : 1 / 1.2f), 0.5f, 6f);
+        Vector2 before = Map.GetCanvasTransform().AffineInverse() * at;
+        Map.Cam.Zoom = new Vector2(z, z);
+        Map.Cam.ForceUpdateScroll();
+        Vector2 after = Map.GetCanvasTransform().AffineInverse() * at;
+        Map.Cam.Position += before - after;
+        ClampCam();
+    }
+
+    private bool BoxTool => Tool is Tool.Dig or Tool.Channel or Tool.StairUD or Tool.StairDown or Tool.StairUp or Tool.Chop or Tool.Gather or Tool.Undesignate or Tool.Stockpile or Tool.Farm or Tool.Meeting;
+
+    private void UpdateDrag(Vector2 screen)
+    {
+        P3 c = Map.CellAt(screen);
+        Map.Box = (_dragFrom.Value, c);
+    }
+
+    private void Click(InputEventMouseButton mb)
+    {
+        P3 c = Map.CellAt(mb.Position);
+        if (BoxTool)
+        {
+            if (mb.Pressed) { _dragFrom = c; UpdateDrag(mb.Position); }
+            else if (_dragFrom != null) { ApplyBox(_dragFrom.Value, c); _dragFrom = null; Map.Box = null; }
+            return;
+        }
+        if (!mb.Pressed) return;
+        if (!F.World.In(c)) return;
+        switch (Tool)
+        {
+            case Tool.Build:
+                if (BuildDef == null) return;
+                string why = F.CanPlace(BuildDef, c.X, c.Y, c.Z);
+                if (why != null) { Toast($"Cannot build here: {why}."); Sfx.Deny(); return; }
+                Building b = F.Place(BuildDef, c.X, c.Y, c.Z);
+                Sfx.Place();
+                if (b.D.Kind == BuildKind.Workshop && !mb.ShiftPressed) { Pick(Tool.Select); SelectThing(b); }
+                return;
+            case Tool.Deconstruct:
+                Building at = F.BuildingOn(F.World.Idx(c));
+                if (at != null) { F.Deconstruct(at); Sfx.Place(); return; }
+                Zone z = F.ZoneAt(c.X, c.Y, c.Z);
+                if (z != null) { F.RemoveZone(z); Sfx.Place(); }
+                return;
+            default:
+                SelectAt(c);
+                return;
+        }
+    }
+
+    private void ApplyBox(P3 a, P3 b)
+    {
+        Desig? g = Tool switch
+        {
+            Tool.Dig => Desig.Dig, Tool.Channel => Desig.Channel, Tool.StairUD => Desig.StairUD, Tool.StairDown => Desig.StairDown,
+            Tool.StairUp => Desig.StairUp, Tool.Chop => Desig.Chop, Tool.Gather => Desig.Gather, Tool.Undesignate => Desig.None, _ => null,
+        };
+        if (g != null)
+        {
+            int n = F.Designate(a, b, g.Value);
+            if (n == 0) { Toast(g == Desig.None ? "Nothing designated there." : "Nothing there can take that designation."); Sfx.Deny(); }
+            else Sfx.Place();
+            return;
+        }
+        if (a.Z != b.Z) b = new P3(b.X, b.Y, a.Z);
+        ZoneKind kind = Tool switch { Tool.Farm => ZoneKind.Farm, Tool.Meeting => ZoneKind.Meeting, _ => ZoneKind.Stockpile };
+        string crop = null;
+        if (kind == ZoneKind.Farm)
+        {
+            bool outside = F.World.IsOutside(F.World.Idx(a));
+            crop = outside ? "hearthwheat" : "dimcap";
+            int soil = 0;
+            for (int y = Math.Min(a.Y, b.Y); y <= Math.Max(a.Y, b.Y); y++)
+                for (int x = Math.Min(a.X, b.X); x <= Math.Max(a.X, b.X); x++)
+                    if (F.World.In(x, y, a.Z) && F.Farmable(F.World.Idx(x, y, a.Z), Tables.M(crop))) soil++;
+            if (soil == 0) { Toast(outside ? "Farm plots need soil under open sky -- or soil underground for cave crops." : "Underground farm plots need a soil floor."); Sfx.Deny(); return; }
+        }
+        Zone z = F.AddZone(kind, a, b, crop);
+        Sfx.Place();
+        SelectThing(z);
+        Pick(Tool.Select);
+    }
+
+    private void SelectAt(P3 c)
+    {
+        // A dwarf first (the nearest within a cell), then a building, then a zone.
+        Dwarf d = F.Living.Where(x => F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= 1)
+            .OrderBy(x => F.World.Pos(x.Cell).Dist(c)).FirstOrDefault();
+        if (d != null) { SelectThing(d); return; }
+        int cell = F.World.Idx(c);
+        Building b = F.BuildingOn(cell);
+        if (b != null) { SelectThing(b); return; }
+        Zone z = F.ZoneAt(c.X, c.Y, c.Z);
+        if (z != null) { SelectThing(z); return; }
+        SelectThing(c);
+    }
+
+    public void SelectThing(object o)
+    {
+        Selected = o;
+        Map.SelDwarf = o is Dwarf d ? d.Id : -1;
+        Map.SelBuilding = o is Building b ? b.Id : -1;
+        Map.SelZone = o is Zone z ? z.Id : -1;
+        if (o is not Dwarf) Follow = null;
+        RefreshInfo(true);
+    }
+
+    private bool HandleKey(InputEventKey k)
+    {
+        if (_menu != null) { if (k.Keycode == Godot.Key.Escape) { CloseMenu(); return true; } return false; }
+        if (Overlay != null)
+        {
+            if (k.Keycode == Godot.Key.Escape || (Overlay is not FallenPanel && OverlayKey(k))) { if (Overlay is not FallenPanel) CloseOverlay(); return true; }
+            return false;
+        }
+        char ch = (char)k.Unicode;
+        if (ch == '<' || k.Keycode == Godot.Key.Pageup) { ChangeZ(1); return true; }
+        if (ch == '>' || k.Keycode == Godot.Key.Pagedown) { ChangeZ(-1); return true; }
+        switch (k.Keycode)
+        {
+            case Godot.Key.Escape:
+                if (Tool != Tool.Select) Pick(Tool.Select);
+                else if (Selected != null) { SelectThing(null); }
+                else OpenMenu();
+                return true;
+            case Godot.Key.Space: SetSpeed(Speed == 0 ? _lastSpeed : 0); return true;
+            case Godot.Key.Key1: SetSpeed(1); return true;
+            case Godot.Key.Key2: SetSpeed(2); return true;
+            case Godot.Key.Key3: SetSpeed(3); return true;
+            case Godot.Key.Tab: ShowNamesToggle(); return true;
+            case Godot.Key.F1: Open(new HelpPanel(this)); return true;
+        }
+        if (Tool == Tool.Build && BuildDef == null)
+        {
+            BuildDef d = Tables.Buildings.FirstOrDefault(b => b.Key == ch.ToString());
+            if (d != null) { ChooseBuild(d.Id); return true; }
+        }
+        switch (char.ToLower(ch))
+        {
+            case 'd': Pick(Tool.Dig); return true;
+            case 'h': Pick(Tool.Channel); return true;
+            case 'x': Pick(Tool.StairUD); return true;
+            case 'j': Pick(Tool.StairDown); return true;
+            case 'u': Pick(Tool.StairUp); return true;
+            case 't': Pick(Tool.Chop); return true;
+            case 'g': Pick(Tool.Gather); return true;
+            case 'r': Pick(Tool.Undesignate); return true;
+            case 'p': Pick(Tool.Stockpile); return true;
+            case 'f': Pick(Tool.Farm); return true;
+            case 'm': Pick(Tool.Meeting); return true;
+            case 'b': Pick(Tool.Build); return true;
+            case 'n': Pick(Tool.Deconstruct); return true;
+            case 'v': Open(new DwarfList(this)); return true;
+            case 'l': Open(new LaborGrid(this)); return true;
+            case 'i': Open(new Stocks(this)); return true;
+            case '?': Open(new HelpPanel(this)); return true;
+            case 'c': CenterHome(); return true;
+        }
+        return false;
+    }
+
+    private bool OverlayKey(InputEventKey k)
+    {
+        char ch = char.ToLower((char)k.Unicode);
+        return (Overlay is DwarfList && ch == 'v') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
+    }
+
+    private void ShowNamesToggle() => Map.ShowNames = !Map.ShowNames;
+
+    /// <summary>Names over dwarves, drawn in screen space so they stay crisp at any zoom.</summary>
+    private void DrawNames(UITheme.Drawn c)
+    {
+        foreach (Dwarf d in F.Living)
+        {
+            if (!(Map.ShowNames || d.Id == Map.SelDwarf) || F.World.Pos(d.Cell).Z != Map.Z) continue;
+            Vector2 at = Map.GetCanvasTransform() * (Map.DwarfPos(d) + new Vector2(0, -9));
+            if (at.X < 0 || at.Y < 0 || at.X > Size.X || at.Y > Size.Y) continue;
+            Font f = UITheme.LabelFont;
+            Vector2 sz = f.GetStringSize(d.FirstName, HorizontalAlignment.Left, -1, 14);
+            var r = new Rect2(at - new Vector2(sz.X / 2 + 4, sz.Y + 2), sz + new Vector2(8, 3));
+            c.DrawRect(r, new Color(0.05f, 0.04f, 0.03f, 0.75f));
+            c.DrawString(f, new Vector2(r.Position.X + 4, r.End.Y - 5), d.FirstName, HorizontalAlignment.Left, -1, 14, d.Id == Map.SelDwarf ? UITheme.Gold : UITheme.Text);
+        }
+    }
+
+    private void CenterHome() => Jump(F.Embark);
+
+    public void Open(Control overlay)
+    {
+        CloseOverlay();
+        Overlay = overlay;
+        AddChild(overlay);
+    }
+
+    public void CloseOverlay()
+    {
+        if (Overlay == null) return;
+        Overlay.QueueFree();
+        Overlay = null;
+    }
+
+    private Label _toast;
+    private SceneTreeTimer _toastTimer;
+
+    public void Toast(string text)
+    {
+        _toast?.QueueFree();
+        _toast = UITheme.L(text, 16, UITheme.Ember, UITheme.Body, HorizontalAlignment.Center);
+        AddChild(_toast);
+        Anchor(_toast, 0.5f, 1, 0.5f, 1, -300, -190, 300, -160);
+        Label mine = _toast;
+        GetTree().CreateTimer(2.5).Timeout += () => { if (IsInstanceValid(mine)) mine.QueueFree(); };
+    }
+
+    // ---- the pause menu -----------------------------------------------------------------
+
+    public void OpenMenu()
+    {
+        if (_menu != null) return;
+        var shade = new ColorRect { Color = new Color(0, 0, 0, 0.55f) };
+        var center = new CenterContainer();
+        shade.AddChild(center);
+        Anchor(center, 0, 0, 1, 1, 0, 0, 0, 0);
+        var v = UITheme.V(8);
+        var panel = UITheme.Panel(v);
+        center.AddChild(panel);
+        v.AddChild(UITheme.Heading(F.Name, 28));
+        v.AddChild(UITheme.L(F.Date, 15, UITheme.Dim));
+        v.AddChild(UITheme.B("Resume", CloseMenu, 18));
+        v.AddChild(UITheme.B("Help", () => { CloseMenu(); Open(new HelpPanel(this)); }, 18));
+        var sound = new CheckBox { Text = "Sound", ButtonPressed = Profile.Current.Sound, FocusMode = FocusModeEnum.None };
+        sound.Toggled += on => { Profile.Current.Sound = on; Profile.Current.Apply(); Profile.Current.Save(); };
+        v.AddChild(sound);
+        var alerts = new CheckBox { Text = "Pause on alerts", ButtonPressed = Profile.Current.PauseOnAlerts, FocusMode = FocusModeEnum.None };
+        alerts.Toggled += on => { Profile.Current.PauseOnAlerts = on; Profile.Current.Save(); };
+        v.AddChild(alerts);
+        v.AddChild(UITheme.B("Save and leave to the title", () => { CloseMenu(); Root.ShowTitle(); }, 18));
+        v.AddChild(UITheme.B("Save and quit the game", () => { if (!Profile.Scratch) Profile.SaveFortress(F); GetTree().Quit(); }, 18));
+        v.AddChild(UITheme.L("Ironman: the fortress saves every season and when you leave.", 13, UITheme.Faint));
+        _menu = shade;
+        AddChild(shade);
+        Anchor(shade, 0, 0, 1, 1, 0, 0, 0, 0);
+    }
+
+    public void CloseMenu()
+    {
+        _menu?.QueueFree();
+        _menu = null;
+    }
+
+    public bool MenuOpen => _menu != null;
+}
