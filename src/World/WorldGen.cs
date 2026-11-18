@@ -21,8 +21,9 @@ public static class WorldGen
         public int CavernZ;
     }
 
-    public static Result Generate(ulong seed, int w = DefaultW, int h = DefaultH, int d = DefaultD)
+    public static Result Generate(ulong seed, int w = DefaultW, int h = DefaultH, int d = DefaultD, EmbarkLand land = null)
     {
+        land ??= new EmbarkLand();
         var rng = new Rng(seed);
         uint s = (uint)seed ^ (uint)(seed >> 32);
         var W = new World(w, h, d);
@@ -35,7 +36,7 @@ public static class WorldGen
             {
                 float n = Noise.Fbm2(x / 48f, y / 48f, s, 5);
                 float east = MathF.Max(0, (x - w * 0.62f) / (w * 0.38f));
-                float hz = baseZ + (n - 0.5f) * 9 + east * east * 9;
+                float hz = baseZ + (n - 0.5f) * 9 * (0.5f + land.Mountain) + east * east * 9 * (land.Mountain * 2);
                 height[y * w + x] = Math.Clamp((int)MathF.Round(hz), 8, d - 3);
             }
         // Limit slopes to one level per step on most of the map, so it can be walked.
@@ -93,6 +94,7 @@ public static class WorldGen
         // Ore veins: random walks through the rock that suits them.
         void Vein(string ore, int zLo, int zHi, int count, int len)
         {
+            count = (int)(count * (0.5f + land.Richness));
             byte om = Tables.Mi(ore);
             for (int v = 0; v < count; v++)
             {
@@ -164,7 +166,7 @@ public static class WorldGen
                     for (int z = 1; z <= 2; z++) W.Shapes[W.Idx(x, y, z)] = Shape.Magma;
 
         // Ponds in the low ground.
-        for (int p = 0; p < 14; p++)
+        for (int p = 0; p < (int)(28 * land.Wet); p++)
         {
             int cx = rng.Range(10, w - 10), cy = rng.Range(10, h - 10);
             // Roll downhill a little.
@@ -226,7 +228,7 @@ public static class WorldGen
                 if (Math.Abs(x - embark.X) < 7 && Math.Abs(y - embark.Y) < 7) continue;
                 float wood = Noise.Fbm2(x / 22f, y / 22f, s + 41, 3);
                 float r = Noise.Hash01(x, y, 5, s);
-                if (soil && wood > 0.55f && r < (wood - 0.5f) * 1.6f) { W.Shapes[i] = Shape.Tree; W.Mats[i] = g > baseZ + 2 ? pine : oak; }
+                if (soil && wood > 0.55f - (land.Forest - 0.5f) * 0.3f && r < (wood - 0.5f) * 1.6f * land.Forest * 2) { W.Shapes[i] = Shape.Tree; W.Mats[i] = g > baseZ + 2 ? pine : oak; }
                 else if (soil && r > 0.965f) W.Set(i, CellFlag.Shrub, true);
             }
 

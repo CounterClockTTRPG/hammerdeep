@@ -159,6 +159,7 @@ public partial class FortressScreen : Control
         _toolbar.AddChild(Small("K  Military", () => Open(new MilitaryPanel(this))));
         _toolbar.AddChild(Small("Z  Animals", () => Open(new AnimalsPanel(this))));
         _toolbar.AddChild(Small("W  Chronicle", () => Open(new Chronicle(this))));
+        _toolbar.AddChild(Small("O  World", () => Open(new WorldPanel(this))));
         _toolbar.AddChild(Small("I  Stocks", () => Open(new Stocks(this))));
         _toolbar.AddChild(Small("?  Help", () => Open(new HelpPanel(this))));
         _toolHint = UITheme.Wrap("", 12, UITheme.Dim, 150);
@@ -665,6 +666,7 @@ public partial class FortressScreen : Control
             case 'k': Open(new MilitaryPanel(this)); return true;
             case 'z': Open(new AnimalsPanel(this)); return true;
             case 'w': Open(new Chronicle(this)); return true;
+            case 'o': Open(new WorldPanel(this)); return true;
             case 'y':
                 if (F.Trading is Caravan tc) Open(new TradePanel(this, tc));
                 else Toast("No caravan is at the depot.");
@@ -680,7 +682,7 @@ public partial class FortressScreen : Control
     private bool OverlayKey(InputEventKey k)
     {
         char ch = char.ToLower((char)k.Unicode);
-        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is AnimalsPanel && ch == 'z') || (Overlay is Chronicle && ch == 'w') || (Overlay is TradePanel && ch == 'y') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
+        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is AnimalsPanel && ch == 'z') || (Overlay is Chronicle && ch == 'w') || (Overlay is WorldPanel && ch == 'o') || (Overlay is TradePanel && ch == 'y') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
     }
 
     private void ShowNamesToggle() => Map.ShowNames = !Map.ShowNames;

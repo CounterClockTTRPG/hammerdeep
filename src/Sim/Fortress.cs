@@ -66,10 +66,13 @@ public sealed partial class Fortress
 
     // ---- making one ---------------------------------------------------------------------
 
-    public static Fortress New(string name, ulong seed, int w = WorldGen.DefaultW, int h = WorldGen.DefaultH, int d = WorldGen.DefaultD)
+    public static Fortress New(string name, ulong seed, int w = WorldGen.DefaultW, int h = WorldGen.DefaultH, int d = WorldGen.DefaultD, ulong worldSeed = 0, int ex = -1, int ey = -1)
     {
-        WorldGen.Result gen = WorldGen.Generate(seed, w, h, d);
-        var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ };
+        WorldMap map = worldSeed != 0 ? new WorldMap(worldSeed) : null;
+        EmbarkLand land = map != null && ex >= 0 ? map.Land(ex, ey) : null;
+        WorldGen.Result gen = WorldGen.Generate(seed, w, h, d, land);
+        var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ, WorldSeed = worldSeed, WorldX = ex, WorldY = ey };
+        f.SetWorld(map);
         f.Attach(gen.World);
         f.Settle();
         f.Livestock();

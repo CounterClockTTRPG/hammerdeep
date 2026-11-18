@@ -61,7 +61,7 @@ public partial class TitleScreen : Control
             v.AddChild(UITheme.L(peek ?? "An unclaimed mountain.", 17, peek == null ? UITheme.Faint : fallen ? UITheme.Ember : UITheme.Text));
             HBoxContainer h = UITheme.H(6);
             if (peek != null && !fallen) h.AddChild(UITheme.B("Continue", () => Root.Continue(s), 16));
-            h.AddChild(UITheme.B(peek == null ? "Found a fortress" : "Found anew (overwrites)", () => AskName(s), 16));
+            h.AddChild(UITheme.B(peek == null ? "Found a fortress" : "Found anew (overwrites)", () => Root.ShowWorld(s), 16));
             if (peek != null) h.AddChild(UITheme.B("Abandon", () => { Profile.DeleteSlot(s); FillSlots(); }, 14));
             v.AddChild(h);
             _slots.AddChild(panel);

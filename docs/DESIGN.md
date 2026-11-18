@@ -94,7 +94,16 @@
    (Graniteborn): twice the health, a fist like a hammer, x1.5 mining bare-handed, x1.5
    hauling, slow, eat double; Durn. Founders are dwarves; each migrant wave has a 35% chance
    of bringing a band of a people living near (Stonekin come rarely, alone).
-10. **The world** — next.
+10. **The world** (done) — a 56 x 36 world from a seed (`WorldMap`): terrain from an
+   elevation field with a mountain spine (lakes, marsh, plains, forest, hills, mountains,
+   peaks), rivers, and sites -- the Mountainhome, dwarven holds, Lowland towns, grimling
+   warrens, a Delvling burrow, Rootfolk gardens, a Stonekin crag -- with ~220 years of
+   history (foundings, raids, sackings and ruins, heroes, beasts, lost artifacts, trade
+   roads). Founding a fortress starts on the world screen: pick a hills or mountains tile;
+   its surroundings set the local map (steepness, woods, ponds, ore) and its neighbours the
+   hold's fortunes: raid pressure from warrens within reach, Lowland caravans only with a
+   town near, migrant bands only from peoples near. Saves keep the seed and the tile. O shows
+   the world and its legends in play.
 
 ## The simulation
 

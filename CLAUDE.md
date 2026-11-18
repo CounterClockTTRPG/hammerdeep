@@ -21,7 +21,8 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
                                 scripts/agent.sh "state; key d; drag 10 10 20 20" ('help' lists
                                 commands; 'quit' closes it). Own save file (user://agent_fort.sav).
                                 Game time only passes while a command runs ('freeze off' to change).
-                                Debug: 'caravan low|mountain', 'raid N', 'mood [NAME]'.
+                                Debug: 'caravan low|mountain', 'raid N', 'mood [NAME]'. Founding goes through
+                                the world screen: 'press Found a fortress; press Embark here; press Strike the earth'.
     bash scripts/export.sh [DIR]  Windows build (exe + pack + .NET data + assets) to DIR (default
                                 C:/temp/Hammerdeep), then the self-check against the exported exe.
     python3 scripts/make_icon.py icon   redraw icon.png / icon.ico (needs Pillow).
@@ -53,7 +54,9 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   `Entities` -- Item, Dwarf, Task, Building, Order, Zone, Crop, Creature, Squad. `Tables` --
   materials, items, buildings, recipes, creatures, thoughts, traits, clans, names, all the numbers. `Overseer` -- a plain-rules
   autoplayer used by the self-check's Year and the walkthrough.
-- `src/World/WorldGen.cs` -- the embark map from a seed: heightmap with ramps, soil and rock
+- `src/World/WorldMap.cs` -- the world: terrain, sites, history, embark land and neighbours (all
+  from one seed). `src/UI/WorldScreen.cs` -- choosing the embark, and the in-game world panel.
+- `src/World/WorldGen.cs` -- the embark map from a seed (and the `EmbarkLand` of its tile): heightmap with ramps, soil and rock
   layers, ore veins, gems, the cavern layer, magma, ponds, woods; the embark site.
 - `src/View/MapView.cs` -- the level in view: terrain painted per 32x32 chunk as pixel art
   (repainted from `World.Changed`), open air showing lower levels; zones, designations,

@@ -115,7 +115,12 @@ public sealed partial class Fortress
 
     private void CaravanSeason()
     {
-        foreach (FactionDef f in FactionDefs.Where(f => f.Season == Season)) SendCaravan(f);
+        foreach (FactionDef f in FactionDefs.Where(f => f.Season == Season))
+        {
+            // In a world, the Lowlanders only come if one of their towns is near.
+            if (Map != null && WorldX >= 0 && CaravanHome(f.Key) == null) continue;
+            SendCaravan(f);
+        }
     }
 
     public Caravan SendCaravan(FactionDef f)
@@ -137,7 +142,8 @@ public sealed partial class Fortress
             c.Merchants.Add(m.Id);
         }
         Caravans.Add(c);
-        Say($"A caravan from {f.Name} has come over the hills{(Buildings.Any(b => b.Def == "depot" && b.Built) ? "" : " -- but you have no trade depot!")}", LogKind.Alert, World.Idx(at));
+        Site home = CaravanHome(f.Key);
+        Say($"A caravan from {(home != null ? $"{home.Name} ({f.Name})" : f.Name)} has come over the hills{(Buildings.Any(b => b.Def == "depot" && b.Built) ? "" : " -- but you have no trade depot!")}", LogKind.Alert, World.Idx(at));
         foreach (Dwarf d in Living) AddThought(d, "caravan");
         Count("caravans");
         return c;

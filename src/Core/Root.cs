@@ -87,15 +87,23 @@ public partial class Root : Node
     }
 
     /// <summary>A new fortress in a slot, over whatever was there.</summary>
-    public void NewFortress(string name, int slot, ulong seed = 0)
+    public void NewFortress(string name, int slot, ulong seed = 0, ulong worldSeed = 0, int wx = -1, int wy = -1)
     {
         Profile.Slot = slot;
         Profile.Current.LastSlot = slot;
         Profile.Current.Save();
         if (seed == 0) seed = ((ulong)GD.Randi() << 32) | GD.Randi();
-        Fortress f = Fortress.New(name, seed);
+        Fortress f = Fortress.New(name, seed, worldSeed: worldSeed, ex: wx, ey: wy);
         if (!Profile.Scratch) Profile.SaveFortress(f, slot);
         Play(f);
+    }
+
+    /// <summary>The world, to choose where the expedition stops.</summary>
+    public void ShowWorld(int slot, ulong worldSeed = 0)
+    {
+        Clear();
+        if (worldSeed == 0) worldSeed = ((ulong)GD.Randi() << 32) | GD.Randi();
+        Show(new WorldScreen { Root = this, Slot = slot, Map = new WorldMap(worldSeed) });
     }
 
     public bool Continue(int slot)

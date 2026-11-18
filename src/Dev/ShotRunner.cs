@@ -60,7 +60,8 @@ public partial class ShotRunner : Node
             Root.ShowTitle();
             await Frames(5);
             await Shot("01-title");
-            Root.NewFortress("Bolkdeep", 1, 4242);
+            if (Want("world")) { Root.ShowWorld(1, 8675309); await Shot("01b-world"); }
+            Root.NewFortress("Bolkdeep", 1, 4242, 8675309, new WorldMap(8675309).DefaultEmbark().x, new WorldMap(8675309).DefaultEmbark().y);
             FortressScreen s = Root.Screen;
             Fortress f = Root.Fortress;
             s.SetSpeed(0);
@@ -114,6 +115,8 @@ public partial class ShotRunner : Node
             await Shot("16-stocks");
             s.Open(new HelpPanel(s));
             await Shot("17-help");
+            s.Open(new WorldPanel(s));
+            await Shot("17b-world-panel");
             s.CloseOverlay();
             s.OpenMenu();
             await Shot("18-menu");

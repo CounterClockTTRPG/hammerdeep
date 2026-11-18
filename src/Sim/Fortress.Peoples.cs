@@ -16,6 +16,54 @@ public sealed partial class Fortress
 
     public List<string> NearPeoples() => Neighbours ?? new List<string> { "delvling", "rootfolk", "stonekin" };
 
+    // ---- the world ---------------------------------------------------------------------
+
+    /// <summary>The world the hold stands in (regenerated from its seed), and where.</summary>
+    public ulong WorldSeed;
+    public int WorldX = -1, WorldY = -1;
+    private WorldMap _map;
+    [System.Text.Json.Serialization.JsonIgnore] public WorldMap Map => _map ??= WorldSeed != 0 ? MakeMap() : null;
+    /// <summary>How hard raids press: nearby warrens make them likelier (1 with no world).</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public float RaidPressure { get; private set; } = 1;
+
+    private WorldMap MakeMap()
+    {
+        var m = new WorldMap(WorldSeed);
+        SetWorld(m);
+        return m;
+    }
+
+    /// <summary>Read the neighbourhood: which peoples are near, how close the warrens are.</summary>
+    public void SetWorld(WorldMap m)
+    {
+        _map = m;
+        if (m == null || WorldX < 0) return;
+        if (!m.Sites.Any(s => s.Kind == SiteKind.Fortress))
+            m.Sites.Add(new Site { Id = 999, Name = Name, Kind = SiteKind.Fortress, X = WorldX, Y = WorldY, Founded = 0 });
+        var near = m.Neighbours(WorldX, WorldY);
+        Neighbours = near.Select(p => WorldMap.People(p.site.Kind)).Where(r => r != null).Distinct().ToList();
+        float danger = near.Where(p => p.site.Kind == SiteKind.Warren).Sum(p => 8f / (p.days + 4));
+        RaidPressure = Math.Clamp(0.4f + danger, 0.4f, 2.2f);
+    }
+
+    /// <summary>Where a trading people's caravan comes from: a named site, or null if they live too far to come.</summary>
+    public Site CaravanHome(string faction)
+    {
+        WorldMap m = Map;
+        if (m == null || WorldX < 0) return null;
+        var near = m.Neighbours(WorldX, WorldY);
+        return faction == "mountainhome"
+            ? m.Sites.FirstOrDefault(s => s.Kind == SiteKind.Mountainhome)
+            : near.Where(p => p.site.Kind == SiteKind.Town).Select(p => p.site).FirstOrDefault();
+    }
+
+    public Site NearestWarren()
+    {
+        WorldMap m = Map;
+        if (m == null || WorldX < 0) return null;
+        return m.Neighbours(WorldX, WorldY).Where(p => p.site.Kind == SiteKind.Warren).Select(p => p.site).FirstOrDefault();
+    }
+
     private void RaceMoods(Dwarf d)
     {
         RaceDef r = Races.Of(d);

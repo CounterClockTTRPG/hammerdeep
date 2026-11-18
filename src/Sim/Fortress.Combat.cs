@@ -374,7 +374,8 @@ public sealed partial class Fortress
             for (int k = 0; k < 2; k++) { P3 p = SurfaceFar(30); if (p.X >= 0) SpawnCreature("fellbuck", World.Idx(p)); }
         // Raids, from the first autumn on, likelier as the hold grows rich.
         if (Year == 1 && Season < 2) return;
-        double chance = Math.Min(0.85, 0.3 + Wealth / 20000.0 + 0.1 * (Year - 1));
+        if (Map != null && NearestWarren() == null && !Rng.Chance(0.3)) return;
+        double chance = Math.Min(0.9, (0.3 + Wealth / 20000.0 + 0.1 * (Year - 1)) * RaidPressure);
         if (!Rng.Chance(chance)) return;
         int size = Math.Min(30, 2 + Rng.Int(3) + Wealth / 5000 + (Year - 1) * 2);
         LaunchRaid(size);
@@ -390,7 +391,8 @@ public sealed partial class Fortress
         }
         RaidsSeen++;
         Count("raids");
-        Say($"A grimling raid! {size} of them come over the hills{(size > 8 ? " -- a warband" : "")}.", LogKind.Alert, World.Idx(at));
+        Site from = NearestWarren();
+        Say($"A grimling raid{(from != null ? $" from {from.Name}" : "")}! {size} of them come over the hills{(size > 8 ? " -- a warband" : "")}.", LogKind.Alert, World.Idx(at));
     }
 
     // ---- dwarves in danger ----------------------------------------------------------------
