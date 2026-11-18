@@ -395,6 +395,8 @@ public static class Tables
         T("alarm", "is hiding from danger", -3, 1);
         T("laid_to_rest", "saw a friend laid to rest", 4, 3);
         T("petted", "petted an animal", 3, 1);
+        T("made_artifact", "made a legendary artifact", 30, 24);
+        T("friend_mad", "saw a friend lose their mind", -20, 8);
         T("ate_meat", "had a good bit of meat", 2, 1);
         T("unburied", "is troubled by the unburied dead", -8, 2);
         T("haunted", "was haunted by a restless spirit", -14, 3);
@@ -466,6 +468,9 @@ public static class Tables
             case "seed": return it.Kind == ItemKind.Seed;
             case "mechanism": return it.Kind == ItemKind.Mechanism;
             case "coffin": return it.Kind == ItemKind.Coffin;
+            case "gem": return it.Kind is ItemKind.RoughGem or ItemKind.CutGem;
+            case "shiny": return (it.Kind == ItemKind.Bar && m.Key is "silver" or "gold") || it.Kind == ItemKind.CutGem;
+            case "bar": return it.Kind == ItemKind.Bar;
         }
         if (tag == "weapon") return it.Kind is ItemKind.Weapon;
         if (tag == "armor") return it.Kind is ItemKind.Armor;

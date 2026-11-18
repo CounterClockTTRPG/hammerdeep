@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -388,6 +388,9 @@ public partial class SmokeTest : Node
         }
         GD.Print($"    herds: {string.Join(", ", f.Creatures.Where(c => c.Tame).GroupBy(c => c.Def).Select(g => g.Key + " " + g.Count()))}; births {S("births")}, eggs {S("eggs")}, slaughtered {S("slaughtered")}, butchered {S("butchered")}, starved {S("animals_starved")}, killed {S("livestock_killed")}, tamed {S("tamed")}, war-beast kills {S("beast_kills")}; buried {S("buried")}");
         GD.Print($"    trade: {S("caravans")} caravans, {S("trades")} deals worth {S("traded_value")}; standing {string.Join(", ", f.Standing.Select(kv => kv.Key + " " + kv.Value))}");
+        GD.Print($"    moods {S("moods")}, artifacts {S("artifacts")}, gone mad {S("insane")}, lost {S("lost")}");
+        foreach (LogEntry e in f.Log.Where(l => l.Text.Contains("demands") || l.Text.Contains("needs a") || l.Text.Contains("mood") || l.Text.Contains("possessed") || l.Text.Contains("melancholy") || l.Text.Contains("berserk") || l.Text.Contains("mad"))) GD.Print($"    mood log {Fortress.ShortDate(e.Tick)} y{e.Tick / Tables.TicksPerYear + 1}: {e.Text}");
+        foreach (int id in f.Artifacts.Where(f.Items.ContainsKey)) GD.Print($"    artifact: {f.Items[id].Label}. {f.Items[id].Description}");
         GD.Print($"    larder: {f.Items.Values.Count(i => i.Kind == ItemKind.Meat)} meat, {f.Items.Values.Count(i => i.Kind == ItemKind.Egg)} eggs, {f.Items.Values.Count(i => i.Kind == ItemKind.Leather)} leather, {f.Living.Count(d => d.Armor >= 0 && f.Items[d.Armor].M.Key == "leather")} in leather armour");
         foreach (LogEntry e in f.Log.Where(l => l.Kind == LogKind.Alert).TakeLast(12)) GD.Print($"    alert {Fortress.ShortDate(e.Tick)}: {e.Text}");
         Check(!f.Fallen, "the hold stands after three years");

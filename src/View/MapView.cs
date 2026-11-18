@@ -472,6 +472,8 @@ public partial class MapView : Node2D
                 case BuildKind.Workshop: DrawWorkshop(b, r, mc); break;
                 default: DrawFurniture(b, r, mc); break;
             }
+            if (b.Artifact) DrawRect(r.Grow(0.5f), new Color(1f, 0.85f, 0.3f, 0.5f + 0.3f * MathF.Sin(Time * 3)), false, 1);
+            if (b.MoodClaim >= 0) DrawRect(r.Grow(1), new Color(0.9f, 0.6f, 1f, 0.6f + 0.3f * MathF.Sin(Time * 5)), false, 2);
             if (sel) DrawRect(r.Grow(1), UITheme.Gold, false, 1.5f);
         }
     }
@@ -587,6 +589,7 @@ public partial class MapView : Node2D
         on ??= this;
         Color mc = UITheme.C(it.M.Color);
         Color dark = mc.Darkened(0.5f);
+        if (it.Artifact) { float g = 0.5f + 0.5f * MathF.Sin(Time * 3); on.DrawCircle(at, 8 * s, new Color(1f, 0.85f, 0.3f, 0.15f + 0.15f * g)); }
         switch (it.Kind)
         {
             case ItemKind.Boulder:

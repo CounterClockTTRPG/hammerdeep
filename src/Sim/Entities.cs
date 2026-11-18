@@ -27,13 +27,16 @@ public sealed class Item
     public int Of = -1;
     /// <summary>A carcass, meat, hide or bones: which creature it came from.</summary>
     public string Source;
+    /// <summary>A named masterwork from a strange mood, and its story.</summary>
+    public bool Artifact;
+    public string Description;
 
     public static readonly string[] QualityName = { "", "well-crafted ", "finely-crafted ", "superior ", "exceptional ", "masterful " };
 
     [JsonIgnore] public ItemDef Def => Tables.Items[Kind];
     [JsonIgnore] public Mat M => Tables.Mats[Mat];
     [JsonIgnore] public bool Free => Cell >= 0 && HeldBy < 0 && InBuilding < 0 && ReservedBy < 0;
-    [JsonIgnore] public int Value => Math.Max(1, M.Value * Def.Mult * (1 + Quality));
+    [JsonIgnore] public int Value => Math.Max(1, M.Value * Def.Mult * (1 + Quality)) * (Artifact ? 20 : 1);
 
     [JsonIgnore] public string Name
     {
@@ -70,7 +73,7 @@ public sealed class Thought
     public int Value;
 }
 
-public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter, Bury, Tame, Slaughter, Train }
+public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter, Bury, Tame, Slaughter, Train, Mood, Rampage }
 
 /// <summary>What a dwarf is doing, as plain data: kind, targets and how far along it is.</summary>
 public sealed class Task
@@ -126,6 +129,15 @@ public sealed class Dwarf
     /// <summary>The dead: when, whether laid to rest, whether their spirit walks.</summary>
     public long DiedAt;
     public bool Buried, Restless;
+    /// <summary>A strange mood: its kind, the craft and workshop, when it began, what it wants and has. And madness, if it failed.</summary>
+    public string Strange, Insane;
+    public bool HadMood;
+    public Labor MoodLabor;
+    public int MoodShop = -1;
+    public long MoodStart;
+    public List<string> MoodNeeds = new();
+    public List<int> MoodGot = new();
+    public List<string> MoodAsked = new();
     [JsonIgnore] public bool Wounded => Hp < Tables.MaxHp / 2;
 
     public static int Level(int xp) => Math.Min(15, (int)Math.Sqrt(xp / 40.0));
@@ -179,6 +191,10 @@ public sealed class Building
     public bool Raised, OverAir;
     /// <summary>Taken for a job that is not building it (a burial).</summary>
     public int Claim = -1;
+    /// <summary>A workshop seized by a dwarf in a strange mood; furniture that is an artifact.</summary>
+    public int MoodClaim = -1;
+    public bool Artifact;
+    public string Label;
     public List<Order> Orders = new();
     [JsonIgnore] public BuildDef D => Tables.Build[Def];
     [JsonIgnore] public int W => D.W;

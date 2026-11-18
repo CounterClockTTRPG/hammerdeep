@@ -121,6 +121,25 @@ public partial class ShotRunner : Node
             m.ShowNames = false;
             s.ShowAlert("A sample alert: something needs your attention.", f.World.Idx(f.Embark));
             await Shot("21-alert");
+            // A strange mood, and the artifact it makes.
+            Dwarf moody = f.Living.Where(x => x.Squad < 0 && !x.HadMood).OrderByDescending(x => x.Xp[(int)Labor.Masonry] + x.Xp[(int)Labor.Carpentry]).FirstOrDefault();
+            if (moody != null)
+            {
+                f.StartMood(moody, "fey");
+                for (int k = 0; k < 30 && moody.MoodShop < 0; k++) f.Advance(50);
+                for (int k = 0; k < 6; k++) f.Advance(50);
+                Building ms = moody.MoodShop >= 0 ? f.BuildingById(moody.MoodShop) : null;
+                m.Cam.Zoom = new Vector2(2.6f, 2.6f);
+                s.Jump(f.World.Pos(moody.Cell));
+                s.SelectThing(moody);
+                await Shot("28-mood");
+                foreach (string need in moody.MoodNeeds.ToList()) f.Spawn(need switch { "gem" => ItemKind.RoughGem, "shiny" => ItemKind.CutGem, "bone" => ItemKind.Bone, "leather" => ItemKind.Leather, "log" => ItemKind.Log, "bar" => ItemKind.Bar, _ => ItemKind.Boulder }, Tables.Mi(need switch { "gem" or "shiny" => "emerald", "bone" => "bone", "leather" => "leather", "log" => "oak", "bar" => "iron", _ => "granite" }), moody.Cell);
+                for (int k = 0; k < 120 && moody.Strange != null; k++) f.Advance(100);
+                s.SelectThing(null);
+                s.Open(new Chronicle(s));
+                await Shot("29-chronicle");
+                s.CloseOverlay();
+            }
             // A raid at the gates.
             f.LaunchRaid(8);
             for (int k = 0; k < 40 && !f.Creatures.Any(c => c.Raider && f.World.Pos(c.Cell).Dist(f.Embark) < 14); k++) { o.Think(); f.Advance(50); }

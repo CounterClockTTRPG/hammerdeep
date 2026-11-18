@@ -51,9 +51,17 @@
    x0.9 for the rest, and mark their own goods up 35%, falling to 5% with standing. Standing
    rises with generous deals and gifts (and falls when they find no depot); it scales the
    caravans. Still to come: requests for next year, and raids on caravans.
-5. **Legendary artifacts** — strange moods: a dwarf seizes a workshop and demands materials;
-   success makes a named artifact (generated name and description, a story in the log),
-   failure ends in madness.
+5. **Legendary artifacts** (done) — once a season or so (daily chance 2% + 1% per 20
+   dwarves, from the second season, one mood at a time, once per dwarf, never a soldier) a
+   dwarf is seized: fey, secretive, possessed or macabre. They claim the nearest workshop of
+   their best craft (carpenter, mason, craftsdwarf, forge, leatherworks) and demand its
+   material plus one or two common things (wood, stone, bone, leather) and often one rare
+   (a gem, or something that shines); the first demand for each pauses the game. Given it all,
+   two days of work make a named artifact (x20 value) with a description woven from the
+   hold's own history; the maker becomes legendary (skill 15) and everyone admires it.
+   Denied eight days: melancholy (no more work), berserk (attacks the others until put down),
+   or stark raving mad (wanders off into the wild, never seen again). Artifact furniture
+   placed stays itself. W: the chronicle -- artifacts, great events, the fallen.
 6. **Religion, rituals and magic** — clan deities, shrines and temples, a need to pray, rites
    at the deep places, runecraft: rune-carved items with effects.
 7. **Polish** — generated portraits and banners via ../assetgen (needs the Replicate token:

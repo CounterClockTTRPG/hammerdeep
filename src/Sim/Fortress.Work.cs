@@ -142,6 +142,8 @@ public sealed partial class Fortress
         if (t == null && d.Thirst > Tables.ThirstyAt) t = PlanDrink(d);
         if (t == null && d.Hunger > Tables.HungryAt) t = PlanEat(d);
         if (t == null && d.Fatigue > Tables.TiredAt) t = new Task { Kind = TaskKind.Sleep };
+        if (t == null && d.Strange != null) t = new Task { Kind = TaskKind.Mood };
+        if (t == null && d.Insane != null) { d.Task = PlanMadness(d); return; }
         t ??= PlanOrders(d);
         if (t == null)
         {
@@ -354,7 +356,7 @@ public sealed partial class Fortress
         {
             int center = World.Idx(b.Center);
             if (World.Comp[center] != comp) continue;
-            if (b.Orders.Any(o => o.Worker >= 0)) continue;
+            if (b.Orders.Any(o => o.Worker >= 0) || b.MoodClaim >= 0) continue;
             foreach (Order o in b.Orders)
             {
                 Recipe r = Tables.Recipe(o.Recipe);
@@ -491,6 +493,8 @@ public sealed partial class Fortress
             case TaskKind.Duty: return DoDuty(d, t);
             case TaskKind.Equip: return DoEquip(d, t);
             case TaskKind.Bury: return DoBury(d, t);
+            case TaskKind.Mood: return DoMood(d, t);
+            case TaskKind.Rampage: return DoRampage(d, t);
             case TaskKind.Tame: return DoTame(d, t);
             case TaskKind.Train: return DoTrain(d, t);
             case TaskKind.Slaughter: return DoSlaughter(d, t);
@@ -710,8 +714,11 @@ public sealed partial class Fortress
         var parts = b.Parts.Select(id => Items[id]).ToList();
         b.Mat = parts.Count > 0 ? parts[0].Mat : (byte)0;
         b.Quality = parts.Count > 0 ? parts.Max(p => p.Quality) : 0;
-        foreach (Item it in parts) Destroy(it);
+        // An artifact set in place stays itself, inside the furniture.
+        Item art = parts.FirstOrDefault(p => p.Artifact);
+        foreach (Item it in parts) if (it != art) Destroy(it);
         b.Parts.Clear();
+        if (art != null) { b.Artifact = true; b.Label = art.Label; b.Parts.Add(art.Id); art.ReservedBy = -1; }
         b.Builder = -1;
         if (b.D.Kind == BuildKind.Construction)
         {
@@ -1043,6 +1050,7 @@ public sealed partial class Fortress
         // Chat with whoever is near.
         if (t.Work == 0)
         {
+            Admire(d);
             Dwarf o = Living.FirstOrDefault(x => x != d && x.Task?.Kind == TaskKind.Wander && x.Path == null && World.Pos(x.Cell).Dist(World.Pos(d.Cell)) <= 2);
             if (o != null && !d.Has("loner") && Rng.Chance(d.Has("sociable") ? 0.6 : 0.3)) Chat(d, o);
             else if (Creatures.Any(c => !c.Dead && c.Tame && Adjacent(c.Cell, d.Cell))) { AddThought(d, "petted"); d.Activity = "Petting an animal"; }
@@ -1204,7 +1212,7 @@ public sealed partial class Fortress
         if (!World.Walkable(c)) c = FindStandable(b.Center, 2);
         foreach (int id in b.Parts.ToList()) if (Items.TryGetValue(id, out Item it)) { it.ReservedBy = -1; Drop(it, c); }
         b.Parts.Clear();
-        if (b.Built)
+        if (b.Built && !b.Artifact)
         {
             ItemKind? back = Tables.Items.Values.FirstOrDefault(i => i.Places == b.Def)?.Kind;
             if (back != null) Spawn(back.Value, b.Mat, c, b.Quality);
@@ -1239,10 +1247,10 @@ public sealed partial class Fortress
 
     public Zone ZoneAt(int x, int y, int z) => Zones.LastOrDefault(q => q.Contains(x, y, z));
 
-    public Order AddOrder(Building b, string recipe, int count, bool repeat = false)
+    public Order AddOrder(Building b, string recipe, int count, bool repeat = false, bool first = false)
     {
         var o = new Order { Id = NextId++, Recipe = recipe, Left = count, Repeat = repeat };
-        b.Orders.Add(o);
+        if (first) b.Orders.Insert(0, o); else b.Orders.Add(o);
         return o;
     }
 }

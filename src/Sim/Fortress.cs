@@ -317,6 +317,8 @@ public sealed partial class Fortress
     {
         if (Fallen) return;
         Tick++;
+        _berserkers = 0;
+        foreach (Dwarf b in Dwarves) if (!b.Dead && b.Insane == "berserk") _berserkers++;
         // Many dwarves move per tick; a tick never sees a half-updated map.
         for (int k = 0; k < Dwarves.Count; k++)
         {
@@ -329,7 +331,7 @@ public sealed partial class Fortress
         StepCreatures();
         if (Tick % 50 == 0) Growth();
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
-        if (Tick % Tables.TicksPerDay == 500) Mourning();
+        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
         if (Alive == 0 && !Fallen)
@@ -419,7 +421,7 @@ public sealed partial class Fortress
             if (mood < 0) d.Stress += -mood;
             else d.Stress = Math.Max(0, d.Stress - mood / 2 - 2);
             d.Stress = Math.Min(d.Stress, 20000);
-            if (d.Breaking == 0 && d.Stress > 2500 && Rng.Chance(0.15))
+            if (d.Breaking == 0 && d.Strange == null && d.Insane == null && d.Stress > 2500 && Rng.Chance(0.15))
             {
                 d.Breaking = 300;
                 Release(d);
@@ -438,6 +440,8 @@ public sealed partial class Fortress
         foreach (int id in new[] { d.Pick, d.Axe, d.Weapon, d.Armor, d.Helm, d.Shield })
             if (id >= 0 && Items.TryGetValue(id, out Item worn)) Drop(worn, d.Cell);
         Discharge(d);
+        if (d.MoodShop >= 0 && BuildingById(d.MoodShop) is Building ms) ms.MoodClaim = -1;
+        d.Strange = null;
         d.Dead = true;
         d.DeathCause = cause;
         d.Activity = "Dead";

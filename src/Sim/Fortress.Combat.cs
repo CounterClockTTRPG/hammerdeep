@@ -42,6 +42,8 @@ public sealed partial class Fortress
 
     // ---- creatures ----------------------------------------------------------------------
 
+    private int _berserkers;
+
     private void StepCreatures()
     {
         for (int k = 0; k < Creatures.Count; k++)
@@ -374,7 +376,7 @@ public sealed partial class Fortress
         if (Year == 1 && Season < 2) return;
         double chance = Math.Min(0.85, 0.3 + Wealth / 20000.0 + 0.1 * (Year - 1));
         if (!Rng.Chance(chance)) return;
-        int size = Math.Min(30, 2 + Rng.Int(3) + Wealth / 4000 + (Year - 1) * 2);
+        int size = Math.Min(30, 2 + Rng.Int(3) + Wealth / 5000 + (Year - 1) * 2);
         LaunchRaid(size);
     }
 
@@ -552,12 +554,16 @@ public sealed partial class Fortress
     private bool CombatReflex(Dwarf d)
     {
         if (d.AttackWait > 0) d.AttackWait--;
-        if (Creatures.Count == 0) return false;
+        if (Creatures.Count == 0 && _berserkers == 0) return false;
         if (d.AttackWait <= 0 && d.Task?.Kind != TaskKind.Flee && d.Task?.Kind != TaskKind.Sleep)
         {
             foreach (Creature c in Creatures)
                 if (!c.Dead && (c.D.Hostile || c.Angry) && Adjacent(d.Cell, c.Cell)) { DwarfHits(d, c); break; }
         }
+        // Berserkers are fought off by whoever they come at.
+        if (_berserkers > 0 && d.AttackWait <= 0 && d.Insane != "berserk")
+            foreach (Dwarf b in Dwarves)
+                if (!b.Dead && b.Insane == "berserk" && b != d && Adjacent(d.Cell, b.Cell)) { DwarfHitsDwarf(d, b); break; }
         // Notice danger mid-task.
         if ((Tick + d.Id) % 10 == 0 && d.Task?.Kind is not (TaskKind.Fight or TaskKind.Flee or TaskKind.Equip) && ThreatNear(d, 5) != null) return true;
         return false;

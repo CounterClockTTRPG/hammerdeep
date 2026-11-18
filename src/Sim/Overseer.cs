@@ -259,12 +259,12 @@ public sealed class Overseer
     private int Planned(string recipe) => F.Buildings.Sum(b => b.Orders.Where(o => o.Recipe == recipe).Sum(o => o.Repeat ? 99 : o.Left));
     private Building Shop(string def) => F.Buildings.FirstOrDefault(b => b.Def == def && b.Built);
 
-    private void Order(string shop, string recipe, int want, int have)
+    private void Order(string shop, string recipe, int want, int have, bool urgent = false)
     {
         Building b = Shop(shop);
         if (b == null) return;
         int planned = Planned(recipe);
-        if (have + planned < want && planned < 3) F.AddOrder(b, recipe, Math.Min(3, want - have - planned));
+        if (have + planned < want && planned < 3) F.AddOrder(b, recipe, Math.Min(3, want - have - planned), first: urgent);
     }
 
     private void Maintain()
@@ -297,9 +297,9 @@ public sealed class Overseer
         Trade();
         int unburied = F.Dwarves.Count(x => x.Dead && !x.Buried && F.Items.Values.Any(i => i.Of == x.Id));
         int coffins = Have(i => i.Kind == ItemKind.Coffin) + F.Buildings.Count(b => b.Def == "coffin" && b.Owner < 0);
-        Order("mason", "scoffin", unburied + 1, coffins);
+        Order("mason", "scoffin", unburied + 1, coffins, urgent: unburied > 0);
         var tomb = new List<P3>();
-        for (int x = _shaft.X + 3; x <= _shaft.X + 12; x++) { tomb.Add(new P3(x, _shaft.Y + 8, _hallZ)); }
+        for (int x = _shaft.X + 3; x <= _shaft.X + 12; x++) { tomb.Add(new P3(x, _shaft.Y + 8, _hallZ)); tomb.Add(new P3(x, _shaft.Y + 7, _hallZ)); }
         PlaceFurniture(ItemKind.Coffin, "coffin", tomb);
 
         // More room as the hold grows: more bedrooms, and mining for ore.
@@ -362,7 +362,7 @@ public sealed class Overseer
                 _refuse = true;
             }
         }
-        int want = F.Alive >= 30 ? 6 : F.Alive >= 8 ? 3 : 0;
+        int want = F.Alive >= 8 ? Math.Min(10, Math.Max(3, F.Alive / 5)) : 0;
         if (want > 0)
         {
             Squad s = F.Squads.FirstOrDefault();

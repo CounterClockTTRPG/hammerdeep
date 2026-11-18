@@ -13,7 +13,7 @@ public partial class FortressScreen
         switch (Selected)
         {
             case Dwarf d:
-                return $"d{d.Id}:{d.Dead}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
+                return $"d{d.Id}:{d.Dead}:{d.Strange}:{d.Insane}:{d.MoodGot?.Count}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
             case Building b:
                 return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(",", F.Caravans.Select(c => c.State))}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
             case Zone z:
@@ -68,6 +68,13 @@ public partial class FortressScreen
         v.AddChild(UITheme.L($"of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
         if (d.Dead) { v.AddChild(UITheme.L($"Dead: {d.DeathCause}.", 16, UITheme.Bad)); return; }
         v.AddChild(UITheme.L(d.Activity, 16, UITheme.Text));
+        if (d.Strange != null)
+        {
+            string wants = string.Join(", ", d.MoodNeeds.Select(Fortress.MoodNeedName));
+            int left = Math.Max(0, (int)((d.MoodStart + Tables.TicksPerDay * Fortress.MoodDeadlineDays - F.Tick) / Tables.TicksPerDay));
+            v.AddChild(UITheme.Wrap($"In a {d.Strange} mood. The work wants: {wants}. Denied it {left} more days, they will go mad.", 14, UITheme.Gold, 320));
+        }
+        if (d.Insane != null) v.AddChild(UITheme.L(d.Insane switch { "melancholy" => "Lost to melancholy; does no work.", "berserk" => "BERSERK -- a danger to all.", _ => "Stark raving mad." }, 14, UITheme.Bad));
         HBoxContainer hp = UITheme.H(6);
         hp.AddChild(UITheme.Bar(d.Hp / (float)Tables.MaxHp, d.Hp > 70 ? UITheme.Good : d.Hp > 40 ? UITheme.Ember : UITheme.Bad, 140, 9));
         hp.AddChild(UITheme.L(d.Hp >= Tables.MaxHp ? "unhurt" : d.Wounded ? "badly hurt" : "bruised", 13, d.Wounded ? UITheme.Bad : UITheme.Dim));
@@ -208,6 +215,16 @@ public partial class FortressScreen
             v.AddChild(UITheme.L(dead != null ? $"Here lies {dead.Name}, {dead.DeathCause}." : "Empty, waiting.", 14, UITheme.Text));
         }
         if (d.Id == "trap") v.AddChild(UITheme.L(F.Tick >= b.ArmedAt ? "Armed." : $"Resetting ({(b.ArmedAt - F.Tick) / 10 + 1}%...)", 14, F.Tick >= b.ArmedAt ? UITheme.Good : UITheme.Ember));
+        if (b.MoodClaim >= 0)
+        {
+            Dwarf m = F.DwarfById(b.MoodClaim);
+            v.AddChild(UITheme.Wrap($"Seized by {m?.Name}, in a {m?.Strange} mood. No orders are worked here until the piece is done.", 14, UITheme.Gold, 320));
+        }
+        if (b.Artifact)
+        {
+            Item art = b.Parts.Where(F.Items.ContainsKey).Select(id => F.Items[id]).FirstOrDefault(i => i.Artifact);
+            if (art != null) { v.AddChild(UITheme.L(art.Label, 16, UITheme.Gold, UITheme.Title)); v.AddChild(UITheme.Wrap(art.Description, 13, UITheme.Text, 320)); }
+        }
         if (d.Id == "depot")
         {
             Caravan c = F.Caravans.FirstOrDefault(x => x.Depot == b.Id && x.State == CaravanState.Trading);
@@ -343,7 +360,11 @@ public partial class FortressScreen
         v.AddChild(UITheme.L($"{p.X}, {p.Y} at {DepthName(p.Z)}{(w.IsOutside(c) ? ", under the sky" : "")}", 13, UITheme.Dim));
         if (w.Has(c, CellFlag.Shrub)) v.AddChild(UITheme.L(w.IsOutside(c) ? "A bramble bush grows here." : "Glowmoss grows here.", 14, UITheme.Text));
         if (w.Desigs[c] != Desig.None) v.AddChild(UITheme.L($"Designated: {w.Desigs[c]}", 14, UITheme.Gold));
-        foreach (Item it in F.ItemsOn(c).Take(10)) v.AddChild(UITheme.L("· " + it.Name + (it.Stored ? "" : ""), 14, UITheme.Text));
+        foreach (Item it in F.ItemsOn(c).Take(10))
+        {
+            v.AddChild(UITheme.L("· " + it.Name, 14, it.Artifact ? UITheme.Gold : UITheme.Text));
+            if (it.Artifact && it.Description != null) v.AddChild(UITheme.Wrap(it.Description, 13, UITheme.Dim, 320));
+        }
     }
 }
 
@@ -594,6 +615,35 @@ public partial class TradePanel : Overlay
     }
 }
 
+public partial class Chronicle : Overlay
+{
+    public Chronicle(FortressScreen s) : base(s, $"The chronicle of {s.F.Name}", new Vector2(900, 580)) { }
+
+    protected override string Signature() => $"{F.Artifacts.Count}:{F.Log.Count}:{F.Tick / 1000}";
+
+    protected override void Fill()
+    {
+        string S(string k) => F.Stats.GetValueOrDefault(k).ToString();
+        Body.AddChild(UITheme.Wrap($"Founded {Fortress.ShortDate(0)}, year 1; it is now {F.Date}. {F.Alive} dwarves live here; {F.Dwarves.Count(d => d.Dead)} have died or been lost. They have dug {S("dug")} cells, made {S("crafted")} things, broken {S("raids_beaten")} of {S("raids")} raids, and traded {S("traded_value")} worth of goods.", 15, UITheme.Text, 860));
+        Body.AddChild(UITheme.L("Artifacts", 17, UITheme.Bronze, UITheme.Title));
+        var arts = F.Artifacts.Where(F.Items.ContainsKey).Select(id => F.Items[id]).ToList();
+        if (arts.Count == 0) Body.AddChild(UITheme.L("None yet. When a dwarf is seized by a strange mood, give them what they ask.", 14, UITheme.Faint));
+        foreach (Item a in arts)
+        {
+            Body.AddChild(UITheme.L(a.Label, 16, UITheme.Gold, UITheme.Title));
+            Body.AddChild(UITheme.Wrap(a.Description ?? "", 14, UITheme.Text, 860));
+        }
+        int lostArts = F.Stats.GetValueOrDefault("artifacts") - arts.Count;
+        if (lostArts > 0) Body.AddChild(UITheme.L($"{lostArts} more were made, and are gone -- traded, or lost.", 13, UITheme.Dim));
+        Body.AddChild(UITheme.L("Great events", 17, UITheme.Bronze, UITheme.Title));
+        foreach (LogEntry e in F.Log.Where(l => l.Kind == LogKind.Alert).Reverse().Take(30))
+            Body.AddChild(UITheme.Wrap($"{Fortress.ShortDate(e.Tick)}, year {e.Tick / Tables.TicksPerYear + 1}: {e.Text}", 13, UITheme.Dim, 860));
+        Body.AddChild(UITheme.L("The fallen", 17, UITheme.Bronze, UITheme.Title));
+        foreach (Dwarf d in F.Dwarves.Where(d => d.Dead).OrderBy(d => d.DiedAt))
+            Body.AddChild(UITheme.L($"{d.Name}, {d.DeathCause}{(d.Buried ? "" : " -- unburied")}", 13, d.Buried ? UITheme.Dim : UITheme.Ember));
+    }
+}
+
 public partial class AnimalsPanel : Overlay
 {
     public AnimalsPanel(FortressScreen s) : base(s, "Animals", new Vector2(860, 560)) { }
@@ -724,6 +774,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("Strange moods",
+            "Now and then a dwarf is seized by a mood: they claim a workshop of their best craft and demand materials -- wood, stone, metal bars, leather, gems, bones, something that shines. Keep such things in store. Given all of it, they make a named artifact, worth a fortune, and become a legend at their craft; denied for eight days, they go mad -- melancholy, berserk, or off into the wild. W opens the chronicle of the hold's artifacts and great events.");
         Section("Trade",
             "Build a trade depot (B, D). Lowland merchants come each Highsun with food, seed, wood, leather and live goats and hens; the Mountainhome sends dwarves each Leaffall with iron, coal, arms and ale. While they are at the depot, Y (or the depot's Trade button) opens the barter: pick goods on both sides and propose. They pay half again for what they want, and charge more for their own the less they know you; fair dealing and gifts raise your standing, and bigger caravans follow.");
         Section("Animals",
