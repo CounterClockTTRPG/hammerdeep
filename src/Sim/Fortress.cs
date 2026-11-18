@@ -109,7 +109,7 @@ public sealed partial class Fortress
     /// <summary>The seven founders and their wagon's load.</summary>
     private void Settle()
     {
-        var clans = Tables.Clans.Select(c => c.Id).ToList();
+        var clans = Tables.Clans.Where(c => c.Race == "dwarf").Select(c => c.Id).ToList();
         Rng.Shuffle(clans);
         // Two or three clans in the founding party: enough for a feud.
         for (int k = 0; k < 7; k++) AddDwarf(clans[k % 3], Embark, founder: true);
@@ -133,8 +133,11 @@ public sealed partial class Fortress
 
     public Dwarf AddDwarf(string clan, P3 near, bool founder = false)
     {
-        var d = new Dwarf { Id = NextId++, Clan = clan, Female = Rng.Chance(0.5), Age = Rng.Range(30, 140), Arrived = Tick };
-        d.Name = $"{Rng.Pick(Tables.NameA)}{Rng.Pick(Tables.NameB)} {Tables.Clan(clan).Name}";
+        ClanDef cl = Tables.Clan(clan);
+        RaceDef race = Races.Of(cl.Race);
+        var d = new Dwarf { Id = NextId++, Clan = clan, Race = race.Key, Female = Rng.Chance(0.5), Age = race.Key == "stonekin" ? Rng.Range(60, 300) : race.Key == "dwarf" ? Rng.Range(30, 140) : Rng.Range(15, 60), Arrived = Tick, LastSky = Tick };
+        d.Hp = d.MaxHp;
+        d.Name = race.NameA == null ? $"{Rng.Pick(Tables.NameA)}{Rng.Pick(Tables.NameB)} {cl.Name}" : $"{Rng.Pick(race.NameA)}{Rng.Pick(race.NameB)} {cl.Name}";
         // Skills: the clan's crafts, plus a couple more.
         ClanDef cd = Tables.Clan(clan);
         foreach (Labor l in cd.Leans) if (Rng.Chance(0.6)) d.Xp[(int)l] = Rng.Range(4, 25) * 40;
@@ -395,14 +398,31 @@ public sealed partial class Fortress
         if (Alive + n > 220) n = Math.Max(0, 220 - Alive);
         if (n == 0) return;
         P3 edge = EdgeArrival();
-        var clans = Tables.Clans.Select(c => c.Id).ToList();
+        var clans = Tables.Clans.Where(c => c.Race == "dwarf").Select(c => c.Id).ToList();
+        // Now and then a band of another people comes too: whoever lives near.
+        string band = null;
+        var near = NearPeoples();
+        if (near.Count > 0 && Rng.Chance(0.35)) band = Rng.Pick(near);
+        int bandN = band switch { "delvling" => Rng.Range(2, 4), "rootfolk" => Rng.Range(1, 3), "stonekin" => 1, _ => 0 };
+        if (band == "stonekin" && !Rng.Chance(0.4)) { band = null; bandN = 0; }
         for (int k = 0; k < n; k++)
         {
             Dwarf d = AddDwarf(Rng.Pick(clans), edge);
             d.Task = new Task { Kind = TaskKind.Arrive, Dest = World.Idx(Embark) };
         }
-        Count("migrants", n);
+        for (int k = 0; k < bandN; k++)
+        {
+            Dwarf d = AddDwarf(Races.Of(band).Clan, edge);
+            d.Task = new Task { Kind = TaskKind.Arrive, Dest = World.Idx(Embark) };
+        }
+        Count("migrants", n + bandN);
         Say($"{n} migrant{(n == 1 ? "" : "s")} have arrived, drawn by tales of {Name}.", LogKind.Good, World.Idx(edge));
+        if (bandN > 0)
+        {
+            RaceDef r = Races.Of(band);
+            Say(bandN == 1 ? $"A {r.Name} has come with them, asking to join the hold. {r.Blurb}" : $"{bandN} {r.Plural} have come with them, asking to join the hold. {r.Blurb}", LogKind.Alert, World.Idx(edge));
+            Count("migrants_" + band, bandN);
+        }
         foreach (Dwarf d in Living) AddThought(d, "new_arrivals");
     }
 
@@ -447,6 +467,7 @@ public sealed partial class Fortress
         {
             d.Thoughts.RemoveAll(t => t.Until <= Tick);
             FaithMoods(d);
+            RaceMoods(d);
             if (d.Hunger > Tables.StarvingAt) AddThought(d, "hungry", 2);
             else if (d.Hunger > Tables.HungryAt) AddThought(d, "hungry");
             if (d.Thirst > Tables.ParchedAt) AddThought(d, "thirsty", 2);

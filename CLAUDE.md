@@ -45,6 +45,7 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   `Fortress.Trade` -- the trading peoples, caravans and their merchants, the barter.
   `Fortress.Moods` -- strange moods, artifacts and their descriptions, madness, admiration.
   `Fortress.Faith` -- the gods, prayer, shrines and the temple, the feast, runes and the Sleeper.
+  `Races` -- the peoples as data; `Fortress.Peoples` -- their quirks (sky, light fingers), neighbours.
   `Fortress.Fluids` -- water and magma: flow, levelling, obsidian, drowning and burning, wells, gates.
   Regions (`World.Comp`) are merged in place when cells open (`World.Opened`); only closing a
   cell (a wall, a flood, a lock) forces a full rebuild -- the self-check's Regions section keeps

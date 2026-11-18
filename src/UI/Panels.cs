@@ -65,7 +65,9 @@ public partial class FortressScreen
     {
         ClanDef clan = Tables.Clan(d.Clan);
         v.AddChild(UITheme.Heading(d.Name, 20));
-        v.AddChild(UITheme.L($"of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
+        RaceDef race = Races.Of(d);
+        v.AddChild(UITheme.L($"{(race.Key == "dwarf" ? "" : race.Name + ", ")}of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
+        if (race.Key != "dwarf") v.AddChild(UITheme.Wrap(race.Blurb + (race.Thief && d.Hoard > 0 ? $" Has a hoard of {d.Hoard} shiny things somewhere." : ""), 12, UITheme.Dim, 320));
         if (d.Dead) { v.AddChild(UITheme.L($"Dead: {d.DeathCause}.", 16, UITheme.Bad)); return; }
         v.AddChild(UITheme.L(d.Activity, 16, UITheme.Text));
         if (d.Strange != null)
@@ -76,8 +78,8 @@ public partial class FortressScreen
         }
         if (d.Insane != null) v.AddChild(UITheme.L(d.Insane switch { "melancholy" => "Lost to melancholy; does no work.", "berserk" => "BERSERK -- a danger to all.", _ => "Stark raving mad." }, 14, UITheme.Bad));
         HBoxContainer hp = UITheme.H(6);
-        hp.AddChild(UITheme.Bar(d.Hp / (float)Tables.MaxHp, d.Hp > 70 ? UITheme.Good : d.Hp > 40 ? UITheme.Ember : UITheme.Bad, 140, 9));
-        hp.AddChild(UITheme.L(d.Hp >= Tables.MaxHp ? "unhurt" : d.Wounded ? "badly hurt" : "bruised", 13, d.Wounded ? UITheme.Bad : UITheme.Dim));
+        hp.AddChild(UITheme.Bar(d.Hp / (float)d.MaxHp, d.Hp > d.MaxHp * 0.7f ? UITheme.Good : d.Hp > d.MaxHp * 0.4f ? UITheme.Ember : UITheme.Bad, 140, 9));
+        hp.AddChild(UITheme.L(d.Hp >= d.MaxHp ? "unhurt" : d.Wounded ? "badly hurt" : "bruised", 13, d.Wounded ? UITheme.Bad : UITheme.Dim));
         v.AddChild(Row("Health", hp));
         NeedBar(v, "Food", d.Hunger, Tables.HungryAt, Tables.StarvingAt);
         NeedBar(v, "Drink", d.Thirst, Tables.ThirstyAt, Tables.ParchedAt);
@@ -488,7 +490,8 @@ public partial class DwarfList : Overlay
             name.Alignment = HorizontalAlignment.Left;
             h.AddChild(name);
             Labor best = Tables.AllLabors.OrderByDescending(d.Skill).First();
-            Label prof = UITheme.L(d.Skill(best) > 0 ? $"{Tables.LaborName(best)} {d.Skill(best)}" : "Peasant", 14, UITheme.Dim);
+            RaceDef rc = Races.Of(d);
+            Label prof = UITheme.L((rc.Key == "dwarf" ? "" : rc.Name + " ") + (d.Skill(best) > 0 ? $"{Tables.LaborName(best)} {d.Skill(best)}" : "peasant"), 14, UITheme.Dim);
             prof.CustomMinimumSize = new Vector2(150, 0);
             h.AddChild(prof);
             Label act = UITheme.L(d.Dead ? $"Dead ({d.DeathCause})" : d.Activity, 14, d.Dead ? UITheme.Bad : UITheme.Text);
@@ -547,7 +550,7 @@ public partial class MilitaryPanel : Overlay
                 n.CustomMinimumSize = new Vector2(220, 0);
                 m.AddChild(n);
                 m.AddChild(UITheme.L($"fighting {d.Skill(Labor.Fighting)}", 13, UITheme.Dim));
-                m.AddChild(UITheme.Bar(d.Hp / (float)Tables.MaxHp, d.Wounded ? UITheme.Bad : UITheme.Good, 60, 8));
+                m.AddChild(UITheme.Bar(d.Hp / (float)d.MaxHp, d.Wounded ? UITheme.Bad : UITheme.Good, 60, 8));
                 string kit = (F.WeaponOf(d)?.Name ?? "unarmed") + (d.Armor >= 0 ? ", armoured" : "");
                 Label k = UITheme.L(kit, 13, UITheme.Dim);
                 k.CustomMinimumSize = new Vector2(260, 0);
@@ -819,6 +822,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("Other peoples",
+            "Now and then other peoples come with the migrants. Delvlings are small, quick tunnellers who sleep anywhere and cannot leave shiny things alone -- things go missing, and the others mutter. Rootfolk are matchless farmers and brewers who grow miserable without the open sky: give them surface work. Stonekin are rare half-giants who dig with their bare hands, haul like oxen, fight hard and eat like two. Each worships its own god.");
         Section("Water and magma",
             "Ponds, cavern pools and the magma sea lie still until you dig into them -- then they pour into your tunnels, falling down shafts and spreading until level. Deep liquid cannot be walked; dwarves caught in it drown, and magma burns whatever it touches. Where water meets magma it hisses into obsidian. Floodgates (B, y) hold liquid back while shut. A well (B, o) over a shaft with water below gives clean water. Mud left by a flood will grow crops. Near magma, a magma smelter (G) and forge (J) work without fuel.");
         Section("Gods and runes",

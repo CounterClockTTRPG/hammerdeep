@@ -86,7 +86,14 @@
    magma burns wood, plants, flesh and leather. Water leaves mud, and mud grows crops.
    Floodgates (built shut), wells over a shaft with water below, magma smelter and forge
    (no fuel) beside magma. Puddles under the sky dry up.
-9. **Other races** — next.
+9. **Other races** (done) — a race is data (`Races`): body, health, pace, appetite, work
+   rates, god, quirks, names, look; each new people has one clan. Delvlings (Copperclaw):
+   small, quick, x1.3 mining, sleep anywhere, pocket loose gems, bars and figurines (and the
+   others grow suspicious); Glimmermaw of the Hoard. Rootfolk (Hollyhock): x1.5 farming,
+   x1.35 brewing, x0.6 mining; miserable after two days without the sky; Velda. Stonekin
+   (Graniteborn): twice the health, a fist like a hammer, x1.5 mining bare-handed, x1.5
+   hauling, slow, eat double; Durn. Founders are dwarves; each migrant wave has a 35% chance
+   of bringing a band of a people living near (Stonekin come rarely, alone).
 10. **The world** — next.
 
 ## The simulation

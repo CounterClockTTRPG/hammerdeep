@@ -18,12 +18,17 @@ public sealed partial class Fortress
     {
         Heal(d);
         FaithTick(d);
-        d.Hunger += d.Has("glutton") && Tick % 3 == 0 ? 2 : 1;
-        d.Thirst++;
+        RaceDef race = Races.Of(d);
+        int eat = d.Has("glutton") && Tick % 3 == 0 ? 2 : 1;
+        d.Hunger += race.Hunger == 1 ? eat : Rate(race.Hunger, d.Id) * eat;
+        d.Thirst += race.Thirst == 1 ? 1 : Rate(race.Thirst, d.Id + 7);
         if (d.Task?.Kind != TaskKind.Sleep) d.Fatigue += d.Has("lazy") && Tick % 4 == 0 ? 2 : 1;
         if (d.Hunger > Tables.StarveDeath) Kill(d, "starved to death");
         else if (d.Thirst > Tables.ThirstDeath) Kill(d, "died of thirst");
     }
+
+    /// <summary>A fractional rate per tick, paid out evenly by the clock (no dice): 0.8 is four ticks in five.</summary>
+    private int Rate(float r, int salt) => (int)(r * (Tick + salt)) - (int)(r * (Tick + salt - 1));
 
     private void Act(Dwarf d)
     {
@@ -80,7 +85,7 @@ public sealed partial class Fortress
         if (d.PathAt >= d.Path.Count - 1) { d.Path = null; Stepping.Remove(d.Id); }
         else
         {
-            int cost = Path.StepCost(d.Cell, d.Path[d.PathAt + 1]);
+            int cost = Math.Max(1, (int)(Path.StepCost(d.Cell, d.Path[d.PathAt + 1]) * Races.Of(d).Pace));
             d.MoveWait = cost;
             Stepping[d.Id] = (from, cost);
             return;
@@ -202,7 +207,7 @@ public sealed partial class Fortress
         P3 at = World.Pos(d.Cell);
         // A tool is needed: one in hand, or a free one to fetch.
         Item tool = null;
-        if (labor == Labor.Mining && d.Pick < 0) { tool = NearestFree(d, it => it.Kind == ItemKind.Pick); if (tool == null) return null; }
+        if (labor == Labor.Mining && d.Pick < 0 && !Races.Of(d).BareHands) { tool = NearestFree(d, it => it.Kind == ItemKind.Pick); if (tool == null) return null; }
         if (labor == Labor.Woodcutting && d.Axe < 0) { tool = NearestFree(d, it => it.Kind == ItemKind.Axe); if (tool == null) return null; }
         Span<int> spots = stackalloc int[16];
         var cands = new List<(int cell, int dist)>();
@@ -978,6 +983,7 @@ public sealed partial class Fortress
         {
             d.Activity = "Going to bed";
             Building bed = d.Bed >= 0 ? BuildingById(d.Bed) : null;
+            if ((bed == null || !bed.Built) && Races.Of(d).NoBed) { t.Stage = 1; return true; }
             if (bed == null || !bed.Built)
             {
                 d.Bed = -1;
@@ -999,7 +1005,7 @@ public sealed partial class Fortress
         if (d.Fatigue > 0) return true;
         d.Fatigue = 0;
         if (t.Building >= 0) AddThought(d, d.Bed == t.Building ? "slept_own" : "slept_bed");
-        else AddThought(d, "slept_floor");
+        else if (!Races.Of(d).NoBed) AddThought(d, "slept_floor");
         return false;
     }
 

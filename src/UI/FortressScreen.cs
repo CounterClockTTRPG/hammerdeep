@@ -298,7 +298,8 @@ public partial class FortressScreen : Control
         _date.Text = $"{F.Date}  ·  {TimeOfDay()}";
         for (int k = 0; k < 4; k++) _speedButtons[k].SetPressedNoSignal(Speed == k);
         int idle = F.Living.Count(d => d.Activity == "Idle");
-        _stats.Text = $"{F.Alive} dwarves ({idle} idle)  ·  {F.Items.Values.Count(i => i.Kind == ItemKind.Drink)} ale  ·  {F.Items.Values.Count(i => Tables.Matches("food", i))} food  ·  wealth {F.Wealth}";
+        bool mixed = F.Living.Any(d => d.Race is not (null or "dwarf"));
+        _stats.Text = $"{F.Alive} {(mixed ? "folk" : "dwarves")} ({idle} idle)  ·  {F.Items.Values.Count(i => i.Kind == ItemKind.Drink)} ale  ·  {F.Items.Values.Count(i => Tables.Matches("food", i))} food  ·  wealth {F.Wealth}";
         _depth.Text = $"{DepthName(Map.Z)}  (z {Map.Z})";
         foreach (var kv in _toolButtons) kv.Value.SetPressedNoSignal(kv.Key == Tool);
         _alarm.SetPressedNoSignal(F.Alarm);

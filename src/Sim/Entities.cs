@@ -92,8 +92,14 @@ public sealed class Dwarf
 {
     public int Id;
     public string Name, Clan;
+    /// <summary>Which people: dwarf (or null, in older saves), delvling, rootfolk, stonekin.</summary>
+    public string Race;
     public int Cell;
     public bool Dead;
+    /// <summary>When a sky-lover last stood under the open sky.</summary>
+    public long LastSky;
+    /// <summary>What a Delvling has squirrelled away.</summary>
+    public int Hoard;
     public string DeathCause;
     public int Hunger, Thirst, Fatigue;
     public int Hp = Tables.MaxHp;
@@ -144,14 +150,15 @@ public sealed class Dwarf
     public List<string> MoodAsked = new();
     /// <summary>Time since they last prayed.</summary>
     public int Faith;
-    [JsonIgnore] public bool Wounded => Hp < Tables.MaxHp / 2;
+    [JsonIgnore] public int MaxHp => (int)(Tables.MaxHp * Races.Of(Race).HpMult);
+    [JsonIgnore] public bool Wounded => Hp < MaxHp / 2;
 
     public static int Level(int xp) => Math.Min(15, (int)Math.Sqrt(xp / 40.0));
     public int Skill(Labor l) => Level(Xp[(int)l]);
     public bool Can(Labor l) => Labors[(int)l];
     public bool Has(string trait) => Traits.Contains(trait);
     /// <summary>Work speed for a labor: one plus 12% per level, and the temperament.</summary>
-    public float Speed(Labor l) => (1 + 0.12f * Skill(l)) * (Has("hardworking") ? 1.2f : 1) * (Has("lazy") ? 0.8f : 1);
+    public float Speed(Labor l) => (1 + 0.12f * Skill(l)) * (Has("hardworking") ? 1.2f : 1) * (Has("lazy") ? 0.8f : 1) * Races.Of(Race).Work_(l);
     [JsonIgnore] public int Mood => Thoughts.Sum(t => t.Value);
     [JsonIgnore] public string FirstName => Name.Split(' ')[0];
 

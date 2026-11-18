@@ -65,7 +65,7 @@ public partial class SmokeTest
         Good iron = mh.Stock.First(s => s.good.Kind == ItemKind.Bar && s.good.Mat == "iron").good;
         f.ToggleRequest("mountainhome", iron);
         Check(f.Requested("mountainhome", iron), "iron bars can be asked for");
-        foreach (var (g2, _, _) in mh.Stock.Take(5)) f.ToggleRequest("mountainhome", g2);
+        foreach (var (g2, _, _) in mh.Stock.Skip(1).Take(5)) f.ToggleRequest("mountainhome", g2);
         Check(f.Requests["mountainhome"].Count <= Fortress.MaxRequests, "but only so many things");
         int lo = mh.Stock.First(s => s.good == iron).lo;
         Caravan asked = f.SendCaravan(mh);

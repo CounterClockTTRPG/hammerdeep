@@ -410,7 +410,7 @@ public sealed class Overseer
                 F.SetOrder(s, SquadOrder.Defend, new P3(_shaft.X, _shaft.Y + 2, _shaft.Z));
                 _notes.Add($"Raised a squad: {s.Name}");
             }
-            foreach (Dwarf d in F.Living.Where(d => d.Squad < 0 && !d.Wounded).OrderByDescending(d => d.Skill(Labor.Fighting) * 3 + (d.Clan == "stoneward" ? 4 : 0) - d.Skill(Labor.Mining)).Take(want - s.Members.Count))
+            foreach (Dwarf d in F.Living.Where(d => d.Squad < 0 && !d.Wounded && d.Race != "rootfolk").OrderByDescending(d => d.Skill(Labor.Fighting) * 3 + (d.Clan == "stoneward" ? 4 : 0) + (d.Race == "stonekin" ? 12 : 0) - d.Skill(Labor.Mining)).Take(want - s.Members.Count))
                 F.Enlist(s, d);
         }
         int soldiers = F.Squads.Sum(s => s.Members.Count);

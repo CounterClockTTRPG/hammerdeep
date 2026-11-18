@@ -130,6 +130,8 @@ public sealed class CreatureDef
 public sealed class ClanDef
 {
     public string Id, Name, Motto;
+    /// <summary>Whose clan it is: dwarves have four; each other people has one.</summary>
+    public string Race = "dwarf";
     public Rgb Color;
     public Labor[] Leans;
     /// <summary>The clan they hold a grudge against.</summary>
@@ -413,6 +415,10 @@ public static class Tables
         T("laid_to_rest", "saw a friend laid to rest", 4, 3);
         T("petted", "petted an animal", 3, 1);
         T("drank_well", "drank clean water from a well", 1, 1);
+        T("pocketed", "pocketed something shiny", 6, 2);
+        T("robbed", "is sure a Delvling took their things", -5, 3);
+        T("misses_sky", "has not seen the sky for too long", -8, 1);
+        T("saw_sky", "felt the open sky again", 5, 2);
         T("made_artifact", "made a legendary artifact", 30, 24);
         T("prayed", "prayed at a shrine", 5, 3);
         T("prayed_temple", "prayed at the temple", 8, 3);
@@ -463,6 +469,10 @@ public static class Tables
         C("mossbeard", "Mossbeard", 0x5d8a3a, "Every cave can be a garden.", "ironhand", Labor.Farming, Labor.Brewing, Labor.Cooking, Labor.Gathering);
         C("stoneward", "Stoneward", 0x6f7f96, "The wall does not fall.", "gemhollow", Labor.Masonry, Labor.Construction, Labor.Fighting);
         C("gemhollow", "Gemhollow", 0x9a5fb0, "What glitters is ours.", "stoneward", Labor.Crafting, Labor.Carpentry, Labor.Woodcutting);
+        C("copperclaw", "Copperclaw", 0xc0803a, "Finders keepers.", "gemhollow", Labor.Mining, Labor.Hauling, Labor.Gathering);
+        C("hollyhock", "Hollyhock", 0x6aa84f, "Plant today, drink tomorrow.", "ironhand", Labor.Farming, Labor.Brewing, Labor.Cooking);
+        C("graniteborn", "Graniteborn", 0x7d8088, "Slow, but we arrive.", "copperclaw", Labor.Mining, Labor.Hauling, Labor.Construction, Labor.Fighting);
+        foreach (var (clan, race) in new[] { ("copperclaw", "delvling"), ("hollyhock", "rootfolk"), ("graniteborn", "stonekin") }) Clan(clan).Race = race;
     }
 
     private static void Add(BuildDef b) { Buildings.Add(b); Build[b.Id] = b; }

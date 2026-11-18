@@ -66,6 +66,7 @@ public static class Save
         foreach (Dwarf d in f.Dwarves)
         {
             d.Path = null; d.MoveWait = 0;
+            d.Race ??= "dwarf";
             // Older saves knew fewer labors.
             int n = Tables.AllLabors.Length;
             if (d.Xp.Length < n) { int old = d.Xp.Length; Array.Resize(ref d.Xp, n); }

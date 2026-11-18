@@ -771,10 +771,10 @@ public partial class MapView : Node2D
             if (!view.HasPoint(at)) continue;
             if (d.Dead) continue;
             DrawDwarf(d, at, this, 1f, Time);
-            if (d.Hp < Tables.MaxHp)
+            if (d.Hp < d.MaxHp)
             {
                 DrawRect(new Rect2(at + new Vector2(-6, -11), new Vector2(12, 2)), new Color(0.1f, 0, 0));
-                DrawRect(new Rect2(at + new Vector2(-6, -11), new Vector2(12 * d.Hp / (float)Tables.MaxHp, 2)), d.Wounded ? UITheme.Bad : UITheme.Good);
+                DrawRect(new Rect2(at + new Vector2(-6, -11), new Vector2(12 * d.Hp / (float)d.MaxHp, 2)), d.Wounded ? UITheme.Bad : UITheme.Good);
             }
             if (d.Id == SelDwarf)
             {
@@ -787,9 +787,11 @@ public partial class MapView : Node2D
     public static void DrawDwarf(Dwarf d, Vector2 at, CanvasItem on, float s, float time)
     {
         ClanDef clan = Tables.Clan(d.Clan);
+        RaceDef race = Races.Of(d);
+        s *= race.Size;
         Color cloak = UITheme.C(clan.Color);
-        Color beard = Beards[d.Id % Beards.Length];
-        Color skin = new(0.92f, 0.74f, 0.6f);
+        Color beard = race.Key == "dwarf" ? Beards[d.Id % Beards.Length] : UITheme.C(race.Hair);
+        Color skin = UITheme.C(race.Skin);
         bool asleep = d.Task?.Kind == TaskKind.Sleep && d.Task.Stage >= 1;
         bool walking = d.Path != null;
         float bob = walking ? MathF.Abs(MathF.Sin(time * 14 + d.Id)) * 1.2f : 0;
@@ -805,8 +807,29 @@ public partial class MapView : Node2D
         on.DrawCircle(at + new Vector2(0, 2) * s, 5 * s, cloak.Darkened(0.25f));
         on.DrawCircle(at + new Vector2(0, 1.5f) * s, 4.2f * s, cloak);
         on.DrawCircle(at + new Vector2(0, -3) * s, 3.2f * s, skin);
-        on.DrawColoredPolygon(new[] { at + new Vector2(-3, -2.5f) * s, at + new Vector2(3, -2.5f) * s, at + new Vector2(0, 4) * s }, beard);
-        on.DrawCircle(at + new Vector2(0, -4.5f) * s, 2.6f * s, d.Pick >= 0 ? new Color(0.55f, 0.5f, 0.45f) : beard.Darkened(0.2f));
+        switch (race.Key)
+        {
+            case "delvling":
+                // A snout and a tail.
+                on.DrawCircle(at + new Vector2(0, -1.2f) * s, 1.6f * s, skin.Darkened(0.15f));
+                on.DrawLine(at + new Vector2(3, 4) * s, at + new Vector2(7, 6 + MathF.Sin(time * 6 + d.Id) * 1.5f) * s, skin.Darkened(0.3f), 1.4f * s);
+                on.DrawCircle(at + new Vector2(-1.2f, -3.6f) * s, 0.7f * s, new Color(1f, 0.85f, 0.2f));
+                on.DrawCircle(at + new Vector2(1.2f, -3.6f) * s, 0.7f * s, new Color(1f, 0.85f, 0.2f));
+                break;
+            case "rootfolk":
+                // A broad leafy cap.
+                on.DrawColoredPolygon(new[] { at + new Vector2(-5, -4) * s, at + new Vector2(5, -4) * s, at + new Vector2(0, -9) * s }, beard);
+                on.DrawCircle(at + new Vector2(0, -8.6f) * s, 1.2f * s, new Color(0.85f, 0.3f, 0.35f));
+                break;
+            case "stonekin":
+                // A heavy brow, no beard: stone does not grow hair.
+                on.DrawRect(new Rect2(at + new Vector2(-3, -5) * s, new Vector2(6, 1.6f) * s), skin.Darkened(0.35f));
+                break;
+            default:
+                on.DrawColoredPolygon(new[] { at + new Vector2(-3, -2.5f) * s, at + new Vector2(3, -2.5f) * s, at + new Vector2(0, 4) * s }, beard);
+                on.DrawCircle(at + new Vector2(0, -4.5f) * s, 2.6f * s, d.Pick >= 0 ? new Color(0.55f, 0.5f, 0.45f) : beard.Darkened(0.2f));
+                break;
+        }
         if (d.Carry >= 0) on.DrawRect(new Rect2(at + new Vector2(2.5f, -1) * s, new Vector2(4, 4) * s), new Color(0.75f, 0.6f, 0.35f));
         if (d.Task?.Kind == TaskKind.Dig && d.Task.Stage == 2 || d.Task?.Kind == TaskKind.Chop && d.Task.Stage == 2)
         {

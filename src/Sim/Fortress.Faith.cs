@@ -25,11 +25,12 @@ public sealed partial class Fortress
         new DeityDef { Key = "velda", Name = "Velda", Title = "of the Green Dark", Clan = "mossbeard", Sphere = "growing things and ale", Color = Rgb.Hex(0x6fb04a) },
         new DeityDef { Key = "durn", Name = "Durn", Title = "the Unbroken", Clan = "stoneward", Sphere = "walls and war", Color = Rgb.Hex(0x8a9ab8) },
         new DeityDef { Key = "sith", Name = "Sith", Title = "the Glimmering", Clan = "gemhollow", Sphere = "gems and wealth", Color = Rgb.Hex(0xb070d0) },
+        new DeityDef { Key = "glimmermaw", Name = "Glimmermaw", Title = "of the Hoard", Clan = "copperclaw", Sphere = "tunnels and shiny things", Color = Rgb.Hex(0xd8a020) },
         new DeityDef { Key = "sleeper", Name = "That Which Sleeps Below", Title = "", Clan = null, Sphere = "the deep, and dreams", Color = Rgb.Hex(0x40c0b0), Deep = true },
     };
 
     public static DeityDef God(string key) => Deities.FirstOrDefault(g => g.Key == key);
-    public static DeityDef GodOf(Dwarf d) => d.Has("faithless") ? null : Deities.FirstOrDefault(g => g.Clan == d.Clan);
+    public static DeityDef GodOf(Dwarf d) => d.Has("faithless") ? null : Races.Of(d).Deity is string k ? God(k) : Deities.FirstOrDefault(g => g.Clan == d.Clan);
 
     public const int PrayAt = 3500, UnprayedAt = 7500, FeastTicks = 600;
     public static readonly string[] Runes = { "striking", "warding", "delving" };

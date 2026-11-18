@@ -270,7 +270,7 @@ public sealed partial class Fortress
         d.AttackWait = Tables.AttackTicks;
         Gain(d, Labor.Fighting, 5);
         if (!Rng.Chance(hit)) return;
-        int dmg = Math.Max(1, (int)(Tables.DwarfDamage * Tables.WeaponMult(w) * (0.7 + Rng.Float() * 0.6) * (1 + 0.04f * d.Skill(Labor.Fighting))));
+        int dmg = Math.Max(1, (int)(Tables.DwarfDamage * Tables.WeaponMult(w) * Races.Of(d).Fist * (0.7 + Rng.Float() * 0.6) * (1 + 0.04f * d.Skill(Labor.Fighting))));
         c.Hp -= dmg;
         if (!c.D.Hostile) c.Angry = true;
         c.Target = d.Id;
@@ -572,7 +572,7 @@ public sealed partial class Fortress
 
     private void Heal(Dwarf d)
     {
-        if (d.Hp >= Tables.MaxHp) return;
+        if (d.Hp >= d.MaxHp) return;
         bool asleep = d.Task?.Kind == TaskKind.Sleep && d.Task.Stage >= 1;
         if (Tick % (asleep ? 6 : 30) == 0) d.Hp++;
     }
