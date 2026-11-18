@@ -1,0 +1,425 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Serialization;
+
+namespace Hammerdeep;
+
+/// <summary>
+/// The whole game as plain data: the map, the dwarves, the items, buildings,
+/// zones and the log, and the tick that moves it all. A save is this as JSON.
+/// No Godot types anywhere below here.
+/// </summary>
+public sealed partial class Fortress
+{
+    public string Name;
+    public ulong Seed;
+    public long Tick;
+    [JsonIgnore] public int Year => (int)(Tick / Tables.TicksPerYear) + 1;
+    [JsonIgnore] public int Season => (int)(Tick / Tables.TicksPerSeason % Tables.SeasonsPerYear);
+    [JsonIgnore] public int Day => (int)(Tick / Tables.TicksPerDay % Tables.DaysPerSeason) + 1;
+    [JsonIgnore] public string Date => $"{Day} {Tables.Seasons[Season]}, year {Year}";
+    [JsonIgnore] public float DayFraction => Tick % Tables.TicksPerDay / (float)Tables.TicksPerDay;
+
+    [JsonIgnore] public World World;
+    [JsonIgnore] public Pathing Path;
+    public Rng Rng;
+    public P3 Embark;
+    public int CavernZ;
+
+    public List<Dwarf> Dwarves = new();
+    public Dictionary<int, Item> Items = new();
+    public List<Building> Buildings = new();
+    public List<Zone> Zones = new();
+    public Dictionary<int, Crop> Crops = new();
+    public List<LogEntry> Log = new();
+    public int NextId = 1;
+    public bool Fallen;
+    public string FallenWhy;
+    public Dictionary<string, int> Stats = new();
+
+    /// <summary>Designation cells taken by a dwarf (cell -> dwarf id).</summary>
+    public Dictionary<int, int> Claims = new();
+    /// <summary>Stockpile cells promised to a hauler (cell -> count).</summary>
+    public Dictionary<int, int> StockPromised = new();
+    /// <summary>Designations a dwarf could not reach, by the topology they failed at.</summary>
+    [JsonIgnore] public Dictionary<int, int> Unreachable = new();
+
+    // Derived lookups, rebuilt on load.
+    [JsonIgnore] public Dictionary<int, List<int>> ItemsAt = new();
+    [JsonIgnore] public HashSet<int> Designated = new();
+    [JsonIgnore] public HashSet<int> Loose = new();
+    /// <summary>Set by the sim when something wants the player's attention: the UI pauses.</summary>
+    [JsonIgnore] public string PauseFor;
+    /// <summary>Building id at each cell, for the view and for placement.</summary>
+    [JsonIgnore] public Dictionary<int, int> BuildingAt = new();
+
+    [JsonIgnore] public int Alive => Dwarves.Count(d => !d.Dead);
+    [JsonIgnore] public IEnumerable<Dwarf> Living => Dwarves.Where(d => !d.Dead);
+
+    public void Count(string stat, int n = 1) => Stats[stat] = Stats.GetValueOrDefault(stat) + n;
+
+    // ---- making one ---------------------------------------------------------------------
+
+    public static Fortress New(string name, ulong seed, int w = WorldGen.DefaultW, int h = WorldGen.DefaultH, int d = WorldGen.DefaultD)
+    {
+        WorldGen.Result gen = WorldGen.Generate(seed, w, h, d);
+        var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ };
+        f.Attach(gen.World);
+        f.Settle();
+        return f;
+    }
+
+    /// <summary>Hook a map up: pathing and the derived lookups.</summary>
+    public void Attach(World w)
+    {
+        World = w;
+        Path = new Pathing(w);
+        RebuildIndexes();
+    }
+
+    public void RebuildIndexes()
+    {
+        ItemsAt.Clear(); Loose.Clear(); Designated.Clear(); BuildingAt.Clear();
+        foreach (Item it in Items.Values) if (it.Cell >= 0 && it.HeldBy < 0) AddAt(it);
+        for (int i = 0; i < World.N; i++) if (World.Desigs[i] != Desig.None) Designated.Add(i);
+        foreach (Building b in Buildings) IndexBuilding(b);
+        RefreshStored();
+    }
+
+    private void IndexBuilding(Building b)
+    {
+        for (int y = b.Y; y < b.Y + b.H; y++)
+            for (int x = b.X; x < b.X + b.W; x++)
+                BuildingAt[World.Idx(x, y, b.Z)] = b.Id;
+    }
+
+    /// <summary>The seven founders and their wagon's load.</summary>
+    private void Settle()
+    {
+        var clans = Tables.Clans.Select(c => c.Id).ToList();
+        Rng.Shuffle(clans);
+        // Two or three clans in the founding party: enough for a feud.
+        for (int k = 0; k < 7; k++) AddDwarf(clans[k % 3], Embark, founder: true);
+        int c0 = World.Idx(Embark);
+        void Put(ItemKind kind, string mat, int n)
+        {
+            for (int i = 0; i < n; i++) SpawnNear(kind, Tables.Mi(mat), Embark, 3);
+        }
+        Put(ItemKind.Pick, "copper", 3);
+        Put(ItemKind.Axe, "copper", 2);
+        Put(ItemKind.Plant, "ration", 40);
+        Put(ItemKind.Drink, "dimcap", 50);
+        Put(ItemKind.Seed, "dimcap", 12);
+        Put(ItemKind.Seed, "hearthwheat", 8);
+        Put(ItemKind.Seed, "bramble", 6);
+        Put(ItemKind.Log, "oak", 10);
+        Put(ItemKind.Bar, "copper", 2);
+        Put(ItemKind.Boulder, "coal", 3);
+        Say($"The expedition reaches the site of {Name}. Strike the earth!", LogKind.Good, c0);
+    }
+
+    public Dwarf AddDwarf(string clan, P3 near, bool founder = false)
+    {
+        var d = new Dwarf { Id = NextId++, Clan = clan, Female = Rng.Chance(0.5), Age = Rng.Range(30, 140), Arrived = Tick };
+        d.Name = $"{Rng.Pick(Tables.NameA)}{Rng.Pick(Tables.NameB)} {Tables.Clan(clan).Name}";
+        // Skills: the clan's crafts, plus a couple more.
+        ClanDef cd = Tables.Clan(clan);
+        foreach (Labor l in cd.Leans) if (Rng.Chance(0.6)) d.Xp[(int)l] = Rng.Range(4, 25) * 40;
+        for (int k = 0; k < 2; k++) d.Xp[(int)Rng.Pick(Tables.AllLabors)] += Rng.Range(1, 10) * 40;
+        if (founder) d.Xp[(int)Labor.Mining] = Math.Max(d.Xp[(int)Labor.Mining], Rng.Range(0, 9) * 40);
+        var traits = Tables.Traits.Select(t => t.Id).ToList();
+        Rng.Shuffle(traits);
+        d.Traits.AddRange(traits.Take(Rng.Range(1, 3)));
+        if (d.Has("hardworking") && d.Has("lazy")) d.Traits.Remove("lazy");
+        if (d.Has("sociable") && d.Has("loner")) d.Traits.Remove("loner");
+        var likeable = Tables.Mats.Where(m => m.Kind is MatKind.Rock or MatKind.Gem or MatKind.Metal).ToList();
+        d.LikesMat = Rng.Pick(likeable).Key;
+        d.Hunger = Rng.Range(0, 900); d.Thirst = Rng.Range(0, 600); d.Fatigue = Rng.Range(0, 900);
+        d.Cell = FindStandable(near, 4);
+        d.NextThink = Tick + Rng.Int(20);
+        Dwarves.Add(d);
+        return d;
+    }
+
+    /// <summary>A walkable cell near <paramref name="p"/> (searching outward), or the cell itself.</summary>
+    public int FindStandable(P3 p, int radius)
+    {
+        for (int r = 0; r <= radius + 8; r++)
+            for (int t = 0; t < 12; t++)
+            {
+                int x = p.X + Rng.Range(-r, r), y = p.Y + Rng.Range(-r, r);
+                for (int dz = 0; dz <= 2; dz++)
+                {
+                    foreach (int z in new[] { p.Z + dz, p.Z - dz })
+                        if (World.Walkable(new P3(x, y, z))) return World.Idx(x, y, z);
+                }
+            }
+        return World.Idx(p);
+    }
+
+    // ---- items --------------------------------------------------------------------------
+
+    public Item Spawn(ItemKind kind, byte mat, int cell, int quality = 0)
+    {
+        var it = new Item { Id = NextId++, Kind = kind, Mat = mat, Cell = cell, Quality = quality };
+        Items[it.Id] = it;
+        AddAt(it);
+        RefreshStored(it);
+        return it;
+    }
+
+    public Item SpawnNear(ItemKind kind, byte mat, P3 p, int radius) => Spawn(kind, mat, FindStandable(p, radius));
+
+    private void AddAt(Item it)
+    {
+        if (!ItemsAt.TryGetValue(it.Cell, out var list)) ItemsAt[it.Cell] = list = new List<int>();
+        list.Add(it.Id);
+    }
+
+    private void RemoveAt(Item it)
+    {
+        if (it.Cell >= 0 && ItemsAt.TryGetValue(it.Cell, out var list))
+        {
+            list.Remove(it.Id);
+            if (list.Count == 0) ItemsAt.Remove(it.Cell);
+        }
+    }
+
+    public IEnumerable<Item> ItemsOn(int cell)
+    {
+        if (!ItemsAt.TryGetValue(cell, out var list)) yield break;
+        foreach (int id in list) yield return Items[id];
+    }
+
+    public void PickUp(Item it, Dwarf d)
+    {
+        RemoveAt(it);
+        it.Cell = -1;
+        it.HeldBy = d.Id;
+        it.InBuilding = -1;
+        it.Stored = false;
+        Loose.Remove(it.Id);
+    }
+
+    public void Drop(Item it, int cell)
+    {
+        if (it.HeldBy > 0)
+        {
+            Dwarf d = Dwarves.FirstOrDefault(x => x.Id == it.HeldBy);
+            if (d != null) { if (d.Carry == it.Id) d.Carry = -1; if (d.Pick == it.Id) d.Pick = -1; if (d.Axe == it.Id) d.Axe = -1; }
+        }
+        RemoveAt(it);
+        it.HeldBy = -1;
+        it.Cell = cell;
+        it.InBuilding = -1;
+        AddAt(it);
+        RefreshStored(it);
+    }
+
+    /// <summary>Into a building: kept at its centre, out of the haulers' way.</summary>
+    public void PutIn(Item it, Building b)
+    {
+        Drop(it, World.Idx(b.Center));
+        it.InBuilding = b.Id;
+        it.Stored = false;
+        Loose.Remove(it.Id);
+        b.Parts.Add(it.Id);
+    }
+
+    public void Destroy(Item it)
+    {
+        if (it.HeldBy > 0)
+        {
+            Dwarf d = DwarfById(it.HeldBy);
+            if (d != null) { if (d.Carry == it.Id) d.Carry = -1; if (d.Pick == it.Id) d.Pick = -1; if (d.Axe == it.Id) d.Axe = -1; }
+        }
+        RemoveAt(it);
+        Loose.Remove(it.Id);
+        foreach (Building b in Buildings) b.Parts.Remove(it.Id);
+        Items.Remove(it.Id);
+    }
+
+    public Zone StockpileAt(int cell)
+    {
+        P3 p = World.Pos(cell);
+        foreach (Zone z in Zones) if (z.Kind == ZoneKind.Stockpile && z.Contains(p.X, p.Y, p.Z)) return z;
+        return null;
+    }
+
+    public void RefreshStored(Item it)
+    {
+        if (it.Cell < 0 || it.HeldBy >= 0 || it.InBuilding >= 0) { it.Stored = false; Loose.Remove(it.Id); return; }
+        Zone z = StockpileAt(it.Cell);
+        it.Stored = z != null && (z.Cats & it.Def.Cat) != 0;
+        if (it.Stored) Loose.Remove(it.Id); else Loose.Add(it.Id);
+    }
+
+    public void RefreshStored() { foreach (Item it in Items.Values) RefreshStored(it); }
+
+    public int Capacity(Item it) => it.Def.Small ? 4 : 1;
+
+    /// <summary>Items lying on a stockpile cell, plus the ones promised to it.</summary>
+    public int StockLoad(int cell) => (ItemsAt.TryGetValue(cell, out var l) ? l.Count : 0) + StockPromised.GetValueOrDefault(cell);
+
+    [JsonIgnore] public int Wealth
+    {
+        get
+        {
+            int v = Items.Values.Where(i => i.Kind != ItemKind.Corpse).Sum(i => i.Value);
+            v += Buildings.Where(b => b.Built).Sum(b => b.Parts.Count * 2 + 10);
+            return v;
+        }
+    }
+
+    // ---- the log ------------------------------------------------------------------------
+
+    public void Say(string text, LogKind kind = LogKind.Info, int cell = -1)
+    {
+        Log.Add(new LogEntry { Tick = Tick, Text = text, Kind = kind, Cell = cell });
+        if (Log.Count > 400) Log.RemoveRange(0, Log.Count - 400);
+        if (kind == LogKind.Alert) PauseFor = text;
+    }
+
+    public Dwarf DwarfById(int id) => Dwarves.FirstOrDefault(d => d.Id == id);
+    public Building BuildingById(int id) => Buildings.FirstOrDefault(b => b.Id == id);
+    public Building BuildingOn(int cell) => BuildingAt.TryGetValue(cell, out int id) ? BuildingById(id) : null;
+
+    // ---- time ---------------------------------------------------------------------------
+
+    /// <summary>One tick of the world.</summary>
+    public void Step()
+    {
+        if (Fallen) return;
+        Tick++;
+        // Many dwarves move per tick; a tick never sees a half-updated map.
+        foreach (Dwarf d in Dwarves)
+        {
+            if (d.Dead) continue;
+            Needs(d);
+            if (d.Dead) continue;
+            Act(d);
+        }
+        if (Tick % 50 == 0) Growth();
+        if (Tick % 100 == 0) Moods();
+        if (Tick % Tables.TicksPerSeason == 0) NewSeason();
+        if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
+        if (Alive == 0 && !Fallen)
+        {
+            Fallen = true;
+            FallenWhy = Dwarves.Count > 0 ? "The last dwarf has died." : "No one is left.";
+            Say($"{Name} has fallen. {FallenWhy}", LogKind.Alert);
+        }
+    }
+
+    private int _lastTopo = -1;
+
+    public void Advance(int ticks)
+    {
+        for (int i = 0; i < ticks && !Fallen; i++) Step();
+    }
+
+    private void NewSeason()
+    {
+        Say($"{Tables.Seasons[Season]} has arrived (year {Year}).", LogKind.Info);
+        // Migrants follow word of a thriving hold.
+        if (Tick < Tables.TicksPerSeason || Alive == 0) return;
+        int wealth = Wealth;
+        int n = Rng.Range(1, 3) + Math.Min(12, wealth / 4000) + (Alive < 10 ? 2 : 0);
+        if (Alive + n > 220) n = Math.Max(0, 220 - Alive);
+        if (n == 0) return;
+        P3 edge = EdgeArrival();
+        var clans = Tables.Clans.Select(c => c.Id).ToList();
+        for (int k = 0; k < n; k++)
+        {
+            Dwarf d = AddDwarf(Rng.Pick(clans), edge);
+            d.Task = new Task { Kind = TaskKind.Arrive, Dest = World.Idx(Embark) };
+        }
+        Count("migrants", n);
+        Say($"{n} migrant{(n == 1 ? "" : "s")} have arrived, drawn by tales of {Name}.", LogKind.Good, World.Idx(edge));
+        foreach (Dwarf d in Living) AddThought(d, "new_arrivals");
+    }
+
+    /// <summary>A walkable cell on the map's edge that connects to the embark site.</summary>
+    public P3 EdgeArrival()
+    {
+        World.EnsureComponents();
+        int target = World.Comp[World.Idx(Embark)];
+        for (int t = 0; t < 400; t++)
+        {
+            int side = Rng.Int(4), a = Rng.Int(World.W);
+            int x = side switch { 0 => 0, 1 => World.W - 1, _ => a }, y = side switch { 2 => 0, 3 => World.H - 1, _ => a };
+            for (int z = World.D - 1; z > 0; z--)
+            {
+                int i = World.Idx(x, y, z);
+                if (World.Shapes[i] == Shape.Empty) continue;
+                if (World.Walkable(i) && World.Comp[i] == target) return new P3(x, y, z);
+                break;
+            }
+        }
+        return Embark;
+    }
+
+    // ---- moods and thoughts --------------------------------------------------------------
+
+    public void AddThought(Dwarf d, string id, int scale = 1)
+    {
+        ThoughtDef t = Tables.Thoughts[id];
+        int v = t.Value * scale;
+        if (v < 0 && d.Has("cheerful")) v = v * 2 / 3;
+        if (v < 0 && d.Has("gloomy")) v = v * 3 / 2;
+        if (v > 0 && d.Has("gloomy")) v = Math.Max(1, v * 2 / 3);
+        Thought old = d.Thoughts.FirstOrDefault(x => x.Id == id);
+        long until = Tick + (d.Has("cheerful") && v > 0 ? t.Ticks * 3 / 2 : t.Ticks);
+        if (old != null) { old.Until = until; old.Value = v; return; }
+        d.Thoughts.Add(new Thought { Id = id, Until = until, Value = v });
+    }
+
+    private void Moods()
+    {
+        foreach (Dwarf d in Living)
+        {
+            d.Thoughts.RemoveAll(t => t.Until <= Tick);
+            if (d.Hunger > Tables.StarvingAt) AddThought(d, "hungry", 2);
+            else if (d.Hunger > Tables.HungryAt) AddThought(d, "hungry");
+            if (d.Thirst > Tables.ParchedAt) AddThought(d, "thirsty", 2);
+            if (d.Has("alelover") && !d.Thoughts.Any(t => t.Id == "drank_ale") && Tick - d.Arrived > Tables.TicksPerDay * 2) AddThought(d, "no_ale");
+            int mood = d.Mood;
+            if (mood < 0) d.Stress += -mood;
+            else d.Stress = Math.Max(0, d.Stress - mood / 2 - 2);
+            d.Stress = Math.Min(d.Stress, 20000);
+            if (d.Breaking == 0 && d.Stress > 2500 && Rng.Chance(0.15))
+            {
+                d.Breaking = 300;
+                Release(d);
+                d.Task = new Task { Kind = TaskKind.Tantrum };
+                Count("tantrums");
+                Say($"{d.Name} is throwing a tantrum!", LogKind.Bad, d.Cell);
+            }
+        }
+    }
+
+    public void Kill(Dwarf d, string cause)
+    {
+        if (d.Dead) return;
+        Release(d);
+        if (d.Carry >= 0 && Items.TryGetValue(d.Carry, out Item c)) Drop(c, d.Cell);
+        if (d.Pick >= 0 && Items.TryGetValue(d.Pick, out Item p)) Drop(p, d.Cell);
+        if (d.Axe >= 0 && Items.TryGetValue(d.Axe, out Item a)) Drop(a, d.Cell);
+        d.Dead = true;
+        d.DeathCause = cause;
+        d.Activity = "Dead";
+        if (d.Bed >= 0) { Building bed = BuildingById(d.Bed); if (bed != null) bed.Owner = -1; d.Bed = -1; }
+        Item corpse = Spawn(ItemKind.Corpse, Tables.Mi("flesh"), d.Cell);
+        corpse.Label = $"corpse of {d.Name}";
+        Count("deaths");
+        Say($"{d.Name} has died: {cause}.", LogKind.Alert, d.Cell);
+        P3 at = World.Pos(d.Cell);
+        foreach (Dwarf o in Living)
+        {
+            bool friend = o.Opinion.GetValueOrDefault(d.Id) > 30;
+            if (friend) AddThought(o, "friend_died");
+            else if (World.Pos(o.Cell).Dist(at) < 12 && !o.Has("brave")) AddThought(o, "saw_death");
+        }
+    }
+}

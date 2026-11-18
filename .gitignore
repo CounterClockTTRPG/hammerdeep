@@ -1,8 +1,11 @@
+# Godot's build and import cache, regenerated on every build.
 .godot/
 bin/
 obj/
 *.user
+# Generated locally: walkthrough screenshots, agent playtest logs.
 shots/
 agent/
+# Local machine settings.
 .env
 .claude/
