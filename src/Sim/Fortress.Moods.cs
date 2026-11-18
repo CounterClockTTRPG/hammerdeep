@@ -30,7 +30,7 @@ public sealed partial class Fortress
     private void MaybeMood()
     {
         if (Tick < Tables.TicksPerSeason || Alive < 8 || Dwarves.Any(d => !d.Dead && d.Strange != null)) return;
-        if (!Rng.Chance(0.02 + 0.01 * Alive / 20.0)) return;
+        if (!Rng.Chance(0.01 + 0.005 * Alive / 20.0)) return;
         var candidates = Living.Where(d => !d.HadMood && d.Insane == null && d.Breaking == 0 && d.Squad < 0).ToList();
         if (candidates.Count == 0) return;
         StartMood(Rng.Pick(candidates));

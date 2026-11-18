@@ -489,6 +489,21 @@ public partial class MapView : Node2D
         bool busy = b.Orders.Any(o => o.Worker >= 0);
         switch (b.Def)
         {
+            case "temple":
+                for (int k = 0; k < 4; k++) DrawRect(new Rect2(inner.Position + new Vector2(3 + (k % 2) * (inner.Size.X - 10), 3 + (k / 2) * (inner.Size.Y - 10)), new Vector2(4, 4)), mc.Lightened(0.25f));
+                DrawCircle(c, 6, new Color(1f, 0.85f, 0.4f, 0.25f + 0.1f * Mathf.Sin(Time * 2)));
+                DrawCircle(c, 2.5f, new Color(1f, 0.85f, 0.4f));
+                break;
+            case "runeforge":
+                for (int k = 0; k < 3; k++)
+                {
+                    Vector2 rp = c + new Vector2(-10 + k * 10, -8);
+                    DrawLine(rp + new Vector2(-2, -3), rp + new Vector2(2, 3), new Color(0.3f, 0.95f, 1f, 0.6f + 0.4f * Mathf.Sin(Time * 3 + k)), 1.2f);
+                    DrawLine(rp + new Vector2(2, -3), rp + new Vector2(-1, 0), new Color(0.3f, 0.95f, 1f, 0.6f + 0.4f * Mathf.Sin(Time * 3 + k)), 1.2f);
+                }
+                DrawCircle(c + new Vector2(0, 3), 5, new Color(0.15f, 0.1f, 0.08f));
+                DrawCircle(c + new Vector2(0, 3), 3, busy ? new Color(0.3f, 0.9f, 1f) : new Color(0.2f, 0.35f, 0.4f));
+                break;
             case "smelter": case "forge": case "furnace": case "kitchen":
                 DrawCircle(c, 7, new Color(0.15f, 0.1f, 0.08f));
                 DrawCircle(c, 5, busy ? hot : new Color(0.35f, 0.15f, 0.1f));
@@ -536,6 +551,14 @@ public partial class MapView : Node2D
             case "chest":
                 DrawRect(new Rect2(r.Position + new Vector2(2, 4), new Vector2(12, 9)), mc.Darkened(0.2f));
                 DrawRect(new Rect2(r.Position + new Vector2(2, 4), new Vector2(12, 3)), dark);
+                break;
+            case "shrine":
+                DeityDef god = Fortress.God(b.Deity);
+                Color gc = god != null ? UITheme.C(god.Color) : new Color(1, 0.8f, 0.4f);
+                DrawRect(new Rect2(r.Position + new Vector2(3, 7), new Vector2(10, 7)), mc.Darkened(0.2f));
+                DrawRect(new Rect2(r.Position + new Vector2(2, 6), new Vector2(12, 2)), mc.Lightened(0.1f));
+                DrawCircle(c + new Vector2(0, -3 + MathF.Sin(Time * 7 + b.Id) * 0.6f), 2.4f, gc);
+                DrawCircle(c + new Vector2(0, -3), 5, new Color(gc, 0.18f));
                 break;
             case "coffin":
                 DrawColoredPolygon(new[] { r.Position + new Vector2(5, 1), r.Position + new Vector2(11, 1), r.Position + new Vector2(13, 5), r.Position + new Vector2(10, 15), r.Position + new Vector2(6, 15), r.Position + new Vector2(3, 5) }, mc.Darkened(0.2f));
@@ -589,6 +612,7 @@ public partial class MapView : Node2D
         on ??= this;
         Color mc = UITheme.C(it.M.Color);
         Color dark = mc.Darkened(0.5f);
+        if (it.Rune != null) on.DrawCircle(at, 6.5f * s, new Color(0.3f, 0.9f, 1f, 0.2f + 0.1f * MathF.Sin(Time * 4 + it.Id)));
         if (it.Artifact) { float g = 0.5f + 0.5f * MathF.Sin(Time * 3); on.DrawCircle(at, 8 * s, new Color(1f, 0.85f, 0.3f, 0.15f + 0.15f * g)); }
         switch (it.Kind)
         {

@@ -185,10 +185,10 @@ public static class Tables
     // ---- combat ------------------------------------------------------------------------
     public const int AttackTicks = 30, DwarfDamage = 9, SightRange = 16, DefendRadius = 14;
     public static readonly string[] BodyParts = { "head", "left arm", "right arm", "left leg", "right leg", "upper body", "lower body", "beard", "left hand", "right foot" };
-    public static float WeaponMult(Item w) => w == null ? 0.7f : (w.Kind switch { ItemKind.Weapon => 1.9f, ItemKind.Axe => 1.5f, ItemKind.Pick => 1.3f, _ => 1f }) * MetalMult(w) * (1 + 0.08f * w.Quality);
+    public static float WeaponMult(Item w) => w == null ? 0.7f : (w.Kind switch { ItemKind.Weapon => 1.9f, ItemKind.Axe => 1.5f, ItemKind.Pick => 1.3f, _ => 1f }) * MetalMult(w) * (1 + 0.08f * w.Quality) * (w.Rune == "striking" ? 1.4f : 1f);
     public static float MetalMult(Item i) => i.M.Key switch { "iron" => 1.25f, "bronze" => 1.15f, "silver" => 0.95f, "gold" => 0.85f, "leather" => 0.55f, _ => 1f };
     /// <summary>The share of each blow that armour stops.</summary>
-    public static float ArmorStop(Item armor, Item helm) => (armor != null ? 0.35f * MetalMult(armor) : 0) + (helm != null ? 0.1f * MetalMult(helm) : 0);
+    public static float ArmorStop(Item armor, Item helm) => Math.Min(0.75f, (armor != null ? 0.35f * MetalMult(armor) + (armor.Rune == "warding" ? 0.12f : 0) : 0) + (helm != null ? 0.1f * MetalMult(helm) + (helm.Rune == "warding" ? 0.08f : 0) : 0));
 
     public static readonly string[] NameA = { "Dur", "Bal", "Thra", "Kil", "Mor", "Gim", "Bor", "Har", "Dun", "Fal", "Grim", "Thor", "Nal", "Ov", "Brun", "Eld", "Tor", "Kaz", "Rud", "Sig", "Ulf", "Ast", "Dag", "Hel", "Ing", "Ket", "Lod", "Mab", "Os", "Vod" };
     public static readonly string[] NameB = { "in", "ak", "ur", "ek", "im", "or", "an", "ola", "rik", "unn", "ga", "dis", "ra", "da", "ul", "eth", "va", "om", "ri", "a" };
@@ -317,6 +317,9 @@ public static class Tables
         B("door", "Door", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '+', "d", "Keeps things out (soon).", new Need("door"));
         B("chest", "Chest", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'c', "c", "Somewhere to keep things.", new Need("chest"));
         B("statue", "Statue", BuildKind.Furniture, 1, 1, Labor.Construction, 80, '&', "s", "Dwarves admire fine statues.", new Need("statue"));
+        B("shrine", "Shrine", BuildKind.Furniture, 1, 1, Labor.Construction, 120, 'i', "i", "A small altar to one god, where its faithful pray.", new Need("stone"));
+        B("temple", "Temple", BuildKind.Workshop, 3, 3, Labor.Construction, 600, 'A', "A", "A house for all the gods: anyone may pray here, the prayers are stronger, it holds the Feast of the Founding each Thaw and can calm restless spirits.", new Need("buildmat", 4));
+        B("runeforge", "Runeforge", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'Q', "Q", "Carves the old runes into weapons, armour and picks, with a gem. The runes must first be found in the deep.", new Need("stone", 2), new Need("gem"));
         B("coffin", "Coffin", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '0', "o", "A resting place for one of the dead. Dig a quiet tomb for them.", new Need("coffin"));
         B("bridge", "Drawbridge", BuildKind.Furniture, 1, 1, Labor.Construction, 150, '=', "g", "Spans a gap or sits on a floor. Raised, it drops whatever is on it into the gap, or seals the way.", new Need("mechanism"), new Need("buildmat"));
         B("trap", "Stonefall trap", BuildKind.Furniture, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself.", new Need("mechanism"), new Need("stone"));
@@ -346,6 +349,9 @@ public static class Tables
         R("lhelm", "Leather cap", "leatherworks", Labor.Leatherwork, 250, new[] { new Need("leather") }, new Output(ItemKind.Helm));
         R("bonecraft", "Bone carving", "craftsdwarf", Labor.Crafting, 250, new[] { new Need("bone") }, new Output(ItemKind.Craft, 2));
         R("omelette", "Cook eggs and meat", "kitchen", Labor.Cooking, 200, new[] { new Need("cookable"), new Need("cookable") }, new Output(ItemKind.Meal, 3));
+        R("rune_strike", "Rune of striking (weapon)", "runeforge", Labor.Crafting, 800, new[] { new Need("runeweapon"), new Need("gem") });
+        R("rune_ward", "Rune of warding (armour, helm or shield)", "runeforge", Labor.Crafting, 800, new[] { new Need("wardable"), new Need("gem") });
+        R("rune_delve", "Rune of delving (pick)", "runeforge", Labor.Crafting, 800, new[] { new Need("runepick"), new Need("gem") });
         R("scoffin", "Stone coffin", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Coffin));
         R("wcoffin", "Wooden coffin", "carpenter", Labor.Carpentry, 250, Log, new Output(ItemKind.Coffin));
         R("shield", "Shield", "carpenter", Labor.Carpentry, 300, Log, new Output(ItemKind.Shield));
@@ -396,6 +402,11 @@ public static class Tables
         T("laid_to_rest", "saw a friend laid to rest", 4, 3);
         T("petted", "petted an animal", 3, 1);
         T("made_artifact", "made a legendary artifact", 30, 24);
+        T("prayed", "prayed at a shrine", 5, 3);
+        T("prayed_temple", "prayed at the temple", 8, 3);
+        T("no_prayer", "has not been able to pray", -5, 1);
+        T("feast", "enjoyed the Feast of the Founding", 12, 6);
+        T("whispers", "heard sweet whispers from the deep", 10, 3);
         T("friend_mad", "saw a friend lose their mind", -20, 8);
         T("ate_meat", "had a good bit of meat", 2, 1);
         T("unburied", "is troubled by the unburied dead", -8, 2);
@@ -414,6 +425,8 @@ public static class Tables
         Tr("loner", "Loner", "Would rather be left alone.");
         Tr("grudgeful", "Grudge-keeper", "Never forgets a clan feud.");
         Tr("artistic", "Artistic", "Crafts with flair; finer results.");
+        Tr("pious", "Pious", "Needs to pray often, and is much comforted by it.");
+        Tr("faithless", "Faithless", "Has no use for gods.");
 
         void C(string id, string name, uint color, string motto, string grudge, params Labor[] leans) =>
             Clans.Add(new ClanDef { Id = id, Name = name, Color = Rgb.Hex(color), Motto = motto, Grudge = grudge, Leans = leans });
@@ -471,8 +484,11 @@ public static class Tables
             case "gem": return it.Kind is ItemKind.RoughGem or ItemKind.CutGem;
             case "shiny": return (it.Kind == ItemKind.Bar && m.Key is "silver" or "gold") || it.Kind == ItemKind.CutGem;
             case "bar": return it.Kind == ItemKind.Bar;
+            case "wardable": return it.Kind is ItemKind.Armor or ItemKind.Helm or ItemKind.Shield && it.Rune == null;
+            case "runepick": return it.Kind == ItemKind.Pick && it.Rune == null;
         }
         if (tag == "weapon") return it.Kind is ItemKind.Weapon;
+        if (tag == "runeweapon") return it.Kind is ItemKind.Weapon && it.Rune == null;
         if (tag == "armor") return it.Kind is ItemKind.Armor;
         if (tag == "helm") return it.Kind is ItemKind.Helm;
         if (tag == "shield") return it.Kind is ItemKind.Shield;
@@ -491,6 +507,10 @@ public static class Tables
         "fuel" => "fuel (coal or charcoal)",
         "roughgem" => "rough gem",
         "toolbar" => "copper, bronze or iron bar",
+        "runeweapon" => "weapon without a rune",
+        "wardable" => "armour, helm or shield without a rune",
+        "runepick" => "pick without a rune",
+        "gem" => "gem",
         "cookable" => "meat, eggs or an edible plant",
         "brewable" => "brewable plant",
         _ when tag.StartsWith("bar:") => tag[4..] + " bar",

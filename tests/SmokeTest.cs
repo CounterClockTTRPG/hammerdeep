@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -388,6 +388,8 @@ public partial class SmokeTest : Node
         }
         GD.Print($"    herds: {string.Join(", ", f.Creatures.Where(c => c.Tame).GroupBy(c => c.Def).Select(g => g.Key + " " + g.Count()))}; births {S("births")}, eggs {S("eggs")}, slaughtered {S("slaughtered")}, butchered {S("butchered")}, starved {S("animals_starved")}, killed {S("livestock_killed")}, tamed {S("tamed")}, war-beast kills {S("beast_kills")}; buried {S("buried")}");
         GD.Print($"    trade: {S("caravans")} caravans, {S("trades")} deals worth {S("traded_value")}; standing {string.Join(", ", f.Standing.Select(kv => kv.Key + " " + kv.Value))}");
+        GD.Print($"    faith: {S("prayers")} prayers, {S("feasts")} feasts, {S("spirits_calmed")} spirits calmed, {S("runes")} runes; shrines {f.Buildings.Count(b => b.Def == "shrine" && b.Built)}, temple {f.Buildings.Any(b => b.Def == "temple" && b.Built)}, runeforge {f.Buildings.Any(b => b.Def == "runeforge" && b.Built)}; unprayed {f.Living.Count(d => d.Thoughts.Any(t => t.Id == "no_prayer"))}");
+        GD.Print($"    tombs: {f.Dwarves.Count(d => d.Dead && !d.Buried)} unburied, {f.Items.Values.Count(i => i.Kind == ItemKind.Coffin)} coffins in store, {f.Buildings.Count(b => b.Def == "coffin")} placed ({f.Buildings.Count(b => b.Def == "coffin" && b.Owner < 0 && b.Built)} empty), {f.Items.Values.Count(i => i.Kind == ItemKind.Corpse && i.Of >= 0)} dwarf corpses lying; mason orders {string.Join(",", f.Buildings.Where(b => b.Def == "mason").SelectMany(b => b.Orders).Select(o => o.Recipe + (o.Stuck != null ? "[" + o.Stuck + "]" : "")))}");
         GD.Print($"    moods {S("moods")}, artifacts {S("artifacts")}, gone mad {S("insane")}, lost {S("lost")}");
         foreach (LogEntry e in f.Log.Where(l => l.Text.Contains("demands") || l.Text.Contains("needs a") || l.Text.Contains("mood") || l.Text.Contains("possessed") || l.Text.Contains("melancholy") || l.Text.Contains("berserk") || l.Text.Contains("mad"))) GD.Print($"    mood log {Fortress.ShortDate(e.Tick)} y{e.Tick / Tables.TicksPerYear + 1}: {e.Text}");
         foreach (int id in f.Artifacts.Where(f.Items.ContainsKey)) GD.Print($"    artifact: {f.Items[id].Label}. {f.Items[id].Description}");

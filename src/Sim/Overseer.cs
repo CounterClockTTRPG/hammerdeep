@@ -99,6 +99,37 @@ public sealed class Overseer
         _notes.Add("Struck the earth: shaft, hall, bedrooms" + (_farmUnderground ? ", soil farm" : ""));
     }
 
+    /// <summary>A shrine to each clan's god in the hall, a temple when the hold is big enough, the runeforge once runes are known.</summary>
+    private void Faith()
+    {
+        var (a, b) = HallBox();
+        int k = 0;
+        foreach (string clan in F.Living.Select(d => d.Clan).Distinct().OrderBy(c => c))
+        {
+            DeityDef god = Fortress.Deities.First(g => g.Clan == clan);
+            if (!F.Buildings.Any(x => x.Def == "shrine" && x.Deity == god.Key))
+            {
+                for (int x = a.X + k * 3; x <= b.X; x++)
+                {
+                    if (F.CanPlace("shrine", x, b.Y, _hallZ) != null) continue;
+                    Building s = F.Place("shrine", x, b.Y, _hallZ);
+                    F.Dedicate(s, god.Key);
+                    break;
+                }
+            }
+            k++;
+        }
+        P3 e = F.Embark;
+        if (F.Alive >= 15 && !F.Buildings.Any(x => x.Def == "temple")) PlaceNear("temple", new P3(e.X + 6, e.Y + 9, e.Z), 12);
+        if (F.RunesKnown && !F.Buildings.Any(x => x.Def == "runeforge")) PlaceNear("runeforge", new P3(e.X - 8, e.Y - 8, e.Z), 12);
+        if (Have(i => Tables.Matches("gem", i)) > 0)
+        {
+            Order("runeforge", "rune_strike", 1, 0);
+            Order("runeforge", "rune_ward", 1, 0);
+            if (Have(i => i.Kind == ItemKind.Pick && i.Rune == "delving") + F.Living.Count(d => d.Pick >= 0 && F.Items.TryGetValue(d.Pick, out Item p) && p.Rune == "delving") < 2) Order("runeforge", "rune_delve", 1, 0);
+        }
+    }
+
     private readonly HashSet<int> _tradedWith = new();
 
     /// <summary>A depot by the wagon; at a caravan, sell the crafts and gems, buy what is short.</summary>
@@ -295,9 +326,12 @@ public sealed class Overseer
         Defend();
         Husbandry();
         Trade();
+        Faith();
         int unburied = F.Dwarves.Count(x => x.Dead && !x.Buried && F.Items.Values.Any(i => i.Of == x.Id));
         int coffins = Have(i => i.Kind == ItemKind.Coffin) + F.Buildings.Count(b => b.Def == "coffin" && b.Owner < 0);
-        Order("mason", "scoffin", unburied + 1, coffins, urgent: unburied > 0);
+        bool stone = Have(i => i.Free && Tables.Matches("stone", i)) > 2;
+        if (!stone) foreach (Building m in F.Buildings.Where(b => b.Def == "mason")) m.Orders.RemoveAll(o => o.Recipe == "scoffin" && o.Worker < 0);
+        Order(stone ? "mason" : "carpenter", stone ? "scoffin" : "wcoffin", unburied + 1, coffins + Planned(stone ? "wcoffin" : "scoffin"), urgent: unburied > 0);
         var tomb = new List<P3>();
         for (int x = _shaft.X + 3; x <= _shaft.X + 12; x++) { tomb.Add(new P3(x, _shaft.Y + 8, _hallZ)); tomb.Add(new P3(x, _shaft.Y + 7, _hallZ)); }
         PlaceFurniture(ItemKind.Coffin, "coffin", tomb);

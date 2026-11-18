@@ -250,7 +250,7 @@ public sealed partial class Fortress
         int def = FightSkill(d);
         double hit = Math.Clamp(0.6 + 0.05 * (c.D.Skill - def), 0.15, 0.92);
         if (!Rng.Chance(hit)) { Gain(d, Labor.Fighting, 2); return; }
-        if (Worn(d.Shield) != null && Rng.Chance(0.25)) { Gain(d, Labor.Fighting, 3); return; }
+        if (Worn(d.Shield) is Item sh && Rng.Chance(sh.Rune == "warding" ? 0.4 : 0.25)) { Gain(d, Labor.Fighting, 3); return; }
         float stop = Tables.ArmorStop(Worn(d.Armor), Worn(d.Helm));
         int dmg = Math.Max(1, (int)(c.D.Damage * (0.7 + Rng.Float() * 0.6) * (1 - stop)));
         bool wasWell = !d.Wounded;
@@ -429,6 +429,7 @@ public sealed partial class Fortress
     {
         if (OnDuty(d)) return PlanMilitary(d);
         if (Alarm) return new Task { Kind = TaskKind.Shelter };
+        if (Feasting && d.Insane == null && d.Strange == null) return new Task { Kind = TaskKind.Feast };
         return null;
     }
 

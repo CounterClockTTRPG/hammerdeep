@@ -353,6 +353,7 @@ public sealed partial class Fortress
     {
         Say($"{Tables.Seasons[Season]} has arrived (year {Year}).", LogKind.Info);
         SeasonalDangers();
+        if (Season == 0) NewYearRites();
         if (Season is 0 or 1) Breed();
         CaravanSeason();
         // Migrants follow word of a thriving hold.
@@ -413,6 +414,7 @@ public sealed partial class Fortress
         foreach (Dwarf d in Living)
         {
             d.Thoughts.RemoveAll(t => t.Until <= Tick);
+            FaithMoods(d);
             if (d.Hunger > Tables.StarvingAt) AddThought(d, "hungry", 2);
             else if (d.Hunger > Tables.HungryAt) AddThought(d, "hungry");
             if (d.Thirst > Tables.ParchedAt) AddThought(d, "thirsty", 2);

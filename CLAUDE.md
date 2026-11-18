@@ -40,6 +40,7 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   livestock (grazing, eggs, breeding), taming, war beasts, slaughter and butchery yields.
   `Fortress.Trade` -- the trading peoples, caravans and their merchants, the barter.
   `Fortress.Moods` -- strange moods, artifacts and their descriptions, madness, admiration.
+  `Fortress.Faith` -- the gods, prayer, shrines and the temple, the feast, runes and the Sleeper.
   `Entities` -- Item, Dwarf, Task, Building, Order, Zone, Crop, Creature, Squad. `Tables` --
   materials, items, buildings, recipes, creatures, thoughts, traits, clans, names, all the numbers. `Overseer` -- a plain-rules
   autoplayer used by the self-check's Year and the walkthrough.

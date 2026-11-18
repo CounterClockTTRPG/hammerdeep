@@ -17,6 +17,7 @@ public sealed partial class Fortress
     private void Needs(Dwarf d)
     {
         Heal(d);
+        FaithTick(d);
         d.Hunger += d.Has("glutton") && Tick % 3 == 0 ? 2 : 1;
         d.Thirst++;
         if (d.Task?.Kind != TaskKind.Sleep) d.Fatigue += d.Has("lazy") && Tick % 4 == 0 ? 2 : 1;
@@ -143,6 +144,7 @@ public sealed partial class Fortress
         if (t == null && d.Hunger > Tables.HungryAt) t = PlanEat(d);
         if (t == null && d.Fatigue > Tables.TiredAt) t = new Task { Kind = TaskKind.Sleep };
         if (t == null && d.Strange != null) t = new Task { Kind = TaskKind.Mood };
+        if (t == null && d.Strange == null) t = PlanPrayer(d);
         if (t == null && d.Insane != null) { d.Task = PlanMadness(d); return; }
         t ??= PlanOrders(d);
         if (t == null)
@@ -494,6 +496,8 @@ public sealed partial class Fortress
             case TaskKind.Equip: return DoEquip(d, t);
             case TaskKind.Bury: return DoBury(d, t);
             case TaskKind.Mood: return DoMood(d, t);
+            case TaskKind.Pray: return DoPray(d, t);
+            case TaskKind.Feast: return DoFeast(d, t);
             case TaskKind.Rampage: return DoRampage(d, t);
             case TaskKind.Tame: return DoTame(d, t);
             case TaskKind.Train: return DoTrain(d, t);
@@ -565,7 +569,7 @@ public sealed partial class Fortress
             };
             t.Stage = 2;
         }
-        t.Work += (int)(10 * d.Speed(labor));
+        t.Work += (int)(10 * d.Speed(labor) * (labor == Labor.Mining && Items.TryGetValue(d.Pick, out Item pk) && pk.Rune == "delving" ? 1.6f : 1f));
         if (t.Work < t.Total) return true;
         FinishDig(d, t.Cell, g);
         Gain(d, labor, 30);
@@ -632,7 +636,9 @@ public sealed partial class Fortress
             CavernFound = true;
             Say("You have broken into a cavern! Strange things grow here in the dark -- and something stirs.", LogKind.Alert, c);
             for (int k = 0; k < 2; k++) { int at = CavernCell(); if (at >= 0) SpawnCreature("crawler", at); }
+            LearnRunes();
         }
+        if (!RunesKnown && W.Pos(c).Z <= CavernZ) LearnRunes();
     }
 
     public bool CavernFound;
@@ -798,7 +804,7 @@ public sealed partial class Fortress
             t.Stage = 1;
             t.Total = r.Work * 10;
         }
-        t.Work += (int)(10 * d.Speed(r.Labor));
+        t.Work += (int)(10 * d.Speed(r.Labor) * (r.Shop == "runeforge" && SleeperShrine ? 2 : 1));
         if (t.Work < t.Total) return true;
         var inputs = t.Note.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).Where(Items.ContainsKey).Select(id => Items[id]).ToList();
         if (inputs.Count == 0) return false;
@@ -820,6 +826,7 @@ public sealed partial class Fortress
             }
         }
         if (r.Id == "butcher") Butcher(first, center);
+        if (r.Shop == "runeforge") CarveRune(r, inputs, center, d);
         foreach (Item it in inputs) Destroy(it);
         Gain(d, r.Labor, 40);
         Count("crafted");
@@ -1170,6 +1177,7 @@ public sealed partial class Fortress
     public string CanPlace(string def, int x, int y, int z)
     {
         BuildDef bd = Tables.Build[def];
+        if (def == "runeforge" && !RunesKnown) return "the old runes are not yet known -- dig deeper";
         for (int yy = y; yy < y + bd.H; yy++)
             for (int xx = x; xx < x + bd.W; xx++)
             {
@@ -1194,6 +1202,7 @@ public sealed partial class Fortress
     {
         if (CanPlace(def, x, y, z) != null) return null;
         var b = new Building { Id = NextId++, Def = def, X = x, Y = y, Z = z };
+        if (def == "shrine") b.Deity = DefaultDeity(z);
         Buildings.Add(b);
         IndexBuilding(b);
         for (int yy = y; yy < y + b.H; yy++) for (int xx = x; xx < x + b.W; xx++) World.Changed.Add(World.Idx(xx, yy, z));

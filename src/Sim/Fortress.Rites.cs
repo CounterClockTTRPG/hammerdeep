@@ -70,7 +70,7 @@ public sealed partial class Fortress
             if (!Items.Values.Any(i => i.Of == dead.Id)) continue;
             foreach (Dwarf o in Living)
                 if (o.Opinion.GetValueOrDefault(dead.Id) > 20 || o.Clan == dead.Clan) AddThought(o, "unburied");
-            if (!dead.Restless && lying > Tables.TicksPerSeason)
+            if (!dead.Restless && !dead.Calmed && lying > Tables.TicksPerSeason)
             {
                 dead.Restless = true;
                 Say($"The spirit of {dead.Name} walks the halls, restless and unburied!", LogKind.Alert);

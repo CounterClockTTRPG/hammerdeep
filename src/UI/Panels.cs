@@ -13,9 +13,9 @@ public partial class FortressScreen
         switch (Selected)
         {
             case Dwarf d:
-                return $"d{d.Id}:{d.Dead}:{d.Strange}:{d.Insane}:{d.MoodGot?.Count}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
+                return $"d{d.Id}:{d.Faith / 500}:{d.Dead}:{d.Strange}:{d.Insane}:{d.MoodGot?.Count}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
             case Building b:
-                return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(",", F.Caravans.Select(c => c.State))}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
+                return $"b{b.Id}:{b.Deity}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(",", F.Caravans.Select(c => c.State))}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
             case Zone z:
                 return $"z{z.Id}:{z.Cats}:{z.Crop}:{F.Zones.Contains(z)}:{(int)(F.Tick / 100)}";
             case Creature cr:
@@ -82,6 +82,9 @@ public partial class FortressScreen
         NeedBar(v, "Food", d.Hunger, Tables.HungryAt, Tables.StarvingAt);
         NeedBar(v, "Drink", d.Thirst, Tables.ThirstyAt, Tables.ParchedAt);
         NeedBar(v, "Rest", d.Fatigue, Tables.TiredAt, Tables.ExhaustedAt);
+        DeityDef god = Fortress.GodOf(d);
+        if (god != null) NeedBar(v, "Prayer", d.Faith, Fortress.PrayAt, Fortress.UnprayedAt);
+        v.AddChild(Row("Faith", UITheme.L(god == null ? "none -- faithless" : $"{god.Name} {god.Title}", 14, god == null ? UITheme.Dim : UITheme.C(god.Color))));
         Color mc = d.Mood >= 10 ? UITheme.Good : d.Mood >= 0 ? UITheme.Text : d.Mood >= -15 ? UITheme.Ember : UITheme.Bad;
         HBoxContainer mood = UITheme.H(6);
         mood.AddChild(UITheme.L($"{d.MoodWord} ({d.Mood:+0;-0;0})", 15, mc));
@@ -225,6 +228,22 @@ public partial class FortressScreen
             Item art = b.Parts.Where(F.Items.ContainsKey).Select(id => F.Items[id]).FirstOrDefault(i => i.Artifact);
             if (art != null) { v.AddChild(UITheme.L(art.Label, 16, UITheme.Gold, UITheme.Title)); v.AddChild(UITheme.Wrap(art.Description, 13, UITheme.Text, 320)); }
         }
+        if (d.Id == "shrine")
+        {
+            DeityDef god = Fortress.God(b.Deity);
+            if (god != null)
+            {
+                v.AddChild(UITheme.L(god.Deep ? god.Name : $"To {god.Name} {god.Title}", 16, UITheme.C(god.Color), UITheme.Title));
+                v.AddChild(UITheme.Wrap(god.Deep ? "The Sleeper below. Its worshippers hear sweet whispers; some wake changed. A shrine to it hastens rune work." : $"God of {god.Sphere}, worshipped by clan {Tables.Clan(god.Clan).Name}. Its faithful come here to pray.", 13, UITheme.Dim, 320));
+            }
+            HBoxContainer gods = UITheme.H(4);
+            foreach (DeityDef g in Fortress.Deities.Where(g => !g.Deep || (F.RunesKnown && b.Z <= F.CavernZ + 2)))
+                gods.AddChild(UITheme.B(g.Deep ? "Sleeper" : g.Name, () => { F.Dedicate(b, g.Key); RefreshInfo(true); }, 12, g.Deep ? "That Which Sleeps Below" : $"{g.Name} {g.Title}"));
+            v.AddChild(UITheme.L("Dedicate to:", 13, UITheme.Bronze));
+            v.AddChild(gods);
+        }
+        if (d.Id == "temple")
+            v.AddChild(UITheme.Wrap("All may pray here, and the prayers comfort more. Each Thaw the hold gathers here for the Feast of the Founding; and the temple's prayers can lay restless spirits to rest.", 13, UITheme.Dim, 320));
         if (d.Id == "depot")
         {
             Caravan c = F.Caravans.FirstOrDefault(x => x.Depot == b.Id && x.State == CaravanState.Trading);
@@ -239,7 +258,7 @@ public partial class FortressScreen
             else if (coming != null) v.AddChild(UITheme.Wrap($"A caravan from {coming.F.Name} is on its way.", 14, UITheme.Text, 320));
             else v.AddChild(UITheme.L("No caravan at present.", 14, UITheme.Faint));
         }
-        else if (d.Kind == BuildKind.Workshop) WorkshopOrders(v, b);
+        else if (d.Kind == BuildKind.Workshop && d.Id != "temple") WorkshopOrders(v, b);
         v.AddChild(UITheme.B("Take it down", () => { F.Deconstruct(b); SelectThing(null); }, 14));
     }
 
@@ -774,6 +793,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("Gods and runes",
+            "Each clan has its god -- Ankra the Anvil, Velda of the Green Dark, Durn the Unbroken, Sith the Glimmering -- and dwarves who cannot pray grow unhappy. Build shrines (B, i; click one to dedicate it) or a temple (B, A) where all may pray. Each Thaw a temple holds the Feast of the Founding, and its prayers can calm restless spirits. Delving to the caverns uncovers the old runes: a runeforge (B, Q) carves them into weapons (striking), armour, helms and shields (warding) and picks (delving), with a gem. Deep down, a shrine may be raised to That Which Sleeps Below. Its worshippers love it. It is not safe.");
         Section("Strange moods",
             "Now and then a dwarf is seized by a mood: they claim a workshop of their best craft and demand materials -- wood, stone, metal bars, leather, gems, bones, something that shines. Keep such things in store. Given all of it, they make a named artifact, worth a fortune, and become a legend at their craft; denied for eight days, they go mad -- melancholy, berserk, or off into the wild. W opens the chronicle of the hold's artifacts and great events.");
         Section("Trade",

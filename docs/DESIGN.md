@@ -51,7 +51,7 @@
    x0.9 for the rest, and mark their own goods up 35%, falling to 5% with standing. Standing
    rises with generous deals and gifts (and falls when they find no depot); it scales the
    caravans. Still to come: requests for next year, and raids on caravans.
-5. **Legendary artifacts** (done) — once a season or so (daily chance 2% + 1% per 20
+5. **Legendary artifacts** (done) — a couple of times a year (daily chance 1% + 0.5% per 20
    dwarves, from the second season, one mood at a time, once per dwarf, never a soldier) a
    dwarf is seized: fey, secretive, possessed or macabre. They claim the nearest workshop of
    their best craft (carpenter, mason, craftsdwarf, forge, leatherworks) and demand its
@@ -62,8 +62,15 @@
    Denied eight days: melancholy (no more work), berserk (attacks the others until put down),
    or stark raving mad (wanders off into the wild, never seen again). Artifact furniture
    placed stays itself. W: the chronicle -- artifacts, great events, the fallen.
-6. **Religion, rituals and magic** — clan deities, shrines and temples, a need to pray, rites
-   at the deep places, runecraft: rune-carved items with effects.
+6. **Religion, rituals and magic** (done) — each clan's god (Ankra the Anvil, Velda of the
+   Green Dark, Durn the Unbroken, Sith the Glimmering); dwarves need to pray (every 3500
+   ticks; unhappy past 7500; pious twice as often, faithless never) at a shrine to their god
+   or a temple, where anyone may pray and prayers comfort more. Each Thaw a temple holds the
+   Feast of the Founding; temple prayers may calm a restless spirit. Reaching cavern depth
+   teaches the old runes: the runeforge carves striking (weapon x1.4), warding (armour +12%,
+   helm +8%, shield blocks 40%) or delving (mining x1.6) with a gem. At depth a shrine may be
+   raised to That Which Sleeps Below: its worshippers hear sweet whispers, now and then wake
+   possessed, and it doubles the speed of rune work.
 7. **Polish** — generated portraits and banners via ../assetgen (needs the Replicate token:
    costs credits, so it waits for a go-ahead), music, balance, Windows export.
 

@@ -121,6 +121,16 @@ public partial class ShotRunner : Node
             m.ShowNames = false;
             s.ShowAlert("A sample alert: something needs your attention.", f.World.Idx(f.Embark));
             await Shot("21-alert");
+            // A shrine in the hall.
+            Building shrine = f.Buildings.FirstOrDefault(b => b.Def == "shrine" && b.Built) ?? f.Buildings.FirstOrDefault(b => b.Def == "shrine");
+            if (shrine != null)
+            {
+                m.Cam.Zoom = new Vector2(3, 3);
+                s.Jump(shrine.Center);
+                s.SelectThing(shrine);
+                await Shot("30-shrine");
+                s.SelectThing(null);
+            }
             // A strange mood, and the artifact it makes.
             Dwarf moody = f.Living.Where(x => x.Squad < 0 && !x.HadMood).OrderByDescending(x => x.Xp[(int)Labor.Masonry] + x.Xp[(int)Labor.Carpentry]).FirstOrDefault();
             if (moody != null)
