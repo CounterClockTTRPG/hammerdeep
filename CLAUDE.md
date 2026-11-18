@@ -34,8 +34,10 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   `Step()`, one tick. `World` -- the W x H x D cell arrays (shape, material, flags, designation),
   walkability and the step graph (`Neighbors`: 8-way, stairs, ramps), connected components,
   fog of war. `Pathing` -- A* and nearest-of-many over that graph with reused buffers.
-  `Entities` -- Item, Dwarf, Task, Building, Order, Zone, Crop. `Tables` -- materials, items,
-  buildings, recipes, thoughts, traits, clans, names, all the numbers. `Overseer` -- a plain-rules
+  `Fortress.Combat` -- creatures (AI, door bashing), blows and wounds, traps, spawns and raids,
+  dwarves under threat (flee; shelter on the alarm), squads and their orders.
+  `Entities` -- Item, Dwarf, Task, Building, Order, Zone, Crop, Creature, Squad. `Tables` --
+  materials, items, buildings, recipes, creatures, thoughts, traits, clans, names, all the numbers. `Overseer` -- a plain-rules
   autoplayer used by the self-check's Year and the walkthrough.
 - `src/World/WorldGen.cs` -- the embark map from a seed: heightmap with ramps, soil and rock
   layers, ore veins, gems, the cavern layer, magma, ponds, woods; the embark site.
