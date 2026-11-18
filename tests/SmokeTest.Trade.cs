@@ -60,6 +60,17 @@ public partial class SmokeTest
         f.Advance(Tables.TicksPerDay * (Fortress.TradeDays + 4));
         Check(!f.Caravans.Contains(c), "after three days the caravan leaves");
         Check(!f.Creatures.Any(x => x.Caravan == c.Id), "taking its merchants");
+        // Requests: twice as many next time.
+        FactionDef mh = Fortress.FactionDefs.First(x => x.Key == "mountainhome");
+        Good iron = mh.Stock.First(s => s.good.Kind == ItemKind.Bar && s.good.Mat == "iron").good;
+        f.ToggleRequest("mountainhome", iron);
+        Check(f.Requested("mountainhome", iron), "iron bars can be asked for");
+        foreach (var (g2, _, _) in mh.Stock.Take(5)) f.ToggleRequest("mountainhome", g2);
+        Check(f.Requests["mountainhome"].Count <= Fortress.MaxRequests, "but only so many things");
+        int lo = mh.Stock.First(s => s.good == iron).lo;
+        Caravan asked = f.SendCaravan(mh);
+        Check(asked.Goods.First(g2 => g2.Kind == ItemKind.Bar && g2.Mat == "iron").Count >= lo * 2, "and the caravan brings twice as many");
+        Check(!f.Requests.ContainsKey("mountainhome"), "the request is met");
         byte[] data = Save.Write(f);
         Fortress g = Save.Read(data);
         Eq(g.Standing.GetValueOrDefault("lowlands"), f.Standing.GetValueOrDefault("lowlands"), "standing is saved");

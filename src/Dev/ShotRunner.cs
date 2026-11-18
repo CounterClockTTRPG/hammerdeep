@@ -49,6 +49,14 @@ public partial class ShotRunner : Node
     {
         try
         {
+            if (Want("music"))
+            {
+                var mus = new Music();
+                foreach (MusicMood mood in Enum.GetValues<MusicMood>())
+                    System.IO.File.WriteAllBytes($"{_dir}/music-{mood.ToString().ToLower()}.wav", Music.Wav(mus.Render(mood, 30)));
+                mus.Free();
+                GD.Print("music written to shots/music-*.wav");
+            }
             Root.ShowTitle();
             await Frames(5);
             await Shot("01-title");

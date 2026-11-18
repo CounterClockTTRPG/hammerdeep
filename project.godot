@@ -7,6 +7,8 @@ config/name="Hammerdeep"
 config/description="Dwarven fortress management: dig, build, brew, and survive the deep."
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Mobile")
+config/icon="res://icon.png"
+config/windows_native_icon="res://icon.ico"
 
 [display]
 

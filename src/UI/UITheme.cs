@@ -35,7 +35,9 @@ public static partial class UITheme
 
     private static Font Load(string file, int weight)
     {
+        // In the project the fonts are under res://; an exported build keeps assets/ beside the executable.
         string path = $"res://assets/fonts/{file}";
+        if (!FileAccess.FileExists(path)) path = OS.GetExecutablePath().GetBaseDir() + $"/assets/fonts/{file}";
         if (!FileAccess.FileExists(path)) return ThemeDB.FallbackFont;
         var f = new FontFile { Data = FileAccess.GetFileAsBytes(path), Antialiasing = TextServer.FontAntialiasing.Gray };
         TextServer ts = TextServerManager.GetPrimaryInterface();

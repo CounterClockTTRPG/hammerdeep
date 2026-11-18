@@ -15,7 +15,7 @@ public partial class FortressScreen
             case Dwarf d:
                 return $"d{d.Id}:{d.Faith / 500}:{d.Dead}:{d.Strange}:{d.Insane}:{d.MoodGot?.Count}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
             case Building b:
-                return $"b{b.Id}:{b.Deity}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(",", F.Caravans.Select(c => c.State))}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
+                return $"b{b.Id}:{b.Deity}:{string.Join(",", F.Requests.SelectMany(r => r.Value))}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(",", F.Caravans.Select(c => c.State))}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
             case Zone z:
                 return $"z{z.Id}:{z.Cats}:{z.Crop}:{F.Zones.Contains(z)}:{(int)(F.Tick / 100)}";
             case Creature cr:
@@ -257,6 +257,21 @@ public partial class FortressScreen
             }
             else if (coming != null) v.AddChild(UITheme.Wrap($"A caravan from {coming.F.Name} is on its way.", 14, UITheme.Text, 320));
             else v.AddChild(UITheme.L("No caravan at present.", 14, UITheme.Faint));
+            v.AddChild(UITheme.L($"Ask for more next time (up to {Fortress.MaxRequests} each):", 13, UITheme.Bronze, UITheme.Title));
+            foreach (FactionDef fd in Fortress.FactionDefs)
+            {
+                v.AddChild(UITheme.L(fd.Name.ToUpperFirst(), 13, UITheme.Dim));
+                var flow = new HFlowContainer();
+                foreach (var (good, _, _) in fd.Stock)
+                {
+                    bool on = F.Requested(fd.Key, good);
+                    Button rb = UITheme.B((on ? "* " : "") + good.Name, () => { F.ToggleRequest(fd.Key, good); RefreshInfo(true); }, 11, on ? "Asked for: they will bring twice as many" : "Ask them to bring twice as many");
+                    if (on) rb.AddThemeColorOverride("font_color", UITheme.Gold);
+                    flow.AddChild(rb);
+                }
+                flow.CustomMinimumSize = new Vector2(320, 0);
+                v.AddChild(flow);
+            }
         }
         else if (d.Kind == BuildKind.Workshop && d.Id != "temple") WorkshopOrders(v, b);
         v.AddChild(UITheme.B("Take it down", () => { F.Deconstruct(b); SelectThing(null); }, 14));

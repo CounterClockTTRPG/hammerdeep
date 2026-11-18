@@ -263,6 +263,9 @@ public partial class FortressScreen : Control
             if (!Profile.Scratch) Profile.SaveFortress(F);
         }
         _names.QueueRedraw();
+        // The music follows the hold: battle when foes are close, the deep below the caverns, the hall otherwise.
+        bool fighting = F.Creatures.Any(c => !c.Dead && (c.D.Hostile || c.Angry) && !c.Tame && F.World.Pos(c.Cell).Dist(F.Embark) < 40) && F.Living.Any(d => d.Task?.Kind is TaskKind.Fight or TaskKind.Flee);
+        Music.Instance?.Play(fighting ? MusicMood.Battle : Map.Z <= F.CavernZ + 2 ? MusicMood.Deep : MusicMood.Hall);
         if (F.Fallen && Overlay is not FallenPanel) Open(new FallenPanel(this));
         if (Follow != null && !Follow.Dead)
         {
@@ -741,6 +744,9 @@ public partial class FortressScreen : Control
         var sound = new CheckBox { Text = "Sound", ButtonPressed = Profile.Current.Sound, FocusMode = FocusModeEnum.None };
         sound.Toggled += on => { Profile.Current.Sound = on; Profile.Current.Apply(); Profile.Current.Save(); };
         v.AddChild(sound);
+        var music = new CheckBox { Text = "Music", ButtonPressed = Profile.Current.MusicOn, FocusMode = FocusModeEnum.None };
+        music.Toggled += on => { Profile.Current.MusicOn = on; Music.Instance?.SetVolume(Profile.Current.MusicVolume, on); Profile.Current.Save(); };
+        v.AddChild(music);
         var alerts = new CheckBox { Text = "Pause on alerts", ButtonPressed = Profile.Current.PauseOnAlerts, FocusMode = FocusModeEnum.None };
         alerts.Toggled += on => { Profile.Current.PauseOnAlerts = on; Profile.Current.Save(); };
         v.AddChild(alerts);

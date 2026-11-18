@@ -21,6 +21,10 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
                                 scripts/agent.sh "state; key d; drag 10 10 20 20" ('help' lists
                                 commands; 'quit' closes it). Own save file (user://agent_fort.sav).
                                 Game time only passes while a command runs ('freeze off' to change).
+                                Debug: 'caravan low|mountain', 'raid N', 'mood [NAME]'.
+    bash scripts/export.sh [DIR]  Windows build (exe + pack + .NET data + assets) to DIR (default
+                                C:/temp/Hammerdeep), then the self-check against the exported exe.
+    python3 scripts/make_icon.py icon   redraw icon.png / icon.ico (needs Pillow).
 
 Machine paths default in `scripts/common.sh`; override in `.env` (see `.env.example`).
 Settings live in `user://hammerdeep.json`, the fortresses in `user://fort1.sav` .. `fort3.sav`.
@@ -52,7 +56,9 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
 - `src/UI` -- `FortressScreen` (clock, camera, tools, HUD; `Panels.cs`: info panel and the
   overlays: dwarves, labors, military, animals, trade, chronicle, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
   widget builders, `Anchor` -- always anchor a control *after* adding it).
-- `src/Core` -- `Root` (screen flow, CLI flags), `Profile` (settings, slots), `Sfx` (synthesised).
+- `src/Core` -- `Root` (screen flow, CLI flags), `Profile` (settings, slots), `Sfx` (synthesised),
+  `Music` (composed as it plays: drone, lute, bells, anvils, drums; moods Title/Hall/Deep/Battle;
+  `--shots music` writes 30 s of each to shots/music-*.wav).
 - `src/Dev` -- `ShotRunner` (the walkthrough), `AgentRunner` (remote control).
 - `tests/SmokeTest.cs` -- the self-check: rules on tiny hand-built maps, the generator over a
   real seed, a save round trip, and a whole year with the overseer plus a balance report.

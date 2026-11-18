@@ -20,6 +20,8 @@ public sealed class Profile
     public float Volume = 0.6f;
     public bool Sound = true;
     public bool PauseOnAlerts = true;
+    public bool MusicOn = true;
+    public float MusicVolume = 0.5f;
     public int LastSlot = 1;
 
     private static string SettingsPath => Scratch ? "user://scratch_settings.json" : "user://hammerdeep.json";

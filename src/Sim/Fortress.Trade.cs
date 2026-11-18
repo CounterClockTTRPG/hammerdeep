@@ -88,6 +88,17 @@ public sealed partial class Fortress
     private static Good Live(string creature) => new() { Creature = creature };
 
     public List<Caravan> Caravans = new();
+    /// <summary>What each people has been asked to bring next time (goods by name): twice as many.</summary>
+    public Dictionary<string, List<string>> Requests = new();
+    public const int MaxRequests = 3;
+
+    public bool Requested(string faction, Good g) => Requests.TryGetValue(faction, out var l) && l.Contains(g.Name);
+
+    public void ToggleRequest(string faction, Good g)
+    {
+        if (!Requests.TryGetValue(faction, out var l)) Requests[faction] = l = new List<string>();
+        if (!l.Remove(g.Name) && l.Count < MaxRequests) l.Add(g.Name);
+    }
     public Dictionary<string, int> Standing = new();
     [JsonIgnore] public Caravan Trading => Caravans.FirstOrDefault(c => c.State == CaravanState.Trading);
 
@@ -114,9 +125,10 @@ public sealed partial class Fortress
         float scale = 1 + Math.Clamp(standing, -50, 200) / 100f;
         foreach (var (good, lo, hi) in f.Stock)
         {
-            int n = (int)Math.Round(Rng.Range(lo, hi) * scale);
+            int n = (int)Math.Round(Math.Max(1, Rng.Range(lo, hi)) * scale * (Requested(f.Key, good) ? 2 : 1));
             if (n > 0) c.Goods.Add(good.Copy(n));
         }
+        if (Requests.Remove(f.Key, out var asked) && asked.Count > 0) Say($"The merchants of {f.Name} bring the {string.Join(", ", asked)} you asked for.", LogKind.Good);
         P3 at = EdgeArrival();
         for (int k = 0; k < 3; k++)
         {

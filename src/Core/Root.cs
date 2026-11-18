@@ -38,6 +38,8 @@ public partial class Root : Node
         AddChild(_ui);
         if (smoke) { AddChild(new SmokeTest { Root = this }); return; }
         AddChild(new Sfx { Name = "Sfx" });
+        AddChild(new Music { Name = "Music" });
+        Music.Instance?.SetVolume(Profile.Current.MusicVolume, Profile.Current.MusicOn);
         if (shots) { AddChild(new ShotRunner { Root = this }); return; }
         if (agent) AddChild(new AgentRunner { Root = this, Name = "Agent" });
         ShowTitle();
@@ -81,6 +83,7 @@ public partial class Root : Node
         Fortress = null;
         Clear();
         Show(new TitleScreen { Root = this });
+        Music.Instance?.Play(MusicMood.Title);
     }
 
     /// <summary>A new fortress in a slot, over whatever was there.</summary>

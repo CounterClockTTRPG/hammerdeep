@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -307,6 +307,20 @@ public partial class SmokeTest : Node
         Eq(d.Task?.Kind, TaskKind.Tantrum, "enough stress breaks into a tantrum");
         Run(f, () => d.Task?.Kind != TaskKind.Tantrum, 2000);
         Check(d.Stress < 4000, "and the tantrum lets some of it out");
+    }
+
+    private void Musick()
+    {
+        var m = new Music();
+        foreach (MusicMood mood in Enum.GetValues<MusicMood>())
+        {
+            float[] s = m.Render(mood, 8);
+            float peak = s.Max(Math.Abs);
+            double rms = Math.Sqrt(s.Average(x => (double)x * x));
+            Check(peak <= 0.81f && peak > 0.05f, $"{mood} music is in range (peak {peak:0.00})");
+            Check(rms > 0.02, $"{mood} music is not silent (rms {rms:0.000})");
+        }
+        m.Free();
     }
 
     private Fortress _gen;

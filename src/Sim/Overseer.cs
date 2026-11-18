@@ -164,6 +164,9 @@ public sealed class Overseer
             while (n < g.Count && F.AskValue(c, deal) + price <= budget) { n++; deal.Ask[g] = n; }
         }
         if (deal.Offer.Count > 0 && F.Trade(c, deal)) _notes.Add($"Traded with {c.F.Name} ({F.Date})");
+        // Ask for metal and arms from the Mountainhome, food and animals from the Lowlands.
+        foreach (var (good, _, _) in c.F.Stock.Where(s => s.good.Kind is ItemKind.Bar or ItemKind.Armor or ItemKind.Plant || s.good.Creature != null).Take(Fortress.MaxRequests))
+            if (!F.Requested(c.Faction, good)) F.ToggleRequest(c.Faction, good);
     }
 
     private P3 GrassSpot(int size)
@@ -191,8 +194,9 @@ public sealed class Overseer
         int soldiers = F.Squads.Sum(s => s.Members.Count);
         int armour = Have(i => i.Kind == ItemKind.Armor) + F.Living.Count(d => d.Armor >= 0);
         if (Have(i => i.Kind == ItemKind.Leather) >= 2) Order("leatherworks", "larmor", soldiers, armour);
+        // Caps only once the armour is seen to: armour wants two hides' worth.
         int helms = Have(i => i.Kind == ItemKind.Helm) + F.Living.Count(d => d.Helm >= 0);
-        if (Have(i => i.Kind == ItemKind.Leather) >= 1) Order("leatherworks", "lhelm", soldiers, helms);
+        if (armour >= soldiers && Have(i => i.Kind == ItemKind.Leather) >= 1) Order("leatherworks", "lhelm", soldiers, helms);
         if (Have(i => i.Kind == ItemKind.Bone) > 6) Order("craftsdwarf", "bonecraft", 3, 0);
         // Keep herds in bounds: the spare males go to the butcher.
         foreach (var herd in F.Creatures.Where(c => !c.Dead && c.Tame && !c.War).GroupBy(c => c.Def))

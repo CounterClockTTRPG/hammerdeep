@@ -37,6 +37,9 @@ public partial class TitleScreen : Control
         var sound = new CheckBox { Text = "Sound", ButtonPressed = Profile.Current.Sound, FocusMode = FocusModeEnum.None };
         sound.Toggled += on => { Profile.Current.Sound = on; Profile.Current.Apply(); Profile.Current.Save(); };
         row.AddChild(sound);
+        var music = new CheckBox { Text = "Music", ButtonPressed = Profile.Current.MusicOn, FocusMode = FocusModeEnum.None };
+        music.Toggled += on => { Profile.Current.MusicOn = on; Music.Instance?.SetVolume(Profile.Current.MusicVolume, on); Profile.Current.Save(); };
+        row.AddChild(music);
         var full = new CheckBox { Text = "Full screen (F11)", ButtonPressed = Profile.Current.Fullscreen, FocusMode = FocusModeEnum.None };
         full.Toggled += on => { Profile.Current.Fullscreen = on; Profile.Current.Apply(); Profile.Current.Save(); };
         row.AddChild(full);

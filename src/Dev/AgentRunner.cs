@@ -52,6 +52,9 @@ public partial class AgentRunner : Node
   dwarf NAME            select a dwarf by (part of) their name and centre on them
   freeze on|off         on (default): game time passes only while a command runs
   quit                  close the game
+  caravan [low|mountain]   (debug) send a caravan and wait until it reaches the depot
+  raid [N]              (debug) a grimling raid of N
+  mood [NAME]           (debug) a strange mood for a dwarf
   help";
 
     public override void _Ready()
@@ -283,7 +286,34 @@ public partial class AgentRunner : Node
                 await Frames(2);
                 return $"{d.Name}: {d.Activity}";
             }
-            case "quit": GetTree().Quit(); return "bye";
+            case "quit":
+                // Ironman, as when the window is closed.
+                if (Root.Fortress != null && !Profile.Scratch) Profile.SaveFortress(Root.Fortress);
+                GetTree().Quit();
+                return "bye";
+            case "caravan":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                FactionDef fd = Fortress.FactionDefs.FirstOrDefault(x => x.Key.StartsWith(a.Length > 1 ? a[1] : "low")) ?? throw new Exception("caravan lowlands|mountainhome");
+                Caravan cv = f.SendCaravan(fd);
+                Busy = true;
+                for (int k = 0; k < 400 && cv.State == CaravanState.Coming; k++) { f.Advance(25); await Frames(1); }
+                Busy = false;
+                return $"caravan from {fd.Name}: {cv.State}";
+            }
+            case "raid":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                f.LaunchRaid(a.Length > 1 ? I(a[1]) : 4);
+                return "raid launched";
+            }
+            case "mood":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                Dwarf d = f.Living.FirstOrDefault(x => rest.Length == 0 || x.Name.Contains(rest, StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("no such dwarf");
+                f.StartMood(d);
+                return $"{d.Name} is in a {d.Strange} mood, wanting {string.Join(", ", d.MoodNeeds)}";
+            }
             case "freeze": Frozen = a.Length < 2 || a[1] != "off"; return $"freeze {(Frozen ? "on" : "off")}";
         }
         throw new Exception($"unknown command '{a[0]}' (try help)");

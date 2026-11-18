@@ -71,8 +71,12 @@
    helm +8%, shield blocks 40%) or delving (mining x1.6) with a gem. At depth a shrine may be
    raised to That Which Sleeps Below: its worshippers hear sweet whispers, now and then wake
    possessed, and it doubles the speed of rune work.
-7. **Polish** — generated portraits and banners via ../assetgen (needs the Replicate token:
-   costs credits, so it waits for a go-ahead), music, balance, Windows export.
+7. **Polish** (mostly done) — synthesised music that follows the hold (title, hall, deep,
+   battle); a Windows export (scripts/export.sh, checked by running the self-check on the
+   exported exe) with its own icon; asking caravans for goods next year (up to three per
+   people, brought twice over); leather armour made before caps; an agent playtest of every
+   screen. Still waiting: generated portraits and banners via ../assetgen (needs a go-ahead:
+   it spends Replicate credits).
 
 ## The simulation
 
