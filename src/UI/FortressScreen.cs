@@ -655,6 +655,10 @@ public partial class FortressScreen : Control
             case 'i': Open(new Stocks(this)); return true;
             case 'k': Open(new MilitaryPanel(this)); return true;
             case 'z': Open(new AnimalsPanel(this)); return true;
+            case 'y':
+                if (F.Trading is Caravan tc) Open(new TradePanel(this, tc));
+                else Toast("No caravan is at the depot.");
+                return true;
             case 'e': Pick(Tool.Pasture); return true;
             case 'a': ToggleAlarm(); return true;
             case '?': Open(new HelpPanel(this)); return true;
@@ -666,7 +670,7 @@ public partial class FortressScreen : Control
     private bool OverlayKey(InputEventKey k)
     {
         char ch = char.ToLower((char)k.Unicode);
-        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is AnimalsPanel && ch == 'z') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
+        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is AnimalsPanel && ch == 'z') || (Overlay is TradePanel && ch == 'y') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
     }
 
     private void ShowNamesToggle() => Map.ShowNames = !Map.ShowNames;

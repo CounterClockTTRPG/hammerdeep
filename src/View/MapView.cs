@@ -641,6 +641,20 @@ public partial class MapView : Node2D
             DrawCircle(at + new Vector2(0, 4 * s), 5 * s, new Color(0, 0, 0, 0.3f));
             switch (d.Home)
             {
+                case Habitat.Visitor:
+                    if (c.Def == "trader") { DrawCircle(at + new Vector2(0, 2) * s, 5 * s, col.Darkened(0.3f)); DrawCircle(at + new Vector2(0, 1.5f) * s, 4.2f * s, col); DrawCircle(at + new Vector2(0, -3) * s, 3.2f * s, new Color(0.92f, 0.74f, 0.6f)); DrawColoredPolygon(new[] { at + new Vector2(-3, -2.5f) * s, at + new Vector2(3, -2.5f) * s, at + new Vector2(0, 4) * s }, new Color(0.75f, 0.72f, 0.68f)); }
+                    else { DrawCircle(at + new Vector2(0, 2) * s, 4.4f * s, col.Darkened(0.3f)); DrawCircle(at + new Vector2(0, 1.5f) * s, 3.8f * s, col); DrawCircle(at + new Vector2(0, -3.5f) * s, 2.8f * s, new Color(0.95f, 0.8f, 0.68f)); DrawCircle(at + new Vector2(0, -5) * s, 2.6f * s, new Color(0.35f, 0.25f, 0.15f)); }
+                    // The lead merchant brings the wagon.
+                    Caravan cv = F.Caravans.FirstOrDefault(x => x.Id == c.Caravan);
+                    if (cv != null && cv.Merchants.Count > 0 && cv.Merchants[0] == c.Id)
+                    {
+                        Vector2 w = at + new Vector2(-14, 0);
+                        DrawRect(new Rect2(w - new Vector2(8, 5), new Vector2(14, 10)), new Color(0.45f, 0.3f, 0.16f));
+                        DrawRect(new Rect2(w - new Vector2(7, 7), new Vector2(12, 4)), cv.F.Dwarven ? new Color(0.6f, 0.5f, 0.35f) : new Color(0.85f, 0.82f, 0.72f));
+                        DrawCircle(w + new Vector2(-6, 5), 2.5f, new Color(0.2f, 0.15f, 0.1f));
+                        DrawCircle(w + new Vector2(4, 5), 2.5f, new Color(0.2f, 0.15f, 0.1f));
+                    }
+                    break;
                 case Habitat.Raider:
                     DrawCircle(at + new Vector2(0, 1.5f) * s, 4.6f * s, col.Darkened(0.35f));
                     DrawCircle(at + new Vector2(0, -3) * s, 3.2f * s, col);

@@ -144,6 +144,19 @@ public partial class ShotRunner : Node
             s.Open(new AnimalsPanel(s));
             await Shot("25-animals");
             s.CloseOverlay();
+            // A caravan at the depot, and the barter.
+            Caravan cv = f.SendCaravan(Fortress.FactionDefs.First(x => x.Key == "lowlands"));
+            for (int k = 0; k < 80 && cv.State == CaravanState.Coming; k++) f.Advance(50);
+            Building dep = f.Buildings.FirstOrDefault(b => b.Def == "depot");
+            if (dep != null) { m.Cam.Zoom = new Vector2(2.6f, 2.6f); s.Jump(dep.Center); s.SelectThing(dep); }
+            s.SetSpeed(0);
+            await Shot("26-depot");
+            if (cv.State == CaravanState.Trading)
+            {
+                s.Open(new TradePanel(s, cv));
+                await Shot("27-trade");
+                s.CloseOverlay();
+            }
             GD.Print($"{_count} shots in {_dir}");
         }
         catch (Exception e) { GD.PrintErr("shots failed: " + e); }

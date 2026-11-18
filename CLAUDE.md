@@ -38,6 +38,7 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   dwarves under threat (flee; shelter on the alarm), squads and their orders.
   `Fortress.Rites` -- burial, grief and restless spirits; drawbridges. `Fortress.Animals` --
   livestock (grazing, eggs, breeding), taming, war beasts, slaughter and butchery yields.
+  `Fortress.Trade` -- the trading peoples, caravans and their merchants, the barter.
   `Entities` -- Item, Dwarf, Task, Building, Order, Zone, Crop, Creature, Squad. `Tables` --
   materials, items, buildings, recipes, creatures, thoughts, traits, clans, names, all the numbers. `Overseer` -- a plain-rules
   autoplayer used by the self-check's Year and the walkthrough.
@@ -47,7 +48,7 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   (repainted from `World.Changed`), open air showing lower levels; zones, designations,
   buildings, items and dwarves drawn over it each frame.
 - `src/UI` -- `FortressScreen` (clock, camera, tools, HUD; `Panels.cs`: info panel and the
-  overlays: dwarves, labors, military, animals, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
+  overlays: dwarves, labors, military, animals, trade, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
   widget builders, `Anchor` -- always anchor a control *after* adding it).
 - `src/Core` -- `Root` (screen flow, CLI flags), `Profile` (settings, slots), `Sfx` (synthesised).
 - `src/Dev` -- `ShotRunner` (the walkthrough), `AgentRunner` (remote control).

@@ -141,6 +141,7 @@ public sealed partial class Fortress
     {
         CreatureDef d = c.D;
         if (c.Tame) { TameThink(c); return; }
+        if (c.Caravan >= 0) { MerchantThink(c); return; }
         bool hostile = d.Hostile || c.Angry;
         if (!hostile)
         {

@@ -352,6 +352,7 @@ public sealed partial class Fortress
         Say($"{Tables.Seasons[Season]} has arrived (year {Year}).", LogKind.Info);
         SeasonalDangers();
         if (Season is 0 or 1) Breed();
+        CaravanSeason();
         // Migrants follow word of a thriving hold.
         if (Tick < Tables.TicksPerSeason || Alive == 0) return;
         int wealth = Wealth;

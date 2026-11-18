@@ -220,6 +220,8 @@ public sealed class Creature
     /// <summary>The beast it is fighting (war beasts, and raiders after livestock).</summary>
     public int Foe = -1;
     public string Name;
+    /// <summary>A merchant: which caravan.</summary>
+    public int Caravan = -1;
     public bool Adult(long tick) => tick - Born >= Tables.TicksPerYear;
     [JsonIgnore] public string Title => Name != null ? $"{Name} the {Tables.Creatures[Def].Name}" : Tables.Creatures[Def].Name;
     [JsonIgnore] public CreatureDef D => Tables.Creatures[Def];

@@ -45,7 +45,7 @@ public sealed partial class Fortress
             return;
         }
         // Livestock run from danger.
-        Creature threat = Creatures.FirstOrDefault(x => !x.Dead && (x.D.Hostile || x.Angry) && World.Pos(x.Cell).Dist(World.Pos(c.Cell)) <= 5);
+        Creature threat = Creatures.FirstOrDefault(x => !x.Dead && !x.Tame && (x.D.Hostile || x.Angry) && World.Pos(x.Cell).Dist(World.Pos(c.Cell)) <= 5);
         if (threat != null)
         {
             P3 me = World.Pos(c.Cell), them = World.Pos(threat.Cell);

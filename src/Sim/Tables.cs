@@ -102,7 +102,7 @@ public sealed class TraitDef
     public string Id, Name, Text;
 }
 
-public enum Habitat : byte { Cavern, Surface, Raider }
+public enum Habitat : byte { Cavern, Surface, Raider, Visitor }
 
 public sealed class CreatureDef
 {
@@ -253,7 +253,7 @@ public static class Tables
         AddMat("glowmoss", "glowmoss", MatKind.Plant, 0x57c4a0, 1, 1, m => { m.Edible = true; m.Underground = true; m.Grow = 4000; });
         // Flesh, provisions
         AddMat("flesh", "dwarf", MatKind.Flesh, 0xc08f70, 1, 0);
-        AddMat("ration", "travel", MatKind.Plant, 0xb08d5c, 1, 1, m => m.Edible = true);
+        AddMat("ration", "travel ration", MatKind.Plant, 0xb08d5c, 1, 1, m => m.Edible = true);
         AddMat("meat", "meat", MatKind.Flesh, 0xb0453c, 1, 2, m => m.Edible = true);
         AddMat("egg", "egg", MatKind.Flesh, 0xeadfc4, 1, 2, m => m.Edible = true);
         AddMat("hide", "hide", MatKind.Cloth, 0x8a6a4a, 1, 2);
@@ -307,6 +307,7 @@ public static class Tables
         B("forge", "Metalsmith's forge", BuildKind.Workshop, 3, 3, Labor.Construction, 400, 'F', "F", "Bars and fuel into picks, axes, weapons and armor.", new Need("stone"), new Need("stone"));
         B("kitchen", "Kitchen", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'K', "K", "Two foods into stew, which dwarves prefer.", new Need("stone"));
         B("brewery", "Brewery", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'B', "B", "One brewable plant into five ale.", new Need("stone"));
+        B("depot", "Trade depot", BuildKind.Workshop, 3, 3, Labor.Construction, 400, 'D', "D", "Where caravans set out their wares. Without one they turn back.", new Need("buildmat", 3));
         B("butcher", "Butcher's shop", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'U', "U", "Carcasses into meat, hide and bone.", new Need("stone"));
         B("tanner", "Tanner's shop", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'T', "T", "Hides into leather.", new Need("log"));
         B("leatherworks", "Leatherworks", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'L', "L", "Leather into armour and caps -- kit for soldiers when metal is short.", new Need("log"));
@@ -426,6 +427,8 @@ public static class Tables
         Cr("badger", "dire badger", Habitat.Surface, 60, 14, 4, 0.9f, 0x5a5550, false, "mauls", 0.9f, c => { c.Tamable = true; c.Trainable = true; c.Meat = 3; c.Bones = 1; c.HasHide = true; c.Litter = 2; });
         Cr("goat", "goat", Habitat.Surface, 50, 7, 2, 0.9f, 0xb8b2a6, false, "butts", 0.95f, c => { c.Tamable = true; c.Grazer = true; c.Meat = 4; c.Bones = 2; c.HasHide = true; c.Litter = 2; });
         Cr("hen", "hen", Habitat.Surface, 15, 2, 1, 1.3f, 0xe8e2d2, false, "pecks", 0.6f, c => { c.Tamable = true; c.Layer = true; c.Meat = 1; c.Bones = 1; c.Litter = 3; });
+        Cr("trader", "Mountainhome trader", Habitat.Visitor, 90, 10, 5, 1.1f, 0xb07a3a, false, "punches");
+        Cr("merchant", "Lowland merchant", Habitat.Visitor, 70, 8, 3, 1f, 0x4f7fa8, false, "slaps", 1.15f);
         Cr("raider", "grimling raider", Habitat.Raider, 70, 14, 5, 1f, 0x6f8a52, true, "hacks", 1f, c => { c.Loot = ItemKind.Weapon; c.LootMat = "copper"; c.LootChance = 0.4f; });
         Cr("brute", "grimling brute", Habitat.Raider, 140, 24, 6, 1.15f, 0x56703f, true, "clubs", 1.35f, c => { c.Bashes = true; c.Loot = ItemKind.Armor; c.LootMat = "iron"; c.LootChance = 0.5f; });
 

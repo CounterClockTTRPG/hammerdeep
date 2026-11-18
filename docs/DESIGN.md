@@ -44,8 +44,13 @@
    tanner and leatherworks for leather armour and caps; bone carvings; petting. Livestock is
    driven into the meeting hall on the alarm; raiders kill it when no dwarf is in sight.
    Caravans will bring more animals.
-4. **Trade caravans** — seasonal caravans from the mountainhome and the outside, a trade
-   depot, barter by value, requests and imports, merchants' moods.
+4. **Trade caravans** (done) — a trade depot; Lowland merchants each Highsun (food, seed,
+   wood, leather, live goats and hens) and Mountainhome dwarves each Leaffall (iron, bronze,
+   coal, arms and armour, ale, dimcap seed, mechanisms) walk in from the edge, trade three
+   days at the depot and leave. Barter by value: they pay x1.5 for the kinds they want and
+   x0.9 for the rest, and mark their own goods up 35%, falling to 5% with standing. Standing
+   rises with generous deals and gifts (and falls when they find no depot); it scales the
+   caravans. Still to come: requests for next year, and raids on caravans.
 5. **Legendary artifacts** — strange moods: a dwarf seizes a workshop and demands materials;
    success makes a named artifact (generated name and description, a story in the log),
    failure ends in madness.

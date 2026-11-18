@@ -99,6 +99,42 @@ public sealed class Overseer
         _notes.Add("Struck the earth: shaft, hall, bedrooms" + (_farmUnderground ? ", soil farm" : ""));
     }
 
+    private readonly HashSet<int> _tradedWith = new();
+
+    /// <summary>A depot by the wagon; at a caravan, sell the crafts and gems, buy what is short.</summary>
+    private void Trade()
+    {
+        if (!F.Buildings.Any(b => b.Def == "depot")) PlaceNear("depot", new P3(F.Embark.X + 8, F.Embark.Y - 8, F.Embark.Z), 12);
+        Caravan c = F.Trading;
+        if (c == null || _tradedWith.Contains(c.Id)) return;
+        _tradedWith.Add(c.Id);
+        var deal = new Fortress.Deal();
+        int soldiers = F.Squads.Sum(s => s.Members.Count);
+        foreach (Item it in F.Tradeable().Where(i => i.Def.Cat is StockCat.Finished or StockCat.Gems && i.Kind is not (ItemKind.Mechanism or ItemKind.Leather)).ToList()) deal.Offer.Add(it);
+        int pop = F.Alive;
+        int food = Have(i => Tables.Matches("food", i)), drink = Have(i => i.Kind == ItemKind.Drink);
+        bool Want(Good g) => g.Creature != null ? F.Creatures.Count(x => x.Tame && x.Def == g.Creature) < 4
+            : g.Kind switch
+            {
+                ItemKind.Bar or ItemKind.Boulder => true,
+                ItemKind.Weapon or ItemKind.Armor or ItemKind.Helm => Have(i => i.Kind == g.Kind) < soldiers,
+                ItemKind.Drink => drink < pop * 3,
+                ItemKind.Plant or ItemKind.Meat => food < pop * 6,
+                ItemKind.Log => Have(i => i.Kind == ItemKind.Log) < 10,
+                ItemKind.Seed => Have(i => i.Kind == ItemKind.Seed) < 10,
+                ItemKind.Pick => Have(i => i.Kind == ItemKind.Pick) < 3,
+                _ => false,
+            };
+        int budget = F.OfferValue(c, deal);
+        foreach (Good g in c.Goods.Where(Want))
+        {
+            int price = F.TheirPrice(c, g);
+            int n = 0;
+            while (n < g.Count && F.AskValue(c, deal) + price <= budget) { n++; deal.Ask[g] = n; }
+        }
+        if (deal.Offer.Count > 0 && F.Trade(c, deal)) _notes.Add($"Traded with {c.F.Name} ({F.Date})");
+    }
+
     private P3 GrassSpot(int size)
     {
         P3 e = F.Embark;
@@ -258,6 +294,7 @@ public sealed class Overseer
 
         Defend();
         Husbandry();
+        Trade();
         int unburied = F.Dwarves.Count(x => x.Dead && !x.Buried && F.Items.Values.Any(i => i.Of == x.Id));
         int coffins = Have(i => i.Kind == ItemKind.Coffin) + F.Buildings.Count(b => b.Def == "coffin" && b.Owner < 0);
         Order("mason", "scoffin", unburied + 1, coffins);

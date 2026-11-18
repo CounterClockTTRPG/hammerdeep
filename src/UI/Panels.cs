@@ -15,7 +15,7 @@ public partial class FortressScreen
             case Dwarf d:
                 return $"d{d.Id}:{d.Dead}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
             case Building b:
-                return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
+                return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(",", F.Caravans.Select(c => c.State))}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
             case Zone z:
                 return $"z{z.Id}:{z.Cats}:{z.Crop}:{F.Zones.Contains(z)}:{(int)(F.Tick / 100)}";
             case Creature cr:
@@ -208,7 +208,21 @@ public partial class FortressScreen
             v.AddChild(UITheme.L(dead != null ? $"Here lies {dead.Name}, {dead.DeathCause}." : "Empty, waiting.", 14, UITheme.Text));
         }
         if (d.Id == "trap") v.AddChild(UITheme.L(F.Tick >= b.ArmedAt ? "Armed." : $"Resetting ({(b.ArmedAt - F.Tick) / 10 + 1}%...)", 14, F.Tick >= b.ArmedAt ? UITheme.Good : UITheme.Ember));
-        if (d.Kind == BuildKind.Workshop) WorkshopOrders(v, b);
+        if (d.Id == "depot")
+        {
+            Caravan c = F.Caravans.FirstOrDefault(x => x.Depot == b.Id && x.State == CaravanState.Trading);
+            Caravan coming = F.Caravans.FirstOrDefault(x => x.State == CaravanState.Coming);
+            foreach (FactionDef fd in Fortress.FactionDefs)
+                v.AddChild(UITheme.Wrap($"{fd.Name.ToUpperFirst()}: standing {F.Standing.GetValueOrDefault(fd.Key)}, they come in {Tables.Seasons[fd.Season]}", 13, UITheme.Dim, 320));
+            if (c != null)
+            {
+                v.AddChild(UITheme.Wrap($"The merchants of {c.F.Name} are here for {Math.Max(0, (c.Leave - F.Tick) / Tables.TicksPerDay) + 1} more days.", 14, UITheme.Good, 320));
+                v.AddChild(UITheme.B("Trade (Y)", () => Open(new TradePanel(this, c)), 16));
+            }
+            else if (coming != null) v.AddChild(UITheme.Wrap($"A caravan from {coming.F.Name} is on its way.", 14, UITheme.Text, 320));
+            else v.AddChild(UITheme.L("No caravan at present.", 14, UITheme.Faint));
+        }
+        else if (d.Kind == BuildKind.Workshop) WorkshopOrders(v, b);
         v.AddChild(UITheme.B("Take it down", () => { F.Deconstruct(b); SelectThing(null); }, 14));
     }
 
@@ -381,7 +395,7 @@ public abstract partial class Overlay : Control
         if (Signature() != _sig) Rebuild();
     }
 
-    private void Rebuild()
+    protected void Rebuild()
     {
         _sig = Signature();
         foreach (Node n in Body.GetChildren()) n.QueueFree();
@@ -491,6 +505,92 @@ public partial class MilitaryPanel : Overlay
     {
         Vector2 c = S.Map.Cam.Position / MapView.T;
         return new P3((int)c.X, (int)c.Y, S.Map.Z);
+    }
+}
+
+public partial class TradePanel : Overlay
+{
+    private readonly Caravan _c;
+    private readonly Fortress.Deal _deal = new();
+    private string _verdict = "";
+
+    public TradePanel(FortressScreen s, Caravan c) : base(s, $"Trade with {c.F.Name}", new Vector2(1180, 600)) { _c = c; }
+
+    protected override string Signature() => $"{_c.State}:{_c.Goods.Count}:{F.Items.Count}:{_deal.Offer.Count}:{string.Join(",", _deal.Ask.Values)}:{_verdict}";
+
+    private sealed record Lot(string Name, List<Item> Items);
+
+    private List<Lot> OurLots() => F.Tradeable().GroupBy(i => i.Name)
+        .OrderByDescending(g => (_c.F.Wants & g.First().Def.Cat) != 0).ThenByDescending(g => g.Max(i => i.Value))
+        .Select(g => new Lot(g.Key, g.OrderByDescending(i => i.Value).ToList())).ToList();
+
+    protected override void Fill()
+    {
+        if (_c.State != CaravanState.Trading) { Body.AddChild(UITheme.L("The merchants have packed up.", 16, UITheme.Ember)); return; }
+        int offer = F.OfferValue(_c, _deal), ask = F.AskValue(_c, _deal);
+        HBoxContainer top = UITheme.H(16);
+        top.AddChild(UITheme.L($"You offer {offer}", 18, UITheme.Gold, UITheme.Title));
+        top.AddChild(UITheme.L($"You ask {ask}", 18, UITheme.Gold, UITheme.Title));
+        top.AddChild(UITheme.L(offer >= ask ? "" : $"(short by {ask - offer})", 15, UITheme.Ember));
+        top.AddChild(UITheme.B("Propose the deal", Propose, 16));
+        top.AddChild(UITheme.B("Clear", () => { _deal.Offer.Clear(); _deal.Ask.Clear(); _verdict = ""; Rebuild(); }, 14));
+        Body.AddChild(top);
+        Body.AddChild(UITheme.L(_verdict, 15, _verdict.StartsWith("\"") ? UITheme.Ember : UITheme.Good));
+        Body.AddChild(UITheme.Wrap($"They pay half again for {WantsText(_c.F.Wants)}; for the rest a little under worth. Their own goods cost {(int)((F.Markup(_c.Faction) - 1) * 100)}% over worth -- less, the better they think of you (standing {F.Standing.GetValueOrDefault(_c.Faction)}). Goods change hands at the depot; haulers will carry yours in.", 13, UITheme.Dim, 1140));
+        HBoxContainer cols = UITheme.H(20);
+        VBoxContainer ours = UITheme.V(2), theirs = UITheme.V(2);
+        ours.CustomMinimumSize = new Vector2(560, 0);
+        theirs.CustomMinimumSize = new Vector2(560, 0);
+        cols.AddChild(ours);
+        cols.AddChild(theirs);
+        Body.AddChild(cols);
+        ours.AddChild(UITheme.L("Your goods", 16, UITheme.Bronze, UITheme.Title));
+        foreach (Lot lot in OurLots().Take(60))
+        {
+            int chosen = lot.Items.Count(i => _deal.Offer.Contains(i));
+            int each = F.OurValue(_c, lot.Items[0]);
+            ours.AddChild(LotRow(lot.Name, chosen, lot.Items.Count, each,
+                () => { Item next = lot.Items.FirstOrDefault(i => !_deal.Offer.Contains(i)); if (next != null) _deal.Offer.Add(next); },
+                () => { Item last = lot.Items.LastOrDefault(i => _deal.Offer.Contains(i)); if (last != null) _deal.Offer.Remove(last); },
+                () => { foreach (Item i in lot.Items) if (!_deal.Offer.Contains(i)) _deal.Offer.Add(i); }));
+        }
+        theirs.AddChild(UITheme.L("Their wares", 16, UITheme.Bronze, UITheme.Title));
+        foreach (Good g in _c.Goods.ToList())
+        {
+            int chosen = _deal.Ask.GetValueOrDefault(g);
+            theirs.AddChild(LotRow(g.Name + (g.Creature != null ? " (live)" : ""), chosen, g.Count, F.TheirPrice(_c, g),
+                () => { if (_deal.Ask.GetValueOrDefault(g) < g.Count) _deal.Ask[g] = _deal.Ask.GetValueOrDefault(g) + 1; },
+                () => { if (_deal.Ask.GetValueOrDefault(g) > 0) _deal.Ask[g]--; if (_deal.Ask.GetValueOrDefault(g) == 0) _deal.Ask.Remove(g); },
+                () => _deal.Ask[g] = g.Count));
+        }
+    }
+
+    private static string WantsText(StockCat c) => string.Join(", ", Enum.GetValues<StockCat>().Where(x => x != StockCat.None && x != StockCat.All && (c & x) != 0).Select(x => x.ToString().ToLower()));
+
+    private Control LotRow(string name, int chosen, int total, int each, Action more, Action less, Action all)
+    {
+        HBoxContainer h = UITheme.H(4);
+        h.AddChild(UITheme.B("-", () => { less(); _verdict = ""; Rebuild(); }, 12));
+        Label n = UITheme.L($"{chosen}/{total}", 13, chosen > 0 ? UITheme.Gold : UITheme.Dim, UITheme.Mono);
+        n.CustomMinimumSize = new Vector2(56, 0);
+        h.AddChild(n);
+        h.AddChild(UITheme.B("+", () => { more(); _verdict = ""; Rebuild(); }, 12));
+        h.AddChild(UITheme.B("all", () => { all(); _verdict = ""; Rebuild(); }, 11));
+        Label l = UITheme.L(name, 14, UITheme.Text);
+        l.CustomMinimumSize = new Vector2(300, 0);
+        l.ClipText = true;
+        h.AddChild(l);
+        h.AddChild(UITheme.L($"{each} each", 13, UITheme.Dim, UITheme.Mono));
+        return h;
+    }
+
+    private void Propose()
+    {
+        var (ok, why) = F.Weigh(_c, _deal);
+        if (ok && F.Trade(_c, _deal)) { _deal.Offer.Clear(); _deal.Ask.Clear(); Sfx.Good(); }
+        else Sfx.Deny();
+        _verdict = why;
+        Rebuild();
     }
 }
 
@@ -624,6 +724,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("Trade",
+            "Build a trade depot (B, D). Lowland merchants come each Highsun with food, seed, wood, leather and live goats and hens; the Mountainhome sends dwarves each Leaffall with iron, coal, arms and ale. While they are at the depot, Y (or the depot's Trade button) opens the barter: pick goods on both sides and propose. They pay half again for what they want, and charge more for their own the less they know you; fair dealing and gifts raise your standing, and bigger caravans follow.");
         Section("Animals",
             "The wagon brought goats and hens. Grazers need grass: lay a pasture (E) under the sky. Hens lay eggs. Animals breed in Thaw and Highsun. Z lists them: mark beasts to slaughter, wild fellbuck and badgers to tame, tame badgers to train for war -- war beasts guard the squad's station. A butcher's shop turns carcasses into meat, hides and bones; a tanner makes leather; the leatherworks makes armour and caps from it.");
         Section("The dead",
