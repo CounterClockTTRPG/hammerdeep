@@ -1,0 +1,8 @@
+.godot/
+bin/
+obj/
+*.user
+shots/
+agent/
+.env
+.claude/
