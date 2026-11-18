@@ -28,7 +28,7 @@ public sealed partial class Fortress
     public Creature SpawnCreature(string def, int cell, bool raider = false)
     {
         CreatureDef d = Tables.Creatures[def];
-        var c = new Creature { Id = NextId++, Def = def, Cell = cell, Hp = d.Hp, Raider = raider, NextThink = Tick + Rng.Int(10) };
+        var c = new Creature { Id = NextId++, Def = def, Cell = cell, Hp = d.Hp, Raider = raider, NextThink = Tick + Rng.Int(10), Female = Rng.Chance(0.5), Born = Tick - Tables.TicksPerYear * 2 };
         if (raider) c.Leave = Tick + Tables.TicksPerDay * 5 / 2;
         Creatures.Add(c);
         return c;
@@ -49,6 +49,7 @@ public sealed partial class Fortress
             Creature c = Creatures[k];
             if (c.Dead) continue;
             if (c.AttackWait > 0) c.AttackWait--;
+            if (c.Tame && c.D.Grazer) { Graze(c); if (c.Dead) continue; }
             if (c.Path != null)
             {
                 if (--c.MoveWait > 0) continue;
@@ -139,10 +140,13 @@ public sealed partial class Fortress
     private void CreatureThink(Creature c)
     {
         CreatureDef d = c.D;
+        if (c.Tame) { TameThink(c); return; }
         bool hostile = d.Hostile || c.Angry;
         if (!hostile)
         {
             Dwarf near = NearestDwarf(c.Cell, d.Timid ? 5 : 2);
+            // The tamer, coming slowly with a handful of moss, is let near.
+            if (near != null && near.Id == c.Claim) near = null;
             if (near != null && d.Timid)
             {
                 // Bolt the other way.
@@ -173,6 +177,15 @@ public sealed partial class Fortress
         Dwarf target = c.Target >= 0 ? DwarfById(c.Target) : null;
         if (target == null || target.Dead || World.Pos(target.Cell).Dist(World.Pos(c.Cell)) > Tables.SightRange + 6) target = NearestDwarf(c.Cell, Tables.SightRange);
         c.Target = target?.Id ?? -1;
+        // A war beast in the way, or (for raiders) livestock to kill, may come first.
+        Creature beast = BeastTarget(c, target != null ? World.Pos(target.Cell).Dist(World.Pos(c.Cell)) : Tables.SightRange + 1);
+        if (beast != null)
+        {
+            c.Foe = beast.Id;
+            if (Adjacent(c.Cell, beast.Cell)) { if (c.AttackWait <= 0) { BeastHits(c, beast); c.AttackWait = Tables.AttackTicks; } }
+            else CreatureWalk(c, beast.Cell, 8000);
+            return;
+        }
         if (target != null)
         {
             if (Adjacent(c.Cell, target.Cell))
@@ -185,8 +198,31 @@ public sealed partial class Fortress
             return;
         }
         // Raiders march on the hold; beasts roam their haunts.
-        if (c.Raider && World.Pos(c.Cell).Dist(Embark) > 6) { CreatureWalk(c, World.Idx(Embark), 30000); if (c.Path != null) return; }
+        if (c.Raider && World.Pos(c.Cell).Dist(Embark) > 6) { March(c); if (c.Path != null) return; c.NextThink = Tick + 50; }
         if (Rng.Chance(0.3)) CreatureWalk(c, FindStandable(World.Pos(c.Cell), 8), 3000);
+    }
+
+    /// <summary>Raiders cross the map in legs of a couple of dozen cells, so no single search has to span it.</summary>
+    private void March(Creature c)
+    {
+        P3 at = World.Pos(c.Cell);
+        int dist = Math.Max(Math.Abs(Embark.X - at.X), Math.Abs(Embark.Y - at.Y));
+        // One long search for the whole way (followed to its end), then legs if even that fails.
+        CreatureWalk(c, World.Idx(Embark), dist <= 25 ? 20000 : 150000);
+        if (c.Path != null || dist <= 25) return;
+        World.EnsureComponents();
+        int comp = World.Comp[c.Cell];
+        for (int t = 0; t < 4 && c.Path == null; t++)
+        {
+            int step = 25 - t * 5;
+            P3 aim = new(at.X + (Embark.X - at.X) * step / dist, at.Y + (Embark.Y - at.Y) * step / dist, at.Z);
+            // The ground rises and falls: look for a standable cell in the column.
+            for (int dz = -4; dz <= 4 && c.Path == null; dz++)
+            {
+                P3 p = new(aim.X, aim.Y, aim.Z + dz);
+                if (World.Walkable(p) && World.Comp[World.Idx(p)] == comp) CreatureWalk(c, World.Idx(p), 12000);
+            }
+        }
     }
 
     private P3 EdgeNear(P3 p)
@@ -242,8 +278,13 @@ public sealed partial class Fortress
     {
         c.Dead = true;
         CStepping.Remove(c.Id);
-        Item corpse = Spawn(ItemKind.Corpse, Tables.Mi("flesh"), c.Cell);
-        corpse.Label = $"{c.D.Name} corpse";
+        if (c.D.Home == Habitat.Raider)
+        {
+            Item corpse = Spawn(ItemKind.Corpse, Tables.Mi("flesh"), c.Cell);
+            corpse.Label = $"{c.D.Name} corpse";
+        }
+        else Spawn(ItemKind.Carcass, Tables.Mi("flesh"), c.Cell).Source = c.Def;
+        if (c.Claim >= 0) { Dwarf w = DwarfById(c.Claim); if (w != null && w.Task?.Item == c.Id) { Release(w); w.Task = null; } }
         if (c.D.Loot != null && Rng.Chance(c.D.LootChance)) Spawn(c.D.Loot.Value, Tables.Mi(c.D.LootMat), c.Cell);
         Count("kills");
         string how = by == null ? "" : weapon == null ? " with bare hands" : $" with {(weapon.Kind == ItemKind.Weapon ? "a" : "their")} {weapon.Name}";
@@ -265,7 +306,7 @@ public sealed partial class Fortress
     private void CheckTrap(Creature c)
     {
         Building b = BuildingOn(c.Cell);
-        if (b == null || !b.Built || b.Def != "trap" || Tick < b.ArmedAt) return;
+        if (b == null || !b.Built || b.Def != "trap" || Tick < b.ArmedAt || c.Tame) return;
         b.ArmedAt = Tick + 400;
         int dmg = 45 + Rng.Int(40);
         c.Hp -= dmg;
@@ -397,6 +438,8 @@ public sealed partial class Fortress
             P3 m = new((meet.X0 + meet.X1) / 2, (meet.Y0 + meet.Y1) / 2, meet.Z);
             if (m.Dist(them) > 10) return FindStandable(m, 2);
         }
+        // Home to the wagon, unless that is where the danger is; otherwise just away.
+        if (Embark.Dist(them) > 10 && Embark.Dist(me) > 3) return FindStandable(Embark, 3);
         P3 away = new(Math.Clamp(me.X + Math.Sign(me.X - them.X) * 10, 1, World.W - 2), Math.Clamp(me.Y + Math.Sign(me.Y - them.Y) * 10, 1, World.H - 2), me.Z);
         return FindStandable(away, 3);
     }

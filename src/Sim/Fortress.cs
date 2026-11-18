@@ -68,6 +68,7 @@ public sealed partial class Fortress
         var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ };
         f.Attach(gen.World);
         f.Settle();
+        f.Livestock();
         f.SpawnWildlife();
         return f;
     }
@@ -350,6 +351,7 @@ public sealed partial class Fortress
     {
         Say($"{Tables.Seasons[Season]} has arrived (year {Year}).", LogKind.Info);
         SeasonalDangers();
+        if (Season is 0 or 1) Breed();
         // Migrants follow word of a thriving hold.
         if (Tick < Tables.TicksPerSeason || Alive == 0) return;
         int wealth = Wealth;

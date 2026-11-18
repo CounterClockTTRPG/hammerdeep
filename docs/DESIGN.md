@@ -27,16 +27,23 @@
    needs (food, drink, sleep), thoughts, moods, stress and tantrums, skills, labors, clans and
    feuds, friendships, migrants by wealth, the fortress falling; title, HUD, info panels,
    overlays, ironman slots; self-check, walkthrough, agent control.
-2. **Threats and combat** (done, but for the drawbridge and burial) — health and wounds;
+2. **Threats and combat** (done) — health and wounds;
    cave crawlers and deep stalkers in the caverns (woken when breached, more each season),
    fellbuck and dire badgers on the surface (badgers turn on whoever comes close); grimling
    raids from the first autumn, sized by wealth and year, brutes that batter doors down;
    squads that arm and armour themselves from the stores and stand, defend or charge;
    doors that keep beasts out and lock against everyone; stonefall traps; the alarm that
    sends civilians to the meeting hall; corpses that upset passers-by until hauled to a
-   refuse pile. Still to come: a drawbridge, tombs and burial.
-3. **Animals and husbandry** — wild animals, livestock from the wagon and caravans, pastures,
-   breeding, butchery (meat, leather, bone), a tanner and a leatherworker, pets, war beasts.
+   refuse pile, coffins and burial (the unburied are grieved, and after a season haunt the
+   hold), drawbridges that drop what stands on them into a gap or seal a floor.
+3. **Animals and husbandry** (done) — goats and hens from the wagon; grazers need grass
+   (pastures keep them on it, Deepfrost snow gives thin grazing); hens lay eggs; breeding in
+   Thaw and Highsun (herds capped at 14); taming wild fellbuck and badgers (a failed try can
+   turn a badger on its tamer); training badgers as war beasts that guard the squad's station;
+   slaughter, and carcasses from slaughter or the hunt butchered into meat, hide and bone;
+   tanner and leatherworks for leather armour and caps; bone carvings; petting. Livestock is
+   driven into the meeting hall on the alarm; raiders kill it when no dwarf is in sight.
+   Caravans will bring more animals.
 4. **Trade caravans** — seasonal caravans from the mountainhome and the outside, a trade
    depot, barter by value, requests and imports, merchants' moods.
 5. **Legendary artifacts** — strange moods: a dwarf seizes a workshop and demands materials;

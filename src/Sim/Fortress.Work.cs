@@ -125,12 +125,13 @@ public sealed partial class Fortress
         Job.Chop => Labor.Woodcutting,
         Job.Gather => Labor.Gathering,
         Job.Haul => Labor.Hauling,
+        Job.Animals => Labor.Husbandry,
         _ => Labor.Crafting,
     };
 
     private static readonly (Job job, int pri)[] Jobs =
     {
-        (Job.Bury, 34), (Job.Build, 30), (Job.Craft, 26), (Job.Farm, 26), (Job.Mine, 20), (Job.Chop, 16), (Job.Gather, 10), (Job.Haul, 6),
+        (Job.Bury, 34), (Job.Build, 30), (Job.Animals, 24), (Job.Craft, 26), (Job.Farm, 26), (Job.Mine, 20), (Job.Chop, 16), (Job.Gather, 10), (Job.Haul, 6),
     };
 
     private void Choose(Dwarf d)
@@ -167,6 +168,7 @@ public sealed partial class Fortress
                     Job.Gather => d.Can(Labor.Gathering) ? PlanDig(d, Labor.Gathering) : null,
                     Job.Haul => d.Can(Labor.Hauling) ? PlanHaul(d) : null,
                     Job.Bury => d.Can(Labor.Hauling) ? PlanBury(d) : null,
+                    Job.Animals => d.Can(Labor.Husbandry) || d.Can(Labor.Butchery) ? PlanAnimals(d) : null,
                     _ => null,
                 };
                 if (t != null) break;
@@ -428,7 +430,7 @@ public sealed partial class Fortress
 
     private Task PlanEat(Dwarf d)
     {
-        Item food = NearestFree(d, x => x.Kind == ItemKind.Meal) ?? NearestFree(d, x => x.Kind == ItemKind.Plant && x.M.Edible);
+        Item food = NearestFree(d, x => x.Kind == ItemKind.Meal) ?? NearestFree(d, x => Tables.Matches("food", x));
         if (food == null) return null;
         food.ReservedBy = d.Id;
         return new Task { Kind = TaskKind.Eat, Item = food.Id };
@@ -489,6 +491,9 @@ public sealed partial class Fortress
             case TaskKind.Duty: return DoDuty(d, t);
             case TaskKind.Equip: return DoEquip(d, t);
             case TaskKind.Bury: return DoBury(d, t);
+            case TaskKind.Tame: return DoTame(d, t);
+            case TaskKind.Train: return DoTrain(d, t);
+            case TaskKind.Slaughter: return DoSlaughter(d, t);
             case TaskKind.Arrive:
                 d.Activity = "Arriving";
                 if (t.Stage == 0) { int r = Walk(d, FindStandable(World.Pos(t.Dest), 3)); if (r == 0) { t.Stage = 1; return true; } return false; }
@@ -807,6 +812,7 @@ public sealed partial class Fortress
                 if (q >= 5) Say($"{d.Name} made a masterful {made.Name.Replace("masterful ", "")}!", LogKind.Good, center);
             }
         }
+        if (r.Id == "butcher") Butcher(first, center);
         foreach (Item it in inputs) Destroy(it);
         Gain(d, r.Labor, 40);
         Count("crafted");
@@ -861,6 +867,7 @@ public sealed partial class Fortress
         t.Item = -1;
         d.Hunger = meal ? 0 : Math.Max(0, d.Hunger - 2200);
         AddThought(d, meal ? "ate_meal" : "ate_raw", meal && d.Has("glutton") ? 2 : 1);
+        if (food.Kind == ItemKind.Meat) AddThought(d, "ate_meat");
         if (t.Building >= 0) { AddThought(d, "ate_table"); Seats.Remove(t.Building); t.Building = -1; }
         else if (Buildings.Any(b => b.Built && b.Def == "table")) AddThought(d, "ate_floor");
         Count("meals");
@@ -1038,6 +1045,7 @@ public sealed partial class Fortress
         {
             Dwarf o = Living.FirstOrDefault(x => x != d && x.Task?.Kind == TaskKind.Wander && x.Path == null && World.Pos(x.Cell).Dist(World.Pos(d.Cell)) <= 2);
             if (o != null && !d.Has("loner") && Rng.Chance(d.Has("sociable") ? 0.6 : 0.3)) Chat(d, o);
+            else if (Creatures.Any(c => !c.Dead && c.Tame && Adjacent(c.Cell, d.Cell))) { AddThought(d, "petted"); d.Activity = "Petting an animal"; }
         }
         // Idle dwarves pick up new work quickly.
         if (++t.Work >= t.Total || (t.Work % 25 == 0 && (Designated.Count > 0 || Loose.Count > 0))) return false;
@@ -1090,6 +1098,7 @@ public sealed partial class Fortress
             foreach (Order o in b.Orders) if (o.Worker == d.Id) o.Worker = -1;
         }
         foreach (var kv in Seats.Where(kv => kv.Value == d.Id).ToList()) Seats.Remove(kv.Key);
+        foreach (Creature cr in Creatures) if (cr.Claim == d.Id) cr.Claim = -1;
         if (t.Kind == TaskKind.Equip && t.Item >= 0 && Items.TryGetValue(t.Item, out Item eq) && eq.HeldBy == d.Id) Drop(eq, d.Cell);
         foreach (var kv in Crops.Where(kv => kv.Value.Claim == d.Id).ToList())
         {
@@ -1214,7 +1223,7 @@ public sealed partial class Fortress
             Crop = crop,
             Cats = StockCat.All & ~StockCat.Refuse,
         };
-        z.Name = kind switch { ZoneKind.Stockpile => $"Stockpile #{Zones.Count(q => q.Kind == ZoneKind.Stockpile) + 1}", ZoneKind.Farm => $"Farm plot #{Zones.Count(q => q.Kind == ZoneKind.Farm) + 1}", _ => "Meeting hall" };
+        z.Name = kind switch { ZoneKind.Stockpile => $"Stockpile #{Zones.Count(q => q.Kind == ZoneKind.Stockpile) + 1}", ZoneKind.Farm => $"Farm plot #{Zones.Count(q => q.Kind == ZoneKind.Farm) + 1}", ZoneKind.Pasture => $"Pasture #{Zones.Count(q => q.Kind == ZoneKind.Pasture) + 1}", _ => "Meeting hall" };
         if (kind == ZoneKind.Meeting) Zones.RemoveAll(q => q.Kind == ZoneKind.Meeting);
         Zones.Add(z);
         RefreshStored();

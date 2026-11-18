@@ -392,6 +392,7 @@ public partial class MapView : Node2D
             {
                 ZoneKind.Stockpile => new Color(0.95f, 0.82f, 0.45f),
                 ZoneKind.Farm => new Color(0.55f, 0.85f, 0.35f),
+                ZoneKind.Pasture => new Color(0.85f, 0.7f, 0.45f),
                 _ => new Color(0.55f, 0.7f, 1f),
             };
             DrawRect(r, new Color(c, sel ? 0.16f : 0.07f));
@@ -635,8 +636,8 @@ public partial class MapView : Node2D
             if (!view.HasPoint(at)) continue;
             CreatureDef d = c.D;
             Color col = UITheme.C(d.Color);
-            float s = d.Size;
-            bool foe = d.Hostile || c.Angry;
+            float s = d.Size * (c.Tame && !c.Adult(F.Tick) ? 0.65f : 1f);
+            bool foe = (d.Hostile || c.Angry) && !c.Tame;
             DrawCircle(at + new Vector2(0, 4 * s), 5 * s, new Color(0, 0, 0, 0.3f));
             switch (d.Home)
             {
@@ -658,7 +659,14 @@ public partial class MapView : Node2D
                     DrawCircle(at + new Vector2(-1, -4) * s, 0.7f * s, new Color(1, 0.3f, 0.3f));
                     DrawCircle(at + new Vector2(1, -4) * s, 0.7f * s, new Color(1, 0.3f, 0.3f));
                     break;
+                case Habitat.Surface when c.Def == "hen":
+                    DrawCircle(at + new Vector2(0, 1) * s, 4.5f * s, c.Female ? col : new Color(0.7f, 0.4f, 0.2f));
+                    DrawCircle(at + new Vector2(3, -2.5f) * s, 2.6f * s, c.Female ? col : new Color(0.75f, 0.45f, 0.2f));
+                    DrawRect(new Rect2(at + new Vector2(2, -5.5f) * s, new Vector2(2, 1.6f) * s), new Color(0.85f, 0.15f, 0.15f));
+                    DrawColoredPolygon(new[] { at + new Vector2(5.3f, -3) * s, at + new Vector2(7.5f, -2.3f) * s, at + new Vector2(5.3f, -1.6f) * s }, new Color(0.95f, 0.7f, 0.2f));
+                    break;
                 default:
+                    if (c.Def == "goat") { DrawLine(at + new Vector2(5, -4.5f) * s, at + new Vector2(3.5f, -8) * s, new Color(0.45f, 0.4f, 0.35f), 1.3f); DrawLine(at + new Vector2(6.5f, -4.5f) * s, at + new Vector2(7.5f, -8) * s, new Color(0.45f, 0.4f, 0.35f), 1.3f); }
                     DrawRect(new Rect2(at + new Vector2(-6, -2.5f) * s, new Vector2(11, 6) * s), col);
                     DrawCircle(at + new Vector2(5.5f, -2.5f) * s, 2.8f * s, col.Lightened(0.15f));
                     DrawLine(at + new Vector2(-5, 3.5f) * s, at + new Vector2(-5, 6) * s, col.Darkened(0.4f), 1.2f);
@@ -667,6 +675,9 @@ public partial class MapView : Node2D
                     break;
             }
             if (foe) DrawArc(at + new Vector2(0, 1), 8 * s, 0, Mathf.Tau, 20, new Color(1, 0.25f, 0.2f, 0.7f), 1);
+            if (c.War) DrawArc(at + new Vector2(0, 1), 7.5f * s, 0, Mathf.Tau, 20, UITheme.Gold, 1.2f);
+            if (c.MarkSlaughter) { DrawLine(at + new Vector2(-3, -12), at + new Vector2(3, -6), UITheme.Bad, 1.5f); DrawLine(at + new Vector2(3, -12), at + new Vector2(-3, -6), UITheme.Bad, 1.5f); }
+            if (c.MarkTame || c.MarkTrain) DrawCircle(at + new Vector2(0, -10), 2, c.MarkTrain ? UITheme.Gold : UITheme.Good);
             if (c.Hp < d.Hp)
             {
                 DrawRect(new Rect2(at + new Vector2(-6, -10 * s), new Vector2(12, 2)), new Color(0.1f, 0, 0));

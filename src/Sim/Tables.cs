@@ -32,6 +32,7 @@ public enum ItemKind : byte
     Boulder, Log, Block, Bar, RoughGem, CutGem, Seed, Plant, Meal, Drink, Charcoal,
     Pick, Axe, Weapon, Armor, Helm, Shield,
     Bed, Table, Chair, Door, Chest, Barrel, Statue, Craft, Corpse, Mechanism, Coffin,
+    Carcass, Meat, Hide, Leather, Bone, Egg,
 }
 
 public sealed class ItemDef
@@ -57,7 +58,7 @@ public enum StockCat : ushort
     All = 0xFFF,
 }
 
-public enum Labor : byte { Mining, Woodcutting, Hauling, Construction, Carpentry, Masonry, Smelting, Smithing, Crafting, Cooking, Brewing, Farming, Gathering, Fighting }
+public enum Labor : byte { Mining, Woodcutting, Hauling, Construction, Carpentry, Masonry, Smelting, Smithing, Crafting, Cooking, Brewing, Farming, Gathering, Fighting, Husbandry, Butchery, Leatherwork }
 
 public enum BuildKind : byte { Workshop, Furniture, Construction }
 
@@ -118,6 +119,12 @@ public sealed class CreatureDef
     public string LootMat;
     public float LootChance;
     public string Verb = "bites";
+    /// <summary>Husbandry: can be tamed, trained for war, eats grass, lays eggs; what butchery gives.</summary>
+    public bool Tamable, Trainable, Grazer, Layer;
+    public int Meat, Bones;
+    public bool HasHide;
+    /// <summary>Most young per birth, and the cap on a tame herd.</summary>
+    public int Litter = 1;
 }
 
 public sealed class ClanDef
@@ -179,7 +186,7 @@ public static class Tables
     public const int AttackTicks = 30, DwarfDamage = 9, SightRange = 16, DefendRadius = 14;
     public static readonly string[] BodyParts = { "head", "left arm", "right arm", "left leg", "right leg", "upper body", "lower body", "beard", "left hand", "right foot" };
     public static float WeaponMult(Item w) => w == null ? 0.7f : (w.Kind switch { ItemKind.Weapon => 1.9f, ItemKind.Axe => 1.5f, ItemKind.Pick => 1.3f, _ => 1f }) * MetalMult(w) * (1 + 0.08f * w.Quality);
-    public static float MetalMult(Item i) => i.M.Key switch { "iron" => 1.25f, "bronze" => 1.15f, "silver" => 0.95f, "gold" => 0.85f, _ => 1f };
+    public static float MetalMult(Item i) => i.M.Key switch { "iron" => 1.25f, "bronze" => 1.15f, "silver" => 0.95f, "gold" => 0.85f, "leather" => 0.55f, _ => 1f };
     /// <summary>The share of each blow that armour stops.</summary>
     public static float ArmorStop(Item armor, Item helm) => (armor != null ? 0.35f * MetalMult(armor) : 0) + (helm != null ? 0.1f * MetalMult(helm) : 0);
 
@@ -196,6 +203,8 @@ public static class Tables
     {
         Labor.Woodcutting => "Woodcutting",
         Labor.Construction => "Construction",
+        Labor.Husbandry => "Animal care",
+        Labor.Leatherwork => "Leatherwork",
         _ => l.ToString(),
     };
 
@@ -245,6 +254,11 @@ public static class Tables
         // Flesh, provisions
         AddMat("flesh", "dwarf", MatKind.Flesh, 0xc08f70, 1, 0);
         AddMat("ration", "travel", MatKind.Plant, 0xb08d5c, 1, 1, m => m.Edible = true);
+        AddMat("meat", "meat", MatKind.Flesh, 0xb0453c, 1, 2, m => m.Edible = true);
+        AddMat("egg", "egg", MatKind.Flesh, 0xeadfc4, 1, 2, m => m.Edible = true);
+        AddMat("hide", "hide", MatKind.Cloth, 0x8a6a4a, 1, 2);
+        AddMat("leather", "leather", MatKind.Cloth, 0x7a5232, 1, 3);
+        AddMat("bone", "bone", MatKind.Flesh, 0xddd4bd, 1, 1);
 
         void I(ItemKind k, string name, int mult, StockCat cat, char glyph, bool small = false, string places = null) =>
             Items[k] = new ItemDef { Kind = k, Name = name, Mult = mult, Cat = cat, Glyph = glyph, Small = small, Places = places };
@@ -276,6 +290,12 @@ public static class Tables
         I(ItemKind.Corpse, "corpse", 0, StockCat.Refuse, 'x');
         I(ItemKind.Mechanism, "mechanism", 3, StockCat.Finished, '*', true, places: "trap");
         I(ItemKind.Coffin, "coffin", 3, StockCat.Furniture, '0', places: "coffin");
+        I(ItemKind.Carcass, "carcass", 1, StockCat.Refuse, 'x');
+        I(ItemKind.Meat, "meat", 1, StockCat.Food, '%', true);
+        I(ItemKind.Egg, "egg", 1, StockCat.Food, 'o', true);
+        I(ItemKind.Hide, "hide", 1, StockCat.Refuse, '~');
+        I(ItemKind.Leather, "leather", 2, StockCat.Finished, '~', true);
+        I(ItemKind.Bone, "bones", 1, StockCat.Refuse, '/', true);
 
         void B(string id, string name, BuildKind kind, int w, int h, Labor labor, int work, char glyph, string key, string help, params Need[] cost) =>
             Add(new BuildDef { Id = id, Name = name, Kind = kind, W = w, H = h, Labor = labor, Work = work, Glyph = glyph, Key = key, Help = help, Cost = cost });
@@ -287,6 +307,9 @@ public static class Tables
         B("forge", "Metalsmith's forge", BuildKind.Workshop, 3, 3, Labor.Construction, 400, 'F', "F", "Bars and fuel into picks, axes, weapons and armor.", new Need("stone"), new Need("stone"));
         B("kitchen", "Kitchen", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'K', "K", "Two foods into stew, which dwarves prefer.", new Need("stone"));
         B("brewery", "Brewery", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'B', "B", "One brewable plant into five ale.", new Need("stone"));
+        B("butcher", "Butcher's shop", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'U', "U", "Carcasses into meat, hide and bone.", new Need("stone"));
+        B("tanner", "Tanner's shop", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'T', "T", "Hides into leather.", new Need("log"));
+        B("leatherworks", "Leatherworks", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'L', "L", "Leather into armour and caps -- kit for soldiers when metal is short.", new Need("log"));
         B("bed", "Bed", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'b', "b", "A dwarf's own place to sleep.", new Need("bed"));
         B("table", "Table", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 't', "t", "Eating at a table is civilised.", new Need("table"));
         B("chair", "Chair", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'h', "h", "Put one beside a table.", new Need("chair"));
@@ -316,6 +339,12 @@ public static class Tables
         R("statue", "Statue", "mason", Labor.Masonry, 900, new[] { new Need("stone"), new Need("stone") }, new Output(ItemKind.Statue));
         R("figurine", "Stone figurine", "craftsdwarf", Labor.Crafting, 250, Stone, new Output(ItemKind.Craft, 2));
         R("mechanism", "Mechanism", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Mechanism));
+        R("butcher", "Butcher a carcass", "butcher", Labor.Butchery, 250, new[] { new Need("carcass") });
+        R("tan", "Tan a hide", "tanner", Labor.Leatherwork, 250, new[] { new Need("hide") }, new Output(ItemKind.Leather, 1, "leather"));
+        R("larmor", "Leather armour", "leatherworks", Labor.Leatherwork, 400, new[] { new Need("leather"), new Need("leather") }, new Output(ItemKind.Armor));
+        R("lhelm", "Leather cap", "leatherworks", Labor.Leatherwork, 250, new[] { new Need("leather") }, new Output(ItemKind.Helm));
+        R("bonecraft", "Bone carving", "craftsdwarf", Labor.Crafting, 250, new[] { new Need("bone") }, new Output(ItemKind.Craft, 2));
+        R("omelette", "Cook eggs and meat", "kitchen", Labor.Cooking, 200, new[] { new Need("cookable"), new Need("cookable") }, new Output(ItemKind.Meal, 3));
         R("scoffin", "Stone coffin", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Coffin));
         R("wcoffin", "Wooden coffin", "carpenter", Labor.Carpentry, 250, Log, new Output(ItemKind.Coffin));
         R("shield", "Shield", "carpenter", Labor.Carpentry, 300, Log, new Output(ItemKind.Shield));
@@ -364,6 +393,8 @@ public static class Tables
         T("raid_won", "saw the raiders driven off", 10, 4);
         T("alarm", "is hiding from danger", -3, 1);
         T("laid_to_rest", "saw a friend laid to rest", 4, 3);
+        T("petted", "petted an animal", 3, 1);
+        T("ate_meat", "had a good bit of meat", 2, 1);
         T("unburied", "is troubled by the unburied dead", -8, 2);
         T("haunted", "was haunted by a restless spirit", -14, 3);
 
@@ -389,10 +420,12 @@ public static class Tables
             more?.Invoke(c);
             Creatures[key] = c;
         }
-        Cr("crawler", "cave crawler", Habitat.Cavern, 40, 10, 3, 0.9f, 0x8a5fb0, true, "bites", 0.8f);
-        Cr("stalker", "deep stalker", Habitat.Cavern, 150, 26, 8, 0.8f, 0x3b3550, true, "rakes", 1.4f);
-        Cr("fellbuck", "fellbuck", Habitat.Surface, 45, 6, 2, 0.7f, 0x9c7a4f, false, "butts", 1.1f, c => c.Timid = true);
-        Cr("badger", "dire badger", Habitat.Surface, 60, 14, 4, 0.9f, 0x5a5550, false, "mauls", 0.9f);
+        Cr("crawler", "cave crawler", Habitat.Cavern, 40, 10, 3, 0.9f, 0x8a5fb0, true, "bites", 0.8f, c => { c.Meat = 2; c.Bones = 0; });
+        Cr("stalker", "deep stalker", Habitat.Cavern, 150, 26, 8, 0.8f, 0x3b3550, true, "rakes", 1.4f, c => { c.Meat = 6; c.Bones = 3; c.HasHide = true; });
+        Cr("fellbuck", "fellbuck", Habitat.Surface, 45, 6, 2, 0.7f, 0x9c7a4f, false, "butts", 1.1f, c => { c.Timid = true; c.Tamable = true; c.Grazer = true; c.Meat = 5; c.Bones = 2; c.HasHide = true; });
+        Cr("badger", "dire badger", Habitat.Surface, 60, 14, 4, 0.9f, 0x5a5550, false, "mauls", 0.9f, c => { c.Tamable = true; c.Trainable = true; c.Meat = 3; c.Bones = 1; c.HasHide = true; c.Litter = 2; });
+        Cr("goat", "goat", Habitat.Surface, 50, 7, 2, 0.9f, 0xb8b2a6, false, "butts", 0.95f, c => { c.Tamable = true; c.Grazer = true; c.Meat = 4; c.Bones = 2; c.HasHide = true; c.Litter = 2; });
+        Cr("hen", "hen", Habitat.Surface, 15, 2, 1, 1.3f, 0xe8e2d2, false, "pecks", 0.6f, c => { c.Tamable = true; c.Layer = true; c.Meat = 1; c.Bones = 1; c.Litter = 3; });
         Cr("raider", "grimling raider", Habitat.Raider, 70, 14, 5, 1f, 0x6f8a52, true, "hacks", 1f, c => { c.Loot = ItemKind.Weapon; c.LootMat = "copper"; c.LootChance = 0.4f; });
         Cr("brute", "grimling brute", Habitat.Raider, 140, 24, 6, 1.15f, 0x56703f, true, "clubs", 1.35f, c => { c.Bashes = true; c.Loot = ItemKind.Armor; c.LootMat = "iron"; c.LootChance = 0.5f; });
 
@@ -419,9 +452,13 @@ public static class Tables
             case "fuel": return it.Kind == ItemKind.Charcoal || (it.Kind == ItemKind.Boulder && m.Fuel);
             case "roughgem": return it.Kind == ItemKind.RoughGem;
             case "toolbar": return it.Kind == ItemKind.Bar && (m.Key is "iron" or "bronze" or "copper");
-            case "cookable": return it.Kind == ItemKind.Plant && m.Edible;
+            case "cookable": return (it.Kind == ItemKind.Plant && m.Edible) || it.Kind is ItemKind.Meat or ItemKind.Egg;
             case "brewable": return it.Kind == ItemKind.Plant && m.Brewable;
-            case "food": return it.Kind == ItemKind.Meal || (it.Kind == ItemKind.Plant && m.Edible);
+            case "food": return it.Kind is ItemKind.Meal or ItemKind.Meat or ItemKind.Egg || (it.Kind == ItemKind.Plant && m.Edible);
+            case "carcass": return it.Kind == ItemKind.Carcass;
+            case "hide": return it.Kind == ItemKind.Hide;
+            case "leather": return it.Kind == ItemKind.Leather;
+            case "bone": return it.Kind == ItemKind.Bone;
             case "drink": return it.Kind == ItemKind.Drink;
             case "seed": return it.Kind == ItemKind.Seed;
             case "mechanism": return it.Kind == ItemKind.Mechanism;
@@ -446,7 +483,7 @@ public static class Tables
         "fuel" => "fuel (coal or charcoal)",
         "roughgem" => "rough gem",
         "toolbar" => "copper, bronze or iron bar",
-        "cookable" => "edible plant",
+        "cookable" => "meat, eggs or an edible plant",
         "brewable" => "brewable plant",
         _ when tag.StartsWith("bar:") => tag[4..] + " bar",
         _ => tag,

@@ -59,7 +59,15 @@ public static class Save
         f.Attach(w);
         w.RebuildComponents();
         // Paths are not saved: walkers simply plan again.
-        foreach (Dwarf d in f.Dwarves) { d.Path = null; d.MoveWait = 0; }
+        foreach (Dwarf d in f.Dwarves)
+        {
+            d.Path = null; d.MoveWait = 0;
+            // Older saves knew fewer labors.
+            int n = Tables.AllLabors.Length;
+            if (d.Xp.Length < n) { int old = d.Xp.Length; Array.Resize(ref d.Xp, n); }
+            if (d.Labors.Length < n) { int old = d.Labors.Length; Array.Resize(ref d.Labors, n); for (int k = old; k < n; k++) d.Labors[k] = true; }
+        }
+        foreach (Creature c in f.Creatures) c.Path = null;
         return f;
     }
 }

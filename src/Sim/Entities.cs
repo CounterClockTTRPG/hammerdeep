@@ -25,6 +25,8 @@ public sealed class Item
     public string Maker;
     /// <summary>A dwarf's corpse: whose.</summary>
     public int Of = -1;
+    /// <summary>A carcass, meat, hide or bones: which creature it came from.</summary>
+    public string Source;
 
     public static readonly string[] QualityName = { "", "well-crafted ", "finely-crafted ", "superior ", "exceptional ", "masterful " };
 
@@ -49,6 +51,12 @@ public sealed class Item
                 ItemKind.RoughGem => $"rough {m}",
                 ItemKind.CutGem => $"{q}cut {m}",
                 ItemKind.Corpse => "corpse",
+                ItemKind.Carcass => $"{Source ?? "animal"} carcass",
+                ItemKind.Meat => $"{Source ?? "animal"} meat",
+                ItemKind.Hide => $"{Source ?? "animal"} hide",
+                ItemKind.Bone => $"{Source ?? "animal"} bones",
+                ItemKind.Egg => "egg",
+                ItemKind.Leather => "leather",
                 _ => $"{q}{m} {Def.Name}",
             };
         }
@@ -180,7 +188,7 @@ public sealed class Building
     [JsonIgnore] public P3 Center => new(X + W / 2, Y + H / 2, Z);
 }
 
-public enum ZoneKind : byte { Stockpile, Farm, Meeting }
+public enum ZoneKind : byte { Stockpile, Farm, Meeting, Pasture }
 
 /// <summary>Anything alive that is not a dwarf: beasts of the caves and the surface, raiders.</summary>
 public sealed class Creature
@@ -202,6 +210,18 @@ public sealed class Creature
     public int Bash;
     /// <summary>The beast has been provoked (wild animals turn on whoever came too close).</summary>
     public bool Angry;
+    /// <summary>Husbandry: tame, sex, birth, hunger (grazers), trained for war; what the player has asked for.</summary>
+    public bool Tame, Female, War;
+    public long Born;
+    public int Hunger;
+    public bool MarkSlaughter, MarkTame, MarkTrain;
+    /// <summary>A dwarf at work on this animal (taming, training, slaughter).</summary>
+    public int Claim = -1;
+    /// <summary>The beast it is fighting (war beasts, and raiders after livestock).</summary>
+    public int Foe = -1;
+    public string Name;
+    public bool Adult(long tick) => tick - Born >= Tables.TicksPerYear;
+    [JsonIgnore] public string Title => Name != null ? $"{Name} the {Tables.Creatures[Def].Name}" : Tables.Creatures[Def].Name;
     [JsonIgnore] public CreatureDef D => Tables.Creatures[Def];
 }
 

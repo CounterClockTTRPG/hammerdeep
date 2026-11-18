@@ -89,11 +89,52 @@ public sealed class Overseer
         // A surface farm for what needs the sky.
         P3 sf = SurfaceFarmSpot();
         if (sf.X >= 0) F.AddZone(ZoneKind.Farm, sf, new P3(sf.X + 4, sf.Y + 4, sf.Z), "bramble");
+        // A pasture for the goats.
+        P3 pa = GrassSpot(8);
+        if (pa.X >= 0) F.AddZone(ZoneKind.Pasture, pa, new P3(pa.X + 7, pa.Y + 7, pa.Z));
         // The first shops on the surface, until the hall is open.
         PlaceNear("carpenter", new P3(e.X - 6, e.Y + 3, e.Z));
         PlaceNear("mason", new P3(e.X + 2, e.Y + 4, e.Z));
         Phase = 1;
         _notes.Add("Struck the earth: shaft, hall, bedrooms" + (_farmUnderground ? ", soil farm" : ""));
+    }
+
+    private P3 GrassSpot(int size)
+    {
+        P3 e = F.Embark;
+        for (int r = 10; r < 40; r += 2)
+            for (int t = 0; t < 30; t++)
+            {
+                int x = e.X + F.Rng.Range(-r, r), y = e.Y + F.Rng.Range(-r, r);
+                int grass = 0;
+                for (int dy = 0; dy < size; dy++)
+                    for (int dx = 0; dx < size; dx++)
+                        if (W.In(x + dx, y + dy, e.Z) && W.Has(W.Idx(x + dx, y + dy, e.Z), CellFlag.Grass) && F.ZoneAt(x + dx, y + dy, e.Z) == null && !F.BuildingAt.ContainsKey(W.Idx(x + dx, y + dy, e.Z))) grass++;
+                if (grass >= size * size * 3 / 4) return new P3(x, y, e.Z);
+            }
+        return new P3(-1, -1, -1);
+    }
+
+    private void Husbandry()
+    {
+        P3 e = F.Embark;
+        if (!F.Buildings.Any(b => b.Def == "butcher") && F.Alive >= 9) { PlaceNear("butcher", new P3(e.X - 9, e.Y - 1, e.Z), 10); PlaceNear("tanner", new P3(e.X - 9, e.Y + 4, e.Z), 10); PlaceNear("leatherworks", new P3(e.X - 13, e.Y + 4, e.Z), 10); }
+        Order("butcher", "butcher", Have(i => i.Kind == ItemKind.Carcass), 0);
+        Order("tanner", "tan", Have(i => i.Kind == ItemKind.Hide), 0);
+        int soldiers = F.Squads.Sum(s => s.Members.Count);
+        int armour = Have(i => i.Kind == ItemKind.Armor) + F.Living.Count(d => d.Armor >= 0);
+        if (Have(i => i.Kind == ItemKind.Leather) >= 2) Order("leatherworks", "larmor", soldiers, armour);
+        int helms = Have(i => i.Kind == ItemKind.Helm) + F.Living.Count(d => d.Helm >= 0);
+        if (Have(i => i.Kind == ItemKind.Leather) >= 1) Order("leatherworks", "lhelm", soldiers, helms);
+        if (Have(i => i.Kind == ItemKind.Bone) > 6) Order("craftsdwarf", "bonecraft", 3, 0);
+        // Keep herds in bounds: the spare males go to the butcher.
+        foreach (var herd in F.Creatures.Where(c => !c.Dead && c.Tame && !c.War).GroupBy(c => c.Def))
+        {
+            int extra = herd.Count() - 10;
+            if (extra <= 0) continue;
+            foreach (Creature c in herd.Where(c => !c.MarkSlaughter && c.Adult(F.Tick)).OrderBy(c => c.Female).Take(extra)) F.MarkSlaughter(c, true);
+        }
+        foreach (Creature c in F.Creatures.Where(c => !c.Dead && c.Tame && c.D.Trainable && !c.War && !c.MarkTrain)) F.MarkTrain(c, true);
     }
 
     private P3 SurfaceFarmSpot()
@@ -216,6 +257,7 @@ public sealed class Overseer
         PlaceFurniture(ItemKind.Chair, "chair", DiningSpots(false));
 
         Defend();
+        Husbandry();
         int unburied = F.Dwarves.Count(x => x.Dead && !x.Buried && F.Items.Values.Any(i => i.Of == x.Id));
         int coffins = Have(i => i.Kind == ItemKind.Coffin) + F.Buildings.Count(b => b.Def == "coffin" && b.Owner < 0);
         Order("mason", "scoffin", unburied + 1, coffins);

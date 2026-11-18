@@ -5,7 +5,7 @@ using Godot;
 
 namespace Hammerdeep;
 
-public enum Tool { Select, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Undesignate, Stockpile, Farm, Meeting, Build, Deconstruct }
+public enum Tool { Select, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Undesignate, Stockpile, Farm, Meeting, Pasture, Build, Deconstruct }
 
 /// <summary>
 /// Playing a fortress: the clock (pause, 1x, 3x, 10x), the camera and the
@@ -149,6 +149,7 @@ public partial class FortressScreen : Control
         ToolB(Tool.Stockpile, "Stockpile", "P", "Where hauled goods are kept.");
         ToolB(Tool.Farm, "Farm plot", "F", "Soil to grow crops in: caves for dimcaps, sky for wheat and brambles.");
         ToolB(Tool.Meeting, "Meeting hall", "M", "Where idle dwarves gather and talk.");
+        ToolB(Tool.Pasture, "Pasture", "E", "Grass under the sky where grazing animals are kept.");
         Section("Build");
         ToolB(Tool.Build, "Build...", "B", "Workshops, furniture and constructions.");
         ToolB(Tool.Deconstruct, "Remove", "N", "Take down a building or remove a zone.");
@@ -156,6 +157,7 @@ public partial class FortressScreen : Control
         _toolbar.AddChild(Small("V  Dwarves", () => Open(new DwarfList(this))));
         _toolbar.AddChild(Small("L  Labors", () => Open(new LaborGrid(this))));
         _toolbar.AddChild(Small("K  Military", () => Open(new MilitaryPanel(this))));
+        _toolbar.AddChild(Small("Z  Animals", () => Open(new AnimalsPanel(this))));
         _toolbar.AddChild(Small("I  Stocks", () => Open(new Stocks(this))));
         _toolbar.AddChild(Small("?  Help", () => Open(new HelpPanel(this))));
         _toolHint = UITheme.Wrap("", 12, UITheme.Dim, 150);
@@ -367,6 +369,7 @@ public partial class FortressScreen : Control
             Tool.Stockpile => new Color(0.95f, 0.82f, 0.45f, 0.3f),
             Tool.Farm => new Color(0.55f, 0.85f, 0.35f, 0.3f),
             Tool.Meeting => new Color(0.55f, 0.7f, 1f, 0.3f),
+            Tool.Pasture => new Color(0.85f, 0.7f, 0.45f, 0.3f),
             _ => new Color(1, 0.85f, 0.3f, 0.3f),
         };
         RefreshHud();
@@ -493,7 +496,7 @@ public partial class FortressScreen : Control
         ClampCam();
     }
 
-    private bool BoxTool => Tool is Tool.Dig or Tool.Channel or Tool.StairUD or Tool.StairDown or Tool.StairUp or Tool.Chop or Tool.Gather or Tool.Undesignate or Tool.Stockpile or Tool.Farm or Tool.Meeting;
+    private bool BoxTool => Tool is Tool.Dig or Tool.Channel or Tool.StairUD or Tool.StairDown or Tool.StairUp or Tool.Chop or Tool.Gather or Tool.Undesignate or Tool.Stockpile or Tool.Farm or Tool.Meeting or Tool.Pasture;
 
     private void UpdateDrag(Vector2 screen)
     {
@@ -549,7 +552,15 @@ public partial class FortressScreen : Control
             return;
         }
         if (a.Z != b.Z) b = new P3(b.X, b.Y, a.Z);
-        ZoneKind kind = Tool switch { Tool.Farm => ZoneKind.Farm, Tool.Meeting => ZoneKind.Meeting, _ => ZoneKind.Stockpile };
+        ZoneKind kind = Tool switch { Tool.Farm => ZoneKind.Farm, Tool.Meeting => ZoneKind.Meeting, Tool.Pasture => ZoneKind.Pasture, _ => ZoneKind.Stockpile };
+        if (kind == ZoneKind.Pasture)
+        {
+            int grass = 0;
+            for (int y = Math.Min(a.Y, b.Y); y <= Math.Max(a.Y, b.Y); y++)
+                for (int x = Math.Min(a.X, b.X); x <= Math.Max(a.X, b.X); x++)
+                    if (F.World.In(x, y, a.Z) && F.World.Has(F.World.Idx(x, y, a.Z), CellFlag.Grass) && F.World.IsOutside(F.World.Idx(x, y, a.Z))) grass++;
+            if (grass == 0) { Toast("A pasture needs grass under the open sky."); Sfx.Deny(); return; }
+        }
         string crop = null;
         if (kind == ZoneKind.Farm)
         {
@@ -643,6 +654,8 @@ public partial class FortressScreen : Control
             case 'l': Open(new LaborGrid(this)); return true;
             case 'i': Open(new Stocks(this)); return true;
             case 'k': Open(new MilitaryPanel(this)); return true;
+            case 'z': Open(new AnimalsPanel(this)); return true;
+            case 'e': Pick(Tool.Pasture); return true;
             case 'a': ToggleAlarm(); return true;
             case '?': Open(new HelpPanel(this)); return true;
             case 'c': CenterHome(); return true;
@@ -653,7 +666,7 @@ public partial class FortressScreen : Control
     private bool OverlayKey(InputEventKey k)
     {
         char ch = char.ToLower((char)k.Unicode);
-        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
+        return (Overlay is DwarfList && ch == 'v') || (Overlay is MilitaryPanel && ch == 'k') || (Overlay is AnimalsPanel && ch == 'z') || (Overlay is LaborGrid && ch == 'l') || (Overlay is Stocks && ch == 'i') || (Overlay is HelpPanel && (ch == '?' || k.Keycode == Godot.Key.F1));
     }
 
     private void ShowNamesToggle() => Map.ShowNames = !Map.ShowNames;

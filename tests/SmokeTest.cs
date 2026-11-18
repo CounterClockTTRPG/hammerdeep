@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -386,6 +386,8 @@ public partial class SmokeTest : Node
             int soldiers = f.Squads.Sum(q => q.Members.Count);
             GD.Print($"    {f.Date,-22} {f.Alive,3} alive  deaths {S("deaths"),2} (slain {S("slain")})  raids {S("raids")}/{S("raids_beaten")} broken  kills {S("kills")}  trapped {S("trapped")}  beasts {f.Creatures.Count(c => c.D.Hostile)}  soldiers {soldiers} armed {f.Living.Count(d => d.Weapon >= 0)}  wealth {f.Wealth}  {string.Join(",", f.Living.GroupBy(d => d.MoodWord).Select(g => g.Key[..3] + g.Count()))}");
         }
+        GD.Print($"    herds: {string.Join(", ", f.Creatures.Where(c => c.Tame).GroupBy(c => c.Def).Select(g => g.Key + " " + g.Count()))}; births {S("births")}, eggs {S("eggs")}, slaughtered {S("slaughtered")}, butchered {S("butchered")}, starved {S("animals_starved")}, killed {S("livestock_killed")}, tamed {S("tamed")}, war-beast kills {S("beast_kills")}; buried {S("buried")}");
+        GD.Print($"    larder: {f.Items.Values.Count(i => i.Kind == ItemKind.Meat)} meat, {f.Items.Values.Count(i => i.Kind == ItemKind.Egg)} eggs, {f.Items.Values.Count(i => i.Kind == ItemKind.Leather)} leather, {f.Living.Count(d => d.Armor >= 0 && f.Items[d.Armor].M.Key == "leather")} in leather armour");
         foreach (LogEntry e in f.Log.Where(l => l.Kind == LogKind.Alert).TakeLast(12)) GD.Print($"    alert {Fortress.ShortDate(e.Tick)}: {e.Text}");
         Check(!f.Fallen, "the hold stands after three years");
     }

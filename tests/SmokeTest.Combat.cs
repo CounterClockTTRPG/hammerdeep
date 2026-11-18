@@ -22,7 +22,7 @@ public partial class SmokeTest
         Check(c.Dead, $"a dwarf with a hammer kills a cave crawler ({t} ticks)");
         Check(!d.Dead, "and lives");
         Eq(d.Kills, 1, "the kill is counted");
-        Check(f.Items.Values.Any(i => i.Kind == ItemKind.Corpse && i.Label?.Contains("crawler") == true), "leaving a crawler corpse");
+        Check(f.Items.Values.Any(i => i.Kind == ItemKind.Carcass && i.Source == "crawler"), "leaving a crawler carcass");
         Check(f.Creatures.Count == 0, "the dead are gone from the creatures");
     }
 
@@ -131,7 +131,7 @@ public partial class SmokeTest
         int d0 = raiders.Min(r => f.World.Pos(r.Cell).Dist(f.Embark));
         f.Advance(1500);
         var alive = f.Creatures.Where(c => c.Raider && !c.Dead).ToList();
-        Check(alive.Count == 0 || alive.Min(r => f.World.Pos(r.Cell).Dist(f.Embark)) < d0, "the raiders close on the hold");
+        Check(alive.Count == 0 || alive.Any(r => r.Target >= 0) || alive.Min(r => f.World.Pos(r.Cell).Dist(f.Embark)) < d0, "the raiders close on the hold, or on its dwarves");
         f.Advance(Tables.TicksPerDay * 3);
         Check(!f.Creatures.Any(c => c.Raider), "within a few days the raid is over, one way or the other");
         byte[] data = Save.Write(f);

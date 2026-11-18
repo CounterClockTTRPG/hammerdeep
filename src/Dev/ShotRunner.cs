@@ -134,6 +134,16 @@ public partial class ShotRunner : Node
             s.Open(new MilitaryPanel(s));
             await Shot("23-military");
             s.CloseOverlay();
+            Zone pasture = f.Zones.FirstOrDefault(z => z.Kind == ZoneKind.Pasture);
+            Creature goat = f.Creatures.FirstOrDefault(c => c.Tame && c.Def == "goat") ?? f.Creatures.FirstOrDefault(c => c.Tame);
+            m.Cam.Zoom = new Vector2(3, 3);
+            if (goat != null) { s.Jump(f.World.Pos(goat.Cell)); s.SelectThing(goat); }
+            else if (pasture != null) s.Jump(new P3((pasture.X0 + pasture.X1) / 2, (pasture.Y0 + pasture.Y1) / 2, pasture.Z));
+            await Shot("24-pasture");
+            s.SelectThing(null);
+            s.Open(new AnimalsPanel(s));
+            await Shot("25-animals");
+            s.CloseOverlay();
             GD.Print($"{_count} shots in {_dir}");
         }
         catch (Exception e) { GD.PrintErr("shots failed: " + e); }

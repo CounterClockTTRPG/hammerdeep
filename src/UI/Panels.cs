@@ -19,7 +19,7 @@ public partial class FortressScreen
             case Zone z:
                 return $"z{z.Id}:{z.Cats}:{z.Crop}:{F.Zones.Contains(z)}:{(int)(F.Tick / 100)}";
             case Creature cr:
-                return $"cr{cr.Id}:{cr.Hp}:{cr.Dead}:{cr.Angry}:{cr.Target}";
+                return $"cr{cr.Id}:{cr.Hp}:{cr.Dead}:{cr.Angry}:{cr.Target}:{cr.Tame}:{cr.War}:{cr.MarkSlaughter}:{cr.MarkTame}:{cr.MarkTrain}:{cr.Claim}:{cr.Hunger / 1000}";
             case P3 p:
                 int c = F.World.Idx(p);
                 return $"c{p}:{F.World.Shapes[c]}:{F.World.Desigs[c]}:{string.Join(",", F.ItemsOn(c).Select(i => i.Id))}";
@@ -124,7 +124,8 @@ public partial class FortressScreen
     private void CreatureInfo(VBoxContainer v, Creature c)
     {
         CreatureDef d = c.D;
-        v.AddChild(UITheme.Heading(d.Name.ToUpperFirst(), 20));
+        v.AddChild(UITheme.Heading(c.Title.ToUpperFirst(), 20));
+        if (c.Tame) { AnimalInfo(v, c); return; }
         v.AddChild(UITheme.L(c.Raider ? "A grimling raider, come for loot and blood." : d.Hostile ? "A beast of the deep. It hunts dwarves." : c.Angry ? "Provoked, and furious." : d.Timid ? "Shy; it bolts from dwarves." : "Wild, and best left alone.", 14, d.Hostile || c.Angry ? UITheme.Ember : UITheme.Dim));
         HBoxContainer hp = UITheme.H(6);
         hp.AddChild(UITheme.Bar(c.Hp / (float)d.Hp, UITheme.Bad, 140, 9));
@@ -133,6 +134,32 @@ public partial class FortressScreen
         Dwarf t = c.Target >= 0 ? F.DwarfById(c.Target) : null;
         if (t != null) v.AddChild(Row("After", UITheme.L(t.Name, 14, UITheme.Bad)));
         if (d.Bashes) v.AddChild(UITheme.L("Strong enough to smash doors.", 13, UITheme.Ember));
+        if (d.Tamable && !d.Hostile)
+        {
+            v.AddChild(UITheme.L(c.MarkTame ? (c.Claim >= 0 ? $"{F.DwarfById(c.Claim)?.FirstName} is trying to tame it." : "Marked for taming.") : "It could be tamed by someone good with animals.", 14, UITheme.Text));
+            v.AddChild(UITheme.B(c.MarkTame ? "Leave it be" : "Tame it", () => { F.MarkTame(c, !c.MarkTame); RefreshInfo(true); }, 14));
+        }
+    }
+
+    private void AnimalInfo(VBoxContainer v, Creature c)
+    {
+        CreatureDef d = c.D;
+        v.AddChild(UITheme.L($"{(c.Female ? "Female" : "Male")}, {(c.Adult(F.Tick) ? "grown" : "young")}{(c.War ? ", trained for war" : "")}.", 14, UITheme.Text));
+        HBoxContainer hp = UITheme.H(6);
+        hp.AddChild(UITheme.Bar(c.Hp / (float)d.Hp, c.Hp * 2 < d.Hp ? UITheme.Bad : UITheme.Good, 140, 9));
+        v.AddChild(Row("Health", hp));
+        if (d.Grazer)
+        {
+            Zone p = F.PastureFor(c);
+            v.AddChild(Row("Grazing", UITheme.L(c.Hunger > Fortress.GrazerStarve * 2 / 3 ? "starving -- needs grass!" : c.Hunger > 3000 ? "hungry" : "well fed", 14, c.Hunger > 3000 ? UITheme.Ember : UITheme.Text)));
+            v.AddChild(Row("Pasture", UITheme.L(p?.Name ?? "none -- roams by the wagon", 14, p == null ? UITheme.Dim : UITheme.Text)));
+        }
+        if (d.Layer) v.AddChild(UITheme.L(c.Female && c.Adult(F.Tick) ? "Lays eggs." : "Lays no eggs.", 13, UITheme.Dim));
+        if (c.Claim >= 0) v.AddChild(UITheme.L($"{F.DwarfById(c.Claim)?.FirstName} is seeing to it.", 13, UITheme.Dim));
+        HBoxContainer h = UITheme.H(6);
+        h.AddChild(UITheme.B(c.MarkSlaughter ? "Spare it" : "Slaughter", () => { F.MarkSlaughter(c, !c.MarkSlaughter); RefreshInfo(true); }, 14, "A butcher will kill it; the butcher's shop turns the carcass into meat, hide and bone."));
+        if (d.Trainable && !c.War) h.AddChild(UITheme.B(c.MarkTrain ? "Stop training" : "Train for war", () => { F.MarkTrain(c, !c.MarkTrain); RefreshInfo(true); }, 14, "War beasts guard the squad's station and attack foes."));
+        v.AddChild(h);
     }
 
     private void Cycle(Dwarf d, int dir)
@@ -263,6 +290,12 @@ public partial class FortressScreen
                     Button b = UITheme.B((z.Crop == m.Key ? "> " : "") + m.Name, () => { z.Crop = mm.Key; RefreshInfo(true); }, 14);
                     v.AddChild(b);
                 }
+                break;
+            case ZoneKind.Pasture:
+                int herd = F.Creatures.Count(c => !c.Dead && c.Tame && c.D.Grazer && F.PastureFor(c) == z);
+                int grassCells = z.Cells().Count(p => F.World.Has(F.World.Idx(p), CellFlag.Grass) && F.World.IsOutside(F.World.Idx(p)));
+                v.AddChild(UITheme.L($"{herd} grazing animals, {grassCells} cells of grass.", 14, UITheme.Text));
+                v.AddChild(UITheme.Wrap("Grazers keep to the nearest pasture. Snow in Deepfrost leaves thin grazing.", 13, UITheme.Dim, 320));
                 break;
             case ZoneKind.Meeting:
                 v.AddChild(UITheme.Wrap("Idle dwarves wander here and talk. Friendships form -- and feuds, between clans with old grudges.", 13, UITheme.Dim, 320));
@@ -461,6 +494,46 @@ public partial class MilitaryPanel : Overlay
     }
 }
 
+public partial class AnimalsPanel : Overlay
+{
+    public AnimalsPanel(FortressScreen s) : base(s, "Animals", new Vector2(860, 560)) { }
+
+    protected override string Signature() => string.Join(";", F.Creatures.Where(c => c.Tame || c.D.Tamable).Select(c => $"{c.Id}{c.MarkSlaughter}{c.MarkTame}{c.MarkTrain}{c.Tame}{c.War}{c.Hunger / 2000}"));
+
+    protected override void Fill()
+    {
+        var tame = F.Creatures.Where(c => !c.Dead && c.Tame).OrderBy(c => c.Def).ThenBy(c => c.Born).ToList();
+        Body.AddChild(UITheme.L($"The herds ({tame.Count})", 16, UITheme.Bronze, UITheme.Title));
+        foreach (var g in tame.GroupBy(c => c.Def))
+            Body.AddChild(UITheme.L($"{g.Count()} {Tables.Creatures[g.Key].Name}s: {g.Count(c => c.Female)} female, {g.Count(c => !c.Adult(F.Tick))} young", 14, UITheme.Dim));
+        foreach (Creature c in tame) Body.AddChild(RowFor(c));
+        var wild = F.Creatures.Where(c => !c.Dead && !c.Tame && c.D.Tamable && !c.D.Hostile).OrderBy(c => F.World.Pos(c.Cell).Dist(F.Embark)).Take(12).ToList();
+        Body.AddChild(UITheme.L($"Wild beasts that could be tamed ({wild.Count})", 16, UITheme.Bronze, UITheme.Title));
+        foreach (Creature c in wild) Body.AddChild(RowFor(c));
+        Body.AddChild(UITheme.Wrap("Animal carers tame and train; butchers slaughter. Carcasses -- from slaughter or the hunt -- go to the butcher's shop for meat, hide and bone; the tanner makes leather, the leatherworks armour and caps.", 13, UITheme.Dim, 820));
+    }
+
+    private Control RowFor(Creature c)
+    {
+        HBoxContainer h = UITheme.H(8);
+        Button name = UITheme.B(c.Title, () => { S.CloseOverlay(); S.SelectThing(c); S.Jump(F.World.Pos(c.Cell)); }, 13);
+        name.Alignment = HorizontalAlignment.Left;
+        name.CustomMinimumSize = new Vector2(200, 0);
+        h.AddChild(name);
+        string state = c.Tame ? $"{(c.Female ? "female" : "male")}{(c.Adult(F.Tick) ? "" : ", young")}{(c.War ? ", war beast" : "")}{(c.D.Grazer && c.Hunger > 3000 ? ", hungry" : "")}" : c.Angry ? "angry" : "wild";
+        Label st = UITheme.L(state, 13, UITheme.Text);
+        st.CustomMinimumSize = new Vector2(240, 0);
+        h.AddChild(st);
+        if (c.Tame)
+        {
+            h.AddChild(UITheme.B(c.MarkSlaughter ? "Spare" : "Slaughter", () => F.MarkSlaughter(c, !c.MarkSlaughter), 12));
+            if (c.D.Trainable && !c.War) h.AddChild(UITheme.B(c.MarkTrain ? "Stop training" : "Train for war", () => F.MarkTrain(c, !c.MarkTrain), 12));
+        }
+        else h.AddChild(UITheme.B(c.MarkTame ? "Leave be" : "Tame", () => F.MarkTame(c, !c.MarkTame), 12));
+        return h;
+    }
+}
+
 public partial class LaborGrid : Overlay
 {
     public LaborGrid(FortressScreen s) : base(s, "Labors", new Vector2(1180, 580)) { }
@@ -551,6 +624,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("Animals",
+            "The wagon brought goats and hens. Grazers need grass: lay a pasture (E) under the sky. Hens lay eggs. Animals breed in Thaw and Highsun. Z lists them: mark beasts to slaughter, wild fellbuck and badgers to tame, tame badgers to train for war -- war beasts guard the squad's station. A butcher's shop turns carcasses into meat, hides and bones; a tanner makes leather; the leatherworks makes armour and caps from it.");
         Section("The dead",
             "Coffins come from the mason or the carpenter; place them in a quiet tomb and the haulers will bear the dead there. Friends and clanmates grieve while a body lies unburied -- and a dwarf left a whole season becomes a restless spirit that haunts the living until laid to rest. Drawbridges (B, g) need a mechanism: over a channelled gap they drop whatever stands on them when raised; on a floor they seal the way.");
         Section("Moods",
