@@ -77,6 +77,9 @@ public sealed class Overseer
         P3 f0 = new(_shaft.X - 9, _shaft.Y - 3, _farmZ), f1 = new(_shaft.X - 1, _shaft.Y + 3, _farmZ);
         _farmUnderground = Tables.Mats[W.Mats[W.Idx(f0)]].Kind == MatKind.Soil && Tables.Mats[W.Mats[W.Idx(f1)]].Kind == MatKind.Soil;
         if (_farmUnderground) F.Designate(f0, f1, Desig.Dig);
+        // A tomb off the hall's south side, for when it is needed.
+        F.Designate(new P3(_shaft.X + 1, _shaft.Y + 1, _hallZ), new P3(_shaft.X + 1, _shaft.Y + 8, _hallZ), Desig.Dig);
+        F.Designate(new P3(_shaft.X + 1, _shaft.Y + 7, _hallZ), new P3(_shaft.X + 12, _shaft.Y + 8, _hallZ), Desig.Dig);
         // A first stockpile at the wagon, and the meeting place.
         F.AddZone(ZoneKind.Stockpile, new P3(e.X - 3, e.Y - 6, e.Z), new P3(e.X + 3, e.Y - 3, e.Z));
         F.AddZone(ZoneKind.Meeting, new P3(e.X - 2, e.Y - 2, e.Z), new P3(e.X + 2, e.Y + 2, e.Z));
@@ -213,6 +216,12 @@ public sealed class Overseer
         PlaceFurniture(ItemKind.Chair, "chair", DiningSpots(false));
 
         Defend();
+        int unburied = F.Dwarves.Count(x => x.Dead && !x.Buried && F.Items.Values.Any(i => i.Of == x.Id));
+        int coffins = Have(i => i.Kind == ItemKind.Coffin) + F.Buildings.Count(b => b.Def == "coffin" && b.Owner < 0);
+        Order("mason", "scoffin", unburied + 1, coffins);
+        var tomb = new List<P3>();
+        for (int x = _shaft.X + 3; x <= _shaft.X + 12; x++) { tomb.Add(new P3(x, _shaft.Y + 8, _hallZ)); }
+        PlaceFurniture(ItemKind.Coffin, "coffin", tomb);
 
         // More room as the hold grows: more bedrooms, and mining for ore.
         if (F.Rng.Chance(0.1) && F.Designated.Count < 40) Explore();

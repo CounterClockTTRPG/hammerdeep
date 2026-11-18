@@ -23,6 +23,8 @@ public sealed class Item
     public string Label;
     /// <summary>Who made it.</summary>
     public string Maker;
+    /// <summary>A dwarf's corpse: whose.</summary>
+    public int Of = -1;
 
     public static readonly string[] QualityName = { "", "well-crafted ", "finely-crafted ", "superior ", "exceptional ", "masterful " };
 
@@ -60,7 +62,7 @@ public sealed class Thought
     public int Value;
 }
 
-public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter }
+public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter, Bury, Tame, Slaughter, Train }
 
 /// <summary>What a dwarf is doing, as plain data: kind, targets and how far along it is.</summary>
 public sealed class Task
@@ -113,6 +115,9 @@ public sealed class Dwarf
     public int Squad = -1, Weapon = -1, Armor = -1, Helm = -1, Shield = -1, Kills;
     public int AttackWait;
     public long LastHurt = -100000;
+    /// <summary>The dead: when, whether laid to rest, whether their spirit walks.</summary>
+    public long DiedAt;
+    public bool Buried, Restless;
     [JsonIgnore] public bool Wounded => Hp < Tables.MaxHp / 2;
 
     public static int Level(int xp) => Math.Min(15, (int)Math.Sqrt(xp / 40.0));
@@ -162,6 +167,10 @@ public sealed class Building
     /// <summary>A door kept shut to everyone; a trap's reload time.</summary>
     public bool Locked;
     public long ArmedAt;
+    /// <summary>A drawbridge: up or down, and whether it spans open air.</summary>
+    public bool Raised, OverAir;
+    /// <summary>Taken for a job that is not building it (a burial).</summary>
+    public int Claim = -1;
     public List<Order> Orders = new();
     [JsonIgnore] public BuildDef D => Tables.Build[Def];
     [JsonIgnore] public int W => D.W;

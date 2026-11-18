@@ -89,6 +89,7 @@ public sealed partial class Fortress
         {
             IndexBuilding(b);
             if (b.Def == "door" && b.Built && b.Locked) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
+            if (b.Def == "bridge" && b.Built && b.Raised && !b.OverAir) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
         }
         RefreshStored();
     }
@@ -327,6 +328,7 @@ public sealed partial class Fortress
         StepCreatures();
         if (Tick % 50 == 0) Growth();
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
+        if (Tick % Tables.TicksPerDay == 500) Mourning();
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
         if (Alive == 0 && !Fallen)
@@ -373,8 +375,8 @@ public sealed partial class Fortress
         int target = World.Comp[World.Idx(Embark)];
         for (int t = 0; t < 400; t++)
         {
-            int side = Rng.Int(4), a = Rng.Int(World.W);
-            int x = side switch { 0 => 0, 1 => World.W - 1, _ => a }, y = side switch { 2 => 0, 3 => World.H - 1, _ => a };
+            int side = Rng.Int(4), a = Rng.Int(World.W), b = Rng.Int(World.H);
+            int x = side switch { 0 => 0, 1 => World.W - 1, _ => a }, y = side switch { 2 => 0, 3 => World.H - 1, _ => b };
             for (int z = World.D - 1; z > 0; z--)
             {
                 int i = World.Idx(x, y, z);
@@ -439,6 +441,8 @@ public sealed partial class Fortress
         if (d.Bed >= 0) { Building bed = BuildingById(d.Bed); if (bed != null) bed.Owner = -1; d.Bed = -1; }
         Item corpse = Spawn(ItemKind.Corpse, Tables.Mi("flesh"), d.Cell);
         corpse.Label = $"corpse of {d.Name}";
+        corpse.Of = d.Id;
+        d.DiedAt = Tick;
         Count("deaths");
         Say($"{d.Name} has died: {cause}.", LogKind.Alert, d.Cell);
         P3 at = World.Pos(d.Cell);

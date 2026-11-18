@@ -31,7 +31,7 @@ public enum ItemKind : byte
 {
     Boulder, Log, Block, Bar, RoughGem, CutGem, Seed, Plant, Meal, Drink, Charcoal,
     Pick, Axe, Weapon, Armor, Helm, Shield,
-    Bed, Table, Chair, Door, Chest, Barrel, Statue, Craft, Corpse, Mechanism,
+    Bed, Table, Chair, Door, Chest, Barrel, Statue, Craft, Corpse, Mechanism, Coffin,
 }
 
 public sealed class ItemDef
@@ -275,6 +275,7 @@ public static class Tables
         I(ItemKind.Craft, "figurine", 6, StockCat.Finished, '\'', true);
         I(ItemKind.Corpse, "corpse", 0, StockCat.Refuse, 'x');
         I(ItemKind.Mechanism, "mechanism", 3, StockCat.Finished, '*', true, places: "trap");
+        I(ItemKind.Coffin, "coffin", 3, StockCat.Furniture, '0', places: "coffin");
 
         void B(string id, string name, BuildKind kind, int w, int h, Labor labor, int work, char glyph, string key, string help, params Need[] cost) =>
             Add(new BuildDef { Id = id, Name = name, Kind = kind, W = w, H = h, Labor = labor, Work = work, Glyph = glyph, Key = key, Help = help, Cost = cost });
@@ -292,6 +293,8 @@ public static class Tables
         B("door", "Door", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '+', "d", "Keeps things out (soon).", new Need("door"));
         B("chest", "Chest", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'c', "c", "Somewhere to keep things.", new Need("chest"));
         B("statue", "Statue", BuildKind.Furniture, 1, 1, Labor.Construction, 80, '&', "s", "Dwarves admire fine statues.", new Need("statue"));
+        B("coffin", "Coffin", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '0', "o", "A resting place for one of the dead. Dig a quiet tomb for them.", new Need("coffin"));
+        B("bridge", "Drawbridge", BuildKind.Furniture, 1, 1, Labor.Construction, 150, '=', "g", "Spans a gap or sits on a floor. Raised, it drops whatever is on it into the gap, or seals the way.", new Need("mechanism"), new Need("buildmat"));
         B("trap", "Stonefall trap", BuildKind.Furniture, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself.", new Need("mechanism"), new Need("stone"));
         Add(new BuildDef { Id = "wall", Name = "Wall", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 120, Glyph = '#', Key = "w", Makes = Shape.Wall, Cost = new[] { new Need("buildmat") }, Help = "A built wall." });
         Add(new BuildDef { Id = "floor", Name = "Floor", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 80, Glyph = '+', Key = "f", Makes = Shape.Floor, Cost = new[] { new Need("buildmat") }, Help = "A floor over open air." });
@@ -313,6 +316,8 @@ public static class Tables
         R("statue", "Statue", "mason", Labor.Masonry, 900, new[] { new Need("stone"), new Need("stone") }, new Output(ItemKind.Statue));
         R("figurine", "Stone figurine", "craftsdwarf", Labor.Crafting, 250, Stone, new Output(ItemKind.Craft, 2));
         R("mechanism", "Mechanism", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Mechanism));
+        R("scoffin", "Stone coffin", "mason", Labor.Masonry, 300, Stone, new Output(ItemKind.Coffin));
+        R("wcoffin", "Wooden coffin", "carpenter", Labor.Carpentry, 250, Log, new Output(ItemKind.Coffin));
         R("shield", "Shield", "carpenter", Labor.Carpentry, 300, Log, new Output(ItemKind.Shield));
         R("cutgem", "Cut a gem", "craftsdwarf", Labor.Crafting, 400, new[] { new Need("roughgem") }, new Output(ItemKind.CutGem));
         R("charcoal", "Charcoal", "furnace", Labor.Smelting, 250, Log, new Output(ItemKind.Charcoal, 2));
@@ -358,6 +363,9 @@ public static class Tables
         T("saw_corpse", "saw a rotting corpse", -4, 1);
         T("raid_won", "saw the raiders driven off", 10, 4);
         T("alarm", "is hiding from danger", -3, 1);
+        T("laid_to_rest", "saw a friend laid to rest", 4, 3);
+        T("unburied", "is troubled by the unburied dead", -8, 2);
+        T("haunted", "was haunted by a restless spirit", -14, 3);
 
         void Tr(string id, string name, string text) => Traits.Add(new TraitDef { Id = id, Name = name, Text = text });
         Tr("cheerful", "Cheerful", "Good moods last longer; bad ones fade fast.");
@@ -417,6 +425,7 @@ public static class Tables
             case "drink": return it.Kind == ItemKind.Drink;
             case "seed": return it.Kind == ItemKind.Seed;
             case "mechanism": return it.Kind == ItemKind.Mechanism;
+            case "coffin": return it.Kind == ItemKind.Coffin;
         }
         if (tag == "weapon") return it.Kind is ItemKind.Weapon;
         if (tag == "armor") return it.Kind is ItemKind.Armor;

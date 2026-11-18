@@ -15,7 +15,7 @@ public partial class FortressScreen
             case Dwarf d:
                 return $"d{d.Id}:{d.Dead}:{d.Activity}:{d.Hunger / 300}:{d.Thirst / 300}:{d.Fatigue / 300}:{d.Stress / 300}:{d.Mood}:{string.Join(",", d.Thoughts.Select(t => t.Id))}:{string.Join("", d.Labors.Select(b => b ? '1' : '0'))}:{d.Xp.Sum() / 50}:{d.Bed}";
             case Building b:
-                return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
+                return $"b{b.Id}:{b.Built}:{b.Parts.Count}:{b.Owner}:{b.Builder}:{b.Raised}:{b.Locked}:{string.Join(";", b.Orders.Select(o => $"{o.Recipe},{o.Left},{o.Repeat},{o.Worker},{o.Stuck}"))}";
             case Zone z:
                 return $"z{z.Id}:{z.Cats}:{z.Crop}:{F.Zones.Contains(z)}:{(int)(F.Tick / 100)}";
             case Creature cr:
@@ -169,6 +169,16 @@ public partial class FortressScreen
         {
             v.AddChild(UITheme.L(b.Locked ? "Locked: nobody passes." : "Dwarves pass; beasts and raiders do not (brutes may batter it down).", 14, UITheme.Text));
             v.AddChild(UITheme.B(b.Locked ? "Unlock" : "Lock", () => { F.SetLock(b, !b.Locked); RefreshInfo(true); }, 14));
+        }
+        if (d.Id == "bridge")
+        {
+            v.AddChild(UITheme.L(b.Raised ? (b.OverAir ? "Raised: the gap is open." : "Raised: the way is sealed.") : "Lowered: the way is open.", 14, b.Raised ? UITheme.Ember : UITheme.Text));
+            v.AddChild(UITheme.B(b.Raised ? "Lower it" : "Raise it", () => { F.SetBridge(b, !b.Raised); RefreshInfo(true); }, 14));
+        }
+        if (d.Id == "coffin")
+        {
+            Dwarf dead = b.Owner >= 0 ? F.DwarfById(b.Owner) : null;
+            v.AddChild(UITheme.L(dead != null ? $"Here lies {dead.Name}, {dead.DeathCause}." : "Empty, waiting.", 14, UITheme.Text));
         }
         if (d.Id == "trap") v.AddChild(UITheme.L(F.Tick >= b.ArmedAt ? "Armed." : $"Resetting ({(b.ArmedAt - F.Tick) / 10 + 1}%...)", 14, F.Tick >= b.ArmedAt ? UITheme.Good : UITheme.Ember));
         if (d.Kind == BuildKind.Workshop) WorkshopOrders(v, b);
@@ -382,13 +392,18 @@ public partial class MilitaryPanel : Overlay
 {
     public MilitaryPanel(FortressScreen s) : base(s, "Military", new Vector2(900, 560)) { }
 
-    protected override string Signature() => $"{F.Alarm}:" + string.Join(";", F.Squads.Select(q => $"{q.Id}{q.Order}{q.Station}{string.Join(",", q.Members)}")) + ":" + string.Join(",", F.Living.Select(d => $"{d.Weapon}{d.Armor}{d.Hp / 25}"));
+    protected override string Signature() => $"{F.Alarm}:{F.Buildings.Count(b => b.Def == "bridge" && b.Raised)}:" + string.Join(";", F.Squads.Select(q => $"{q.Id}{q.Order}{q.Station}{string.Join(",", q.Members)}")) + ":" + string.Join(",", F.Living.Select(d => $"{d.Weapon}{d.Armor}{d.Hp / 25}"));
 
     protected override void Fill()
     {
         HBoxContainer top = UITheme.H(10);
         top.AddChild(UITheme.B(F.Alarm ? "Lift the alarm" : "Sound the alarm", () => S.ToggleAlarm(), 15, "Civilians drop everything and shelter in the meeting hall."));
         top.AddChild(UITheme.B("Raise a new squad", () => F.NewSquad(), 15));
+        if (F.Buildings.Any(b => b.Def == "bridge" && b.Built))
+        {
+            bool up = F.Buildings.Any(b => b.Def == "bridge" && b.Built && b.Raised);
+            top.AddChild(UITheme.B(up ? "Lower the drawbridges" : "Raise the drawbridges", () => F.SetAllBridges(!up), 15));
+        }
         int foes = F.Hostiles.Count();
         top.AddChild(UITheme.L(foes == 0 ? "No foes in sight." : $"{foes} foes about.", 15, foes == 0 ? UITheme.Dim : UITheme.Bad));
         Body.AddChild(top);
@@ -536,6 +551,8 @@ public partial class HelpPanel : Overlay
             "Ore (malachite, cassiterite, hematite...) goes to the smelter with fuel -- coal, or charcoal from the wood furnace -- and comes out as bars. The forge turns copper, bronze or iron bars into picks, axes, weapons and armour. Gems are cut at the craftsdwarf's shop.");
         Section("Danger",
             "Breaking into the caverns wakes what lives there; from the first autumn, grimlings raid -- more, and more often, as the hold grows rich. K opens the military: raise a squad, enlist dwarves, and tell it to stand, defend a place, or charge. Soldiers arm themselves from the stores, so keep a forge busy. Doors keep beasts out (brutes batter them down); lock one to keep everyone out. Stonefall traps need a mechanism from the mason. A (or the Alarm button) sends civilians to the meeting hall.");
+        Section("The dead",
+            "Coffins come from the mason or the carpenter; place them in a quiet tomb and the haulers will bear the dead there. Friends and clanmates grieve while a body lies unburied -- and a dwarf left a whole season becomes a restless spirit that haunts the living until laid to rest. Drawbridges (B, g) need a mechanism: over a channelled gap they drop whatever stands on them when raised; on a floor they seal the way.");
         Section("Moods",
             "Each dwarf has thoughts that come and go: good meals and ale, beds and tables, friends; bad ones like water to drink, sleeping on rock, seeing death, feuding clans. A long run of misery builds stress, and stress breaks out in tantrums.");
         Section("Ironman",

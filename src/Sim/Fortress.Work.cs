@@ -115,7 +115,7 @@ public sealed partial class Fortress
 
     // ---- choosing ---------------------------------------------------------------------
 
-    private enum Job { Build, Craft, Farm, Mine, Chop, Gather, Haul }
+    private enum Job { Build, Craft, Farm, Mine, Chop, Gather, Haul, Bury, Animals }
 
     private static Labor LaborOf(Job j) => j switch
     {
@@ -130,7 +130,7 @@ public sealed partial class Fortress
 
     private static readonly (Job job, int pri)[] Jobs =
     {
-        (Job.Build, 30), (Job.Craft, 26), (Job.Farm, 26), (Job.Mine, 20), (Job.Chop, 16), (Job.Gather, 10), (Job.Haul, 6),
+        (Job.Bury, 34), (Job.Build, 30), (Job.Craft, 26), (Job.Farm, 26), (Job.Mine, 20), (Job.Chop, 16), (Job.Gather, 10), (Job.Haul, 6),
     };
 
     private void Choose(Dwarf d)
@@ -148,7 +148,7 @@ public sealed partial class Fortress
             var order = Jobs.Select(j =>
             {
                 int score = j.pri;
-                if (j.job != Job.Craft && j.job != Job.Haul)
+                if (j.job is not (Job.Craft or Job.Haul or Job.Bury))
                 {
                     Labor l = LaborOf(j.job);
                     score += d.Skill(l) * 3 + (clan.Leans.Contains(l) ? 6 : 0);
@@ -166,6 +166,7 @@ public sealed partial class Fortress
                     Job.Chop => d.Can(Labor.Woodcutting) ? PlanDig(d, Labor.Woodcutting) : null,
                     Job.Gather => d.Can(Labor.Gathering) ? PlanDig(d, Labor.Gathering) : null,
                     Job.Haul => d.Can(Labor.Hauling) ? PlanHaul(d) : null,
+                    Job.Bury => d.Can(Labor.Hauling) ? PlanBury(d) : null,
                     _ => null,
                 };
                 if (t != null) break;
@@ -487,6 +488,7 @@ public sealed partial class Fortress
             case TaskKind.Shelter: return DoShelter(d, t);
             case TaskKind.Duty: return DoDuty(d, t);
             case TaskKind.Equip: return DoEquip(d, t);
+            case TaskKind.Bury: return DoBury(d, t);
             case TaskKind.Arrive:
                 d.Activity = "Arriving";
                 if (t.Stage == 0) { int r = Walk(d, FindStandable(World.Pos(t.Dest), 3)); if (r == 0) { t.Stage = 1; return true; } return false; }
@@ -720,6 +722,12 @@ public sealed partial class Fortress
         }
         b.Built = true;
         Count("buildings");
+        if (b.Def == "bridge")
+        {
+            int bc = World.Idx(b.X, b.Y, b.Z);
+            b.OverAir = World.Shapes[bc] == Shape.Empty;
+            if (b.OverAir) { World.SetShape(bc, Shape.Floor, b.Mat); World.Set(bc, CellFlag.Built, true); }
+        }
         if (b.Def == "door" && b.Locked) World.SetLocked(World.Idx(b.X, b.Y, b.Z), true);
         if (b.Def == "trap") b.ArmedAt = Tick;
         if (b.D.Kind == BuildKind.Workshop) Say($"{d.FirstName} finished the {b.D.Name.ToLower()}.", LogKind.Info, World.Idx(b.Center));
@@ -729,6 +737,13 @@ public sealed partial class Fortress
     {
         Buildings.Remove(b);
         if (b.Def == "door") World.SetLocked(World.Idx(b.X, b.Y, b.Z), false);
+        if (b.Def == "bridge" && b.Built)
+        {
+            int bc = World.Idx(b.X, b.Y, b.Z);
+            World.SetLocked(bc, false);
+            if (b.OverAir && World.Shapes[bc] == Shape.Floor) { World.SetShape(bc, Shape.Empty); World.Set(bc, CellFlag.Built, false); Fall(bc); }
+        }
+        if (b.Def == "coffin" && b.Owner >= 0) { Dwarf dead = DwarfById(b.Owner); if (dead != null) dead.Buried = false; }
         for (int y = b.Y; y < b.Y + b.H; y++)
             for (int x = b.X; x < b.X + b.W; x++)
             {
@@ -1071,6 +1086,7 @@ public sealed partial class Fortress
         foreach (Building b in Buildings)
         {
             if (b.Builder == d.Id) b.Builder = -1;
+            if (b.Claim == d.Id) b.Claim = -1;
             foreach (Order o in b.Orders) if (o.Worker == d.Id) o.Worker = -1;
         }
         foreach (var kv in Seats.Where(kv => kv.Value == d.Id).ToList()) Seats.Remove(kv.Key);
@@ -1151,6 +1167,7 @@ public sealed partial class Fortress
                     else if (s != Shape.Floor) return "needs open floor";
                     continue;
                 }
+                if (def == "bridge") { if (s is not (Shape.Floor or Shape.Empty)) return "a drawbridge goes on a floor or over a gap"; continue; }
                 if (s != Shape.Floor) return "needs open floor";
             }
         return null;

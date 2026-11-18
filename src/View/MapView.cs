@@ -534,6 +534,25 @@ public partial class MapView : Node2D
                 DrawRect(new Rect2(r.Position + new Vector2(2, 4), new Vector2(12, 9)), mc.Darkened(0.2f));
                 DrawRect(new Rect2(r.Position + new Vector2(2, 4), new Vector2(12, 3)), dark);
                 break;
+            case "coffin":
+                DrawColoredPolygon(new[] { r.Position + new Vector2(5, 1), r.Position + new Vector2(11, 1), r.Position + new Vector2(13, 5), r.Position + new Vector2(10, 15), r.Position + new Vector2(6, 15), r.Position + new Vector2(3, 5) }, mc.Darkened(0.2f));
+                if (b.Owner >= 0) DrawLine(c + new Vector2(0, -3), c + new Vector2(0, 4), new Color(0.85f, 0.8f, 0.7f), 1);
+                if (b.Owner >= 0) DrawLine(c + new Vector2(-2, -1), c + new Vector2(2, -1), new Color(0.85f, 0.8f, 0.7f), 1);
+                break;
+            case "bridge":
+                if (b.Raised)
+                {
+                    DrawRect(r.Grow(-1), new Color(0.08f, 0.06f, 0.05f));
+                    DrawRect(new Rect2(r.Position + new Vector2(1, 1), new Vector2(14, 4)), mc.Darkened(0.3f));
+                    DrawLine(r.Position + new Vector2(2, 3), r.Position + new Vector2(2, 14), new Color(0.6f, 0.6f, 0.65f), 1);
+                    DrawLine(r.Position + new Vector2(14, 3), r.Position + new Vector2(14, 14), new Color(0.6f, 0.6f, 0.65f), 1);
+                }
+                else
+                {
+                    DrawRect(r, mc.Darkened(0.2f));
+                    for (int k = 3; k < 16; k += 4) DrawLine(r.Position + new Vector2(0, k), r.Position + new Vector2(16, k), mc.Darkened(0.55f), 1);
+                }
+                break;
             case "statue":
                 DrawCircle(c + new Vector2(0, 4), 5, dark);
                 DrawCircle(c + new Vector2(0, -3), 3, mc.Lightened(0.2f));

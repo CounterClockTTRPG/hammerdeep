@@ -528,7 +528,7 @@ public sealed partial class Fortress
 
     private void CorpseThoughts()
     {
-        var corpses = Items.Values.Where(i => i.Kind == ItemKind.Corpse && i.Cell >= 0 && !i.Stored).Select(i => World.Pos(i.Cell)).ToList();
+        var corpses = Items.Values.Where(i => i.Kind == ItemKind.Corpse && i.Cell >= 0 && !i.Stored && i.InBuilding < 0).Select(i => World.Pos(i.Cell)).ToList();
         if (corpses.Count == 0) return;
         foreach (Dwarf d in Living)
         {
