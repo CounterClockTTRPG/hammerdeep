@@ -21,6 +21,8 @@ public sealed class Profile
     public bool Sound = true;
     public bool PauseOnAlerts = true;
     public bool MusicOn = true;
+    /// <summary>The isometric view instead of top-down.</summary>
+    public bool Isometric;
     public float MusicVolume = 0.5f;
     public int LastSlot = 1;
 

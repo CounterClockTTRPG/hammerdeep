@@ -58,7 +58,9 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   from one seed). `src/UI/WorldScreen.cs` -- choosing the embark, and the in-game world panel.
 - `src/World/WorldGen.cs` -- the embark map from a seed (and the `EmbarkLand` of its tile): heightmap with ramps, soil and rock
   layers, ore veins, gems, the cavern layer, magma, ponds, woods; the embark site.
-- `src/View/MapView.cs` -- the level in view: terrain painted per 32x32 chunk as pixel art
+- `src/Sim/Tutorial.cs` -- the guided first fortress: its goals and how each is checked.
+- `src/View/MapView.cs` -- the level in view (and the isometric option: the node is tilted, so map
+  coordinates always go through `GetGlobalTransformWithCanvas`, never `GetCanvasTransform`): terrain painted per 32x32 chunk as pixel art
   (repainted from `World.Changed`), open air showing lower levels; zones, designations,
   buildings, items and dwarves drawn over it each frame.
 - `src/UI` -- `FortressScreen` (clock, camera, tools, HUD; `Panels.cs`: info panel and the

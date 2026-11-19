@@ -79,6 +79,24 @@ public partial class ShotRunner : Node
             m.Cam.Zoom = new Vector2(2.2f, 2.2f);
             m.CenterOn(o.HallCenter);
             await Shot("05-hall");
+            if (Want("iso"))
+            {
+                m.SetIso(true);
+                await Shot("05b-hall-iso");
+                m.CenterOn(f.Embark);
+                await Shot("03b-surface-iso");
+                m.SetIso(false);
+                m.CenterOn(o.HallCenter);
+            }
+            if (Want("tutorial"))
+            {
+                f.TutorialStep = 4;
+                m.CenterOn(f.Embark);
+                await Frames(3);
+                await Shot("02b-tutorial");
+                f.TutorialStep = -1;
+                await Frames(2);
+            }
             m.CenterOn(new P3(o.Shaft.X - 7, o.Shaft.Y, o.BedZ));
             await Shot("06-bedrooms");
             m.CenterOn(new P3(o.Shaft.X - 5, o.Shaft.Y, o.FarmZ));

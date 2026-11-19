@@ -36,6 +36,8 @@ public sealed partial class Fortress
     public List<LogEntry> Log = new();
     public int NextId = 1;
     public bool Fallen;
+    /// <summary>The guided first fortress: which goal is next (-1: no tutorial).</summary>
+    public int TutorialStep = -1;
     public string FallenWhy;
     public Dictionary<string, int> Stats = new();
 

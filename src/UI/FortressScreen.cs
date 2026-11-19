@@ -38,6 +38,29 @@ public partial class FortressScreen : Control
     public object Selected;
 
     private UITheme.Drawn _names;
+    private Button _iso;
+
+    /// <summary>A small triangle for the level buttons, drawn rather than taken from a font.</summary>
+    private static ImageTexture Arrow(bool up)
+    {
+        var img = Image.CreateEmpty(14, 10, false, Image.Format.Rgba8);
+        for (int y = 0; y < 10; y++)
+            for (int x = 0; x < 14; x++)
+            {
+                int row = up ? y : 9 - y;
+                bool inside = Math.Abs(x - 6.5f) <= row * 0.72f + 0.5f;
+                img.SetPixel(x, y, inside ? new Color(0.98f, 0.8f, 0.36f) : new Color(0, 0, 0, 0));
+            }
+        return ImageTexture.CreateFromImage(img);
+    }
+
+    public void ToggleIso()
+    {
+        Profile.Current.Isometric = !Map.Iso;
+        Profile.Current.Save();
+        Map.SetIso(Profile.Current.Isometric);
+        RefreshHud();
+    }
     private Button _alarm;
 
     public void ToggleAlarm()
@@ -46,7 +69,8 @@ public partial class FortressScreen : Control
         F.Say(F.Alarm ? "The alarm sounds! Everyone to the meeting hall." : "The alarm is lifted.", F.Alarm ? LogKind.Bad : LogKind.Info);
         RefreshHud();
     }
-    private Label _name, _date, _stats, _depth, _toolHint;
+    private Label _name, _date, _depth, _toolHint;
+    private RichTextLabel _stats;
     private readonly Button[] _speedButtons = new Button[4];
     private VBoxContainer _info, _log, _toolbar;
     private PanelContainer _infoPanel, _alertPanel, _buildPanel;
@@ -68,6 +92,9 @@ public partial class FortressScreen : Control
         BuildInfo();
         BuildLog();
         BuildAlert();
+        if (F.TutorialStep == 0) Speed = 0;
+        BuildTutorial();
+        Map.SetIso(Profile.Current.Isometric);
         var names = new UITheme.Drawn { OnDraw = DrawNames, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(names);
         Anchor(names, 0, 0, 1, 1, 0, 0, 0, 0);
@@ -104,14 +131,30 @@ public partial class FortressScreen : Control
             speeds.AddChild(b);
         }
         row.AddChild(speeds);
-        _stats = UITheme.L("", 15, UITheme.Dim, UITheme.Body);
+        _stats = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.Off, MouseFilter = MouseFilterEnum.Ignore };
+        _stats.AddThemeFontOverride("normal_font", UITheme.Body);
+        _stats.AddThemeFontSizeOverride("normal_font_size", 15);
+        _stats.AddThemeColorOverride("default_color", UITheme.Dim);
         _stats.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _stats.HorizontalAlignment = HorizontalAlignment.Right;
+        _stats.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         row.AddChild(_stats);
+        // Up and down a level, beside where the level is named.
+        Button up = UITheme.B("", () => ChangeZ(1), 14, "Up a level (<, Page Up, Shift+wheel)");
+        up.Icon = Arrow(true);
+        up.CustomMinimumSize = new Vector2(34, 0);
+        Button down = UITheme.B("", () => ChangeZ(-1), 14, "Down a level (>, Page Down, Shift+wheel)");
+        down.Icon = Arrow(false);
+        down.CustomMinimumSize = new Vector2(34, 0);
         _depth = UITheme.L("", 16, UITheme.Gold, UITheme.LabelFont);
-        _depth.CustomMinimumSize = new Vector2(150, 0);
-        _depth.HorizontalAlignment = HorizontalAlignment.Right;
+        _depth.CustomMinimumSize = new Vector2(130, 0);
+        _depth.HorizontalAlignment = HorizontalAlignment.Center;
+        row.AddChild(down);
         row.AddChild(_depth);
+        row.AddChild(up);
+        _iso = UITheme.B("Isometric", ToggleIso, 14, "Switch between the top-down and the isometric view (F2)");
+        _iso.ToggleMode = true;
+        row.AddChild(_iso);
         _alarm = UITheme.B("Alarm", ToggleAlarm, 14, "Sound the alarm: civilians drop everything and shelter in the meeting hall (A)");
         _alarm.ToggleMode = true;
         row.AddChild(_alarm);
@@ -217,6 +260,95 @@ public partial class FortressScreen : Control
 
     private int _alertCell = -1;
 
+    // ---- the tutorial -------------------------------------------------------------------
+
+    private PanelContainer _tutPanel;
+    private Label _tutStep, _tutTitle, _tutText, _tutHow;
+    private Button _tutNext, _tutSkip, _tutEnd;
+    private UITheme.Drawn _tutTrack;
+    private readonly TutorialWatch _watch = new();
+    private int _tutShown = -2;
+    private double _glow;
+
+    private void BuildTutorial()
+    {
+        _tutPanel = new PanelContainer();
+        _tutPanel.AddThemeStyleboxOverride("panel", UITheme.Box(new Color(0.09f, 0.075f, 0.05f, 0.97f), UITheme.Gold, 2, 6, 14));
+        AddChild(_tutPanel);
+        Anchor(_tutPanel, 1, 1, 1, 1, -770, -8, -364, -8);
+        _tutPanel.GrowVertical = GrowDirection.Begin;
+        var v = UITheme.V(6);
+        _tutPanel.AddChild(v);
+        HBoxContainer head = UITheme.H(10);
+        var track = new UITheme.Drawn { CustomMinimumSize = new Vector2(Tutorial.Steps.Count * 14, 10), MouseFilter = MouseFilterEnum.Ignore };
+        track.OnDraw = c =>
+        {
+            for (int k = 0; k < Tutorial.Steps.Count; k++)
+            {
+                var r = new Rect2(k * 14, 2, 10, 6);
+                Color col = k < F.TutorialStep ? UITheme.Bronze : k == F.TutorialStep ? UITheme.Gold : new Color(UITheme.Faint, 0.6f);
+                c.DrawRect(r, col);
+            }
+        };
+        head.AddChild(track);
+        _tutTrack = track;
+        _tutStep = UITheme.L("", 13, UITheme.Dim, UITheme.Body);
+        head.AddChild(_tutStep);
+        v.AddChild(head);
+        _tutTitle = UITheme.Heading("", 20);
+        v.AddChild(_tutTitle);
+        _tutText = UITheme.Wrap("", 15, UITheme.Text, 380);
+        v.AddChild(_tutText);
+        _tutHow = UITheme.Wrap("", 14, UITheme.Gold, 380);
+        v.AddChild(_tutHow);
+        HBoxContainer h = UITheme.H(8);
+        _tutNext = UITheme.B("Next", () => { Tutorial.Next(F); ShowTutorial(); }, 15);
+        h.AddChild(_tutNext);
+        _tutSkip = UITheme.B("Skip this step", () => { Tutorial.Next(F); ShowTutorial(); }, 12);
+        h.AddChild(_tutSkip);
+        _tutEnd = UITheme.B("End the tutorial", () => { Tutorial.End(F); ShowTutorial(); }, 12);
+        h.AddChild(_tutEnd);
+        v.AddChild(h);
+        _watch.StartZ = _watch.Z = Map.Z;
+        ShowTutorial();
+    }
+
+    private void ShowTutorial()
+    {
+        TutorialStep s = Tutorial.Current(F);
+        _tutPanel.Visible = s != null;
+        _tutShown = F.TutorialStep;
+        _watch.StartZ = Map.Z;
+        _watch.SpeedChanged = false;
+        foreach (Button b in _toolButtons.Values) b.Modulate = Colors.White;
+        if (s == null) return;
+        _tutStep.Text = $"Step {F.TutorialStep + 1} of {Tutorial.Steps.Count}";
+        _tutTrack.QueueRedraw();
+        _tutSkip.Visible = s.Done != null;
+        _tutEnd.Visible = F.TutorialStep < Tutorial.Steps.Count - 1;
+        _tutTitle.Text = s.Title;
+        _tutText.Text = s.Text;
+        _tutHow.Text = s.How;
+        _tutNext.Visible = s.Done == null;
+        _tutNext.Text = F.TutorialStep == Tutorial.Steps.Count - 1 ? "Finish" : "Next";
+    }
+
+    private void TickTutorial(double delta)
+    {
+        if (F.TutorialStep < 0) { if (_tutPanel.Visible) ShowTutorial(); return; }
+        _watch.Z = Map.Z;
+        if (_tutShown != F.TutorialStep) ShowTutorial();
+        if (Tutorial.Advance(F, _watch)) { Sfx.Good(); ShowTutorial(); }
+        // The tool the step wants glows in the toolbar.
+        _glow += delta;
+        TutorialStep s = Tutorial.Current(F);
+        float pulse = 0.75f + 0.25f * Mathf.Sin((float)_glow * 5);
+        foreach (var kv in _toolButtons) kv.Value.Modulate = s?.Glow == kv.Key ? new Color(1.25f, 1.1f, 0.6f) * pulse + new Color(0, 0, 0, 1 - pulse) : Colors.White;
+        foreach (Node n in _toolbar.GetChildren())
+            if (n is Button b && !_toolButtons.ContainsValue(b))
+                b.Modulate = s?.GlowButton != null && b.Text.Contains(s.GlowButton) ? new Color(1.25f, 1.1f, 0.6f) * pulse + new Color(0, 0, 0, 1 - pulse) : Colors.White;
+    }
+
     /// <summary>Anchor a control (already added) to fractions of the screen, with pixel offsets.</summary>
     public static new void Anchor(Control c, float l, float t, float r, float b, float ol, float ot, float or, float ob)
     {
@@ -228,6 +360,7 @@ public partial class FortressScreen : Control
 
     public void SetSpeed(int s)
     {
+        if (s != Speed) _watch.SpeedChanged = true;
         if (s > 0) _lastSpeed = s;
         Speed = s;
         if (s > 0) _alertPanel.Visible = false;
@@ -264,6 +397,7 @@ public partial class FortressScreen : Control
             if (!Profile.Scratch) Profile.SaveFortress(F);
         }
         _names.QueueRedraw();
+        TickTutorial(delta);
         // The music follows the hold: battle when foes are close, the deep below the caverns, the hall otherwise.
         bool fighting = F.Creatures.Any(c => !c.Dead && (c.D.Hostile || c.Angry) && !c.Tame && F.World.Pos(c.Cell).Dist(F.Embark) < 40) && F.Living.Any(d => d.Task?.Kind is TaskKind.Fight or TaskKind.Flee);
         Music.Instance?.Play(fighting ? MusicMood.Battle : Map.Z <= F.CavernZ + 2 ? MusicMood.Deep : MusicMood.Hall);
@@ -296,18 +430,22 @@ public partial class FortressScreen : Control
 
     private void RefreshHud()
     {
-        _date.Text = $"{F.Date}  ·  {TimeOfDay()}";
+        _date.Text = $"{F.Date}, {TimeOfDay()}";
         for (int k = 0; k < 4; k++) _speedButtons[k].SetPressedNoSignal(Speed == k);
         int idle = F.Living.Count(d => d.Activity == "Idle");
         bool mixed = F.Living.Any(d => d.Race is not (null or "dwarf"));
-        _stats.Text = $"{F.Alive} {(mixed ? "folk" : "dwarves")} ({idle} idle)  ·  {F.Items.Values.Count(i => i.Kind == ItemKind.Drink)} ale  ·  {F.Items.Values.Count(i => Tables.Matches("food", i))} food  ·  wealth {F.Wealth}";
+        string Fig(int n, string word, Color? c = null) => $"[color=#{(c ?? UITheme.Text).ToHtml(false)}]{n}[/color] {word}";
+        int ale = F.Items.Values.Count(i => i.Kind == ItemKind.Drink), food = F.Items.Values.Count(i => Tables.Matches("food", i));
+        string stats = $"{Fig(F.Alive, mixed ? "folk" : "dwarves")}, {Fig(idle, "idle")}      {Fig(ale, "ale", ale < F.Alive * 2 ? UITheme.Ember : null)}      {Fig(food, "food", food < F.Alive * 2 ? UITheme.Ember : null)}      wealth {Fig(F.Wealth, "")}";
         _depth.Text = $"{DepthName(Map.Z)}  (z {Map.Z})";
         foreach (var kv in _toolButtons) kv.Value.SetPressedNoSignal(kv.Key == Tool);
         _alarm.SetPressedNoSignal(F.Alarm);
+        _iso.SetPressedNoSignal(Map.Iso);
         _alarm.Text = F.Alarm ? "ALARM!" : "Alarm";
         _alarm.AddThemeColorOverride("font_color", F.Alarm ? UITheme.Bad : UITheme.Text);
         int foes = F.Hostiles.Count();
-        if (foes > 0) _stats.Text = $"{foes} foes about  ·  " + _stats.Text;
+        if (foes > 0) stats = $"[color=#{UITheme.Bad.ToHtml(false)}]{foes} foes about[/color]      " + stats;
+        _stats.Text = $"[right]{stats}[/right]";
         RefreshLog();
         RefreshInfo();
     }
@@ -355,6 +493,7 @@ public partial class FortressScreen : Control
 
     public void Pick(Tool t)
     {
+        if (t != Tool.Select && Selected != null && !(t == Tool.Build && Selected is Building)) SelectThing(null);
         Tool = t;
         _dragFrom = null;
         Map.Box = null;
@@ -433,7 +572,7 @@ public partial class FortressScreen : Control
         if (_held.Contains(Key.Down)) v.Y += 1;
         if (_held.Contains(Key.Left)) v.X -= 1;
         if (_held.Contains(Key.Right)) v.X += 1;
-        if (v != Vector2.Zero) { Follow = null; Map.Cam.Position += v * speed; ClampCam(); }
+        if (v != Vector2.Zero) { Follow = null; Map.Cam.Position += Map.Iso ? Map.ScreenDeltaToLocal(v * speed * Map.Cam.Zoom.X) : v * speed; ClampCam(); }
     }
 
     private void ClampCam()
@@ -484,7 +623,7 @@ public partial class FortressScreen : Control
         }
         if (e is InputEventMouseMotion mm)
         {
-            if (_panning) { Map.Cam.Position -= mm.Relative / Map.Cam.Zoom; Follow = null; ClampCam(); }
+            if (_panning) { Map.Cam.Position -= Map.ScreenDeltaToLocal(mm.Relative); Follow = null; ClampCam(); }
             Map.Hover = Map.CellAt(mm.Position);
             if (Map.Ghost != null && Map.Hover is P3 h) Map.GhostOk = F.CanPlace(Map.Ghost, h.X, h.Y, h.Z) == null;
             if (_dragFrom != null) UpdateDrag(mm.Position);
@@ -494,10 +633,10 @@ public partial class FortressScreen : Control
     private void Zoom(int dir, Vector2 at)
     {
         float z = Math.Clamp(Map.Cam.Zoom.X * (dir > 0 ? 1.2f : 1 / 1.2f), 0.5f, 6f);
-        Vector2 before = Map.GetCanvasTransform().AffineInverse() * at;
+        Vector2 before = Map.GetGlobalTransformWithCanvas().AffineInverse() * at;
         Map.Cam.Zoom = new Vector2(z, z);
         Map.Cam.ForceUpdateScroll();
-        Vector2 after = Map.GetCanvasTransform().AffineInverse() * at;
+        Vector2 after = Map.GetGlobalTransformWithCanvas().AffineInverse() * at;
         Map.Cam.Position += before - after;
         ClampCam();
     }
@@ -639,6 +778,7 @@ public partial class FortressScreen : Control
             case Godot.Key.Key3: SetSpeed(3); return true;
             case Godot.Key.Tab: ShowNamesToggle(); return true;
             case Godot.Key.F1: Open(new HelpPanel(this)); return true;
+            case Godot.Key.F2: ToggleIso(); return true;
         }
         if (Tool == Tool.Build && BuildDef == null)
         {
@@ -693,7 +833,7 @@ public partial class FortressScreen : Control
         foreach (Dwarf d in F.Living)
         {
             if (!(Map.ShowNames || d.Id == Map.SelDwarf) || F.World.Pos(d.Cell).Z != Map.Z) continue;
-            Vector2 at = Map.GetCanvasTransform() * (Map.DwarfPos(d) + new Vector2(0, -9));
+            Vector2 at = Map.GetGlobalTransformWithCanvas() * Map.DwarfPos(d) + new Vector2(0, Map.Iso ? -26 : -9 * Map.Cam.Zoom.X / 2);
             if (at.X < 0 || at.Y < 0 || at.X > Size.X || at.Y > Size.Y) continue;
             Font f = UITheme.LabelFont;
             Vector2 sz = f.GetStringSize(d.FirstName, HorizontalAlignment.Left, -1, 14);

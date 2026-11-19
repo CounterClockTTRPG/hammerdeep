@@ -87,13 +87,14 @@ public partial class Root : Node
     }
 
     /// <summary>A new fortress in a slot, over whatever was there.</summary>
-    public void NewFortress(string name, int slot, ulong seed = 0, ulong worldSeed = 0, int wx = -1, int wy = -1)
+    public void NewFortress(string name, int slot, ulong seed = 0, ulong worldSeed = 0, int wx = -1, int wy = -1, bool tutorial = false)
     {
         Profile.Slot = slot;
         Profile.Current.LastSlot = slot;
         Profile.Current.Save();
         if (seed == 0) seed = ((ulong)GD.Randi() << 32) | GD.Randi();
         Fortress f = Fortress.New(name, seed, worldSeed: worldSeed, ex: wx, ey: wy);
+        if (tutorial) f.TutorialStep = 0;
         if (!Profile.Scratch) Profile.SaveFortress(f, slot);
         Play(f);
     }

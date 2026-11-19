@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -385,6 +385,54 @@ public partial class SmokeTest : Node
             if (!same) mismatches++;
         }
         Eq(mismatches, 0, $"incremental regions match a full rebuild ({checks} comparisons)");
+    }
+
+    /// <summary>Every goal of the tutorial can be met by doing what it asks.</summary>
+    private void Tutorials()
+    {
+        Fortress f = Fortress.New("Tuthold", 616);
+        f.TutorialStep = 0;
+        var w = new TutorialWatch { StartZ = f.Embark.Z, Z = f.Embark.Z };
+        Tutorial.Next(f);                                   // welcome: read
+        w.Z--; Tutorial.Advance(f, w);                       // looked down
+        Eq(f.TutorialStep, 2, "looking down a level passes the second goal");
+        w.SpeedChanged = true; Tutorial.Advance(f, w);
+        P3 e = f.Embark;
+        f.AddZone(ZoneKind.Stockpile, new P3(e.X - 3, e.Y - 8, e.Z), new P3(e.X + 3, e.Y - 3, e.Z));
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 4, "a big stockpile passes the stockpile goal");
+        int felled = 0;
+        for (int i = 0; i < f.World.N && felled < 6; i++) if (f.World.Shapes[i] == Shape.Tree && f.World.IsOutside(i)) { P3 tp = f.World.Pos(i); felled += f.Designate(tp, tp, Desig.Chop); }
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 5, "marking trees to fell passes the wood goal");
+        f.AddZone(ZoneKind.Farm, new P3(e.X - 3, e.Y + 4, e.Z), new P3(e.X + 1, e.Y + 6, e.Z), "hearthwheat");
+        Tutorial.Advance(f, w);
+        Building brew = f.Place("brewery", e.X + 6, e.Y + 6, e.Z) ?? f.Place("brewery", e.X - 9, e.Y - 2, e.Z);
+        f.AddOrder(brew, "ale", 1, true);
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 7, "a farm and a brewery with ale on order pass those goals");
+        P3 s = new(e.X + 4, e.Y, e.Z);
+        f.Designate(s, s, Desig.StairDown);
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 7, "a down stair alone is not yet a way down");
+        f.Designate(new P3(s.X, s.Y, s.Z - 1), new P3(s.X, s.Y, s.Z - 1), Desig.StairUD);
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 8, "with the stair beneath it, it is");
+        f.Designate(new P3(s.X + 1, s.Y - 3, s.Z - 1), new P3(s.X + 10, s.Y + 2, s.Z - 1), Desig.Dig);
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 9, "designating a hall passes the hall goal");
+        Building c = f.Place("carpenter", e.X - 7, e.Y + 2, e.Z) ?? f.Place("carpenter", e.X + 6, e.Y + 4, e.Z);
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 10, "placing a carpenter's shop passes that goal");
+        f.AddOrder(c, "bed", 5);
+        Tutorial.Advance(f, w);
+        Eq(f.TutorialStep, 11, "ordering beds passes that goal");
+        int left = Tutorial.Steps.Count - f.TutorialStep;
+        for (int k = 0; k < left; k++) Tutorial.Next(f);
+        Eq(f.TutorialStep, -1, "the tutorial ends after its last goal");
+        Check(Tutorial.Steps.All(t => t.Title != null && t.How != null), "every goal says what to do");
+        f.TutorialStep = 3;
+        Eq(Save.Read(Save.Write(f)).TutorialStep, 3, "the tutorial's place is saved");
     }
 
     private Fortress _gen;

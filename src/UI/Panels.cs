@@ -200,6 +200,11 @@ public partial class FortressScreen
                 bool any = missing.All(n => F.Items.Values.Count(i => i.Free && Tables.Matches(n.Tag, i)) >= n.Count);
                 v.AddChild(UITheme.Wrap("Needs " + string.Join(", ", missing.Select(n => $"{n.Count} {Tables.NeedName(n.Tag)}")) + (any ? "." : " -- none to hand!"), 14, any ? UITheme.Text : UITheme.Ember, 320));
             }
+            if (d.Kind == BuildKind.Workshop && Tables.RecipesFor(d.Id).Any())
+            {
+                v.AddChild(UITheme.Wrap("You can queue work orders now; they start once it is built.", 13, UITheme.Dim, 320));
+                WorkshopOrders(v, b);
+            }
             v.AddChild(UITheme.B("Cancel", () => { F.Deconstruct(b); SelectThing(null); }, 14));
             return;
         }
@@ -288,25 +293,7 @@ public partial class FortressScreen
 
     private void WorkshopOrders(VBoxContainer v, Building b)
     {
-        v.AddChild(UITheme.L("Work orders", 13, UITheme.Bronze, UITheme.Title));
-        if (b.Orders.Count == 0) v.AddChild(UITheme.L("None. Add one below.", 13, UITheme.Faint));
-        foreach (Order o in b.Orders.ToList())
-        {
-            Recipe r = Tables.Recipe(o.Recipe);
-            HBoxContainer h = UITheme.H(6);
-            Label name = UITheme.L(o.Repeat ? $"{r.Name} (repeat)" : $"{r.Name} x{o.Left}", 14, UITheme.Text);
-            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            h.AddChild(name);
-            h.AddChild(UITheme.B("x", () =>
-            {
-                if (o.Worker >= 0) { Dwarf w = F.DwarfById(o.Worker); if (w != null) { F.Release(w); w.Task = null; } }
-                b.Orders.Remove(o);
-                RefreshInfo(true);
-            }, 12, "Cancel this order"));
-            v.AddChild(h);
-            string status = o.Worker >= 0 ? $"   {F.DwarfById(o.Worker)?.FirstName} is at work" : o.Stuck != null ? $"   waiting: {o.Stuck}" : "   waiting for a worker";
-            v.AddChild(UITheme.L(status, 12, o.Stuck != null && o.Worker < 0 ? UITheme.Ember : UITheme.Dim));
-        }
+        // The recipes first and the queue below: adding or cancelling never moves a button you are aiming for.
         v.AddChild(UITheme.L("New order", 13, UITheme.Bronze, UITheme.Title));
         foreach (Recipe r in Tables.RecipesFor(b.Def))
         {
@@ -321,6 +308,25 @@ public partial class FortressScreen
             h.AddChild(UITheme.B("+5", () => { F.AddOrder(b, r.Id, 5); RefreshInfo(true); }, 12, inputs));
             h.AddChild(UITheme.B("∞", () => { F.AddOrder(b, r.Id, 1, true); RefreshInfo(true); }, 12, "Repeat for ever"));
             v.AddChild(h);
+        }
+        v.AddChild(UITheme.L("Work orders", 13, UITheme.Bronze, UITheme.Title));
+        if (b.Orders.Count == 0) v.AddChild(UITheme.L("None yet: add one above.", 13, UITheme.Faint));
+        foreach (Order o in b.Orders.ToList())
+        {
+            Recipe r = Tables.Recipe(o.Recipe);
+            HBoxContainer h = UITheme.H(6);
+            Label name = UITheme.L(o.Repeat ? $"{r.Name}, repeating" : $"{r.Name}, {o.Left} to make", 14, UITheme.Text);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            h.AddChild(name);
+            h.AddChild(UITheme.B("Cancel", () =>
+            {
+                if (o.Worker >= 0) { Dwarf w = F.DwarfById(o.Worker); if (w != null) { F.Release(w); w.Task = null; } }
+                b.Orders.Remove(o);
+                RefreshInfo(true);
+            }, 12, "Cancel this order"));
+            v.AddChild(h);
+            string status = o.Worker >= 0 ? $"{F.DwarfById(o.Worker)?.FirstName} is at work" : o.Stuck != null ? $"Waiting: {o.Stuck}" : "Waiting for a worker";
+            v.AddChild(UITheme.L("   " + status, 12, o.Stuck != null && o.Worker < 0 ? UITheme.Ember : UITheme.Dim));
         }
     }
 
@@ -506,7 +512,7 @@ public partial class DwarfList : Overlay
 
 public partial class MilitaryPanel : Overlay
 {
-    public MilitaryPanel(FortressScreen s) : base(s, "Military", new Vector2(900, 560)) { }
+    public MilitaryPanel(FortressScreen s) : base(s, "Military", new Vector2(900, 420)) { }
 
     protected override string Signature() => $"{F.Alarm}:{F.Buildings.Count(b => b.Def == "bridge" && b.Raised)}:" + string.Join(";", F.Squads.Select(q => $"{q.Id}{q.Order}{q.Station}{string.Join(",", q.Members)}")) + ":" + string.Join(",", F.Living.Select(d => $"{d.Weapon}{d.Armor}{d.Hp / 25}"));
 
@@ -550,7 +556,9 @@ public partial class MilitaryPanel : Overlay
                 n.CustomMinimumSize = new Vector2(220, 0);
                 m.AddChild(n);
                 m.AddChild(UITheme.L($"fighting {d.Skill(Labor.Fighting)}", 13, UITheme.Dim));
-                m.AddChild(UITheme.Bar(d.Hp / (float)d.MaxHp, d.Wounded ? UITheme.Bad : UITheme.Good, 60, 8));
+                Control hb = UITheme.Bar(d.Hp / (float)d.MaxHp, d.Wounded ? UITheme.Bad : UITheme.Good, 60, 8);
+                hb.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+                m.AddChild(hb);
                 string kit = (F.WeaponOf(d)?.Name ?? "unarmed") + (d.Armor >= 0 ? ", armoured" : "");
                 Label k = UITheme.L(kit, 13, UITheme.Dim);
                 k.CustomMinimumSize = new Vector2(260, 0);
@@ -811,7 +819,7 @@ public partial class HelpPanel : Overlay
         Section("You do not command dwarves",
             "You say what should be done -- dig here, build that, stockpile there, make five beds -- and the dwarves choose their own tasks by skill, labor and whim. Hungry, thirsty or tired dwarves see to themselves first.");
         Section("Moving around",
-            "Arrow keys or middle-drag pan, the wheel zooms. < and > (or Page Up/Down, or Shift+wheel) go up and down a level. Open air shows the levels below it, dimmer the deeper they are. C centres on the wagon; Tab shows names.");
+            "Arrow keys or middle-drag pan, the wheel zooms. The arrow buttons beside the level's name (or < and >, Page Up/Down, Shift+wheel) go up and down a level. F2 (or the Isometric button) switches to an isometric view and back. Open air shows the levels below it, dimmer the deeper they are. C centres on the wagon; Tab shows names.");
         Section("Time",
             "Space pauses; 1, 2 and 3 run at normal, fast and fastest. You can give orders while paused. Alerts (deaths, caverns, tantrums...) pause the game.");
         Section("Digging",

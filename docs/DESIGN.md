@@ -105,6 +105,14 @@
    town near, migrant bands only from peoples near. Saves keep the seed and the tile. O shows
    the world and its legends in play.
 
+11. **Tutorial and views** (done) — a guided first fortress (`Tutorial`): sixteen goals from
+   looking around to a squad, each checked against the fortress and passed as soon as it is
+   really done, in an order that keeps the hold alive (wood, a farm and ale before rooms);
+   the tool a goal needs glows in the toolbar; offered when founding, on by default for a
+   first fortress. Level buttons beside the level's name. An isometric view (F2, remembered):
+   the map node tilted 45 degrees and halved in height, raised walls with shaded faces drawn
+   back to front, upright figures and trees; every tool works the same in both views.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

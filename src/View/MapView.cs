@@ -64,19 +64,99 @@ public partial class MapView : Node2D
 
     public Vector2 CellCenter(int cell) { P3 p = W.Pos(cell); return new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T); }
 
+    // ---- the isometric option ----------------------------------------------------------
+
+    /// <summary>
+    /// Isometric: the whole map node is turned 45 degrees and squashed to half height, so
+    /// everything drawn flat (terrain, zones, designations) lands in the diamond; walls get
+    /// raised caps and faces, and figures are drawn upright by undoing the tilt where they stand.
+    /// Clicks, panning and zooming all go through the same transform.
+    /// </summary>
+    public bool Iso { get; private set; }
+    private static readonly Transform2D IsoTilt = new(new Vector2(0.70710678f, 0.35355339f), new Vector2(-0.70710678f, 0.35355339f), Vector2.Zero);
+    private const float WallH = 9f;
+
+    public void SetIso(bool on)
+    {
+        Iso = on;
+        Transform = on ? IsoTilt : Transform2D.Identity;
+        QueueRedraw();
+    }
+
+    /// <summary>A movement on screen (pixels), as a movement of the camera in map space.</summary>
+    public Vector2 ScreenDeltaToLocal(Vector2 v) => Transform.AffineInverse().BasisXform(v / Cam.Zoom);
+
+    /// <summary>Draw figures upright at a point: undo the tilt there. Returns where to draw (relative).</summary>
+    private Vector2 Upright(Vector2 at, float lift = 6)
+    {
+        if (!Iso) return at;
+        Transform2D inv = IsoTilt.AffineInverse();
+        DrawSetTransformMatrix(new Transform2D(inv.X * 1.25f, inv.Y * 1.25f, at));
+        return new Vector2(0, -lift);
+    }
+
     /// <summary>The cell under a screen point, on the level in view.</summary>
     public P3 CellAt(Vector2 screen)
     {
-        Vector2 w = GetCanvasTransform().AffineInverse() * screen;
+        Vector2 w = GetGlobalTransformWithCanvas().AffineInverse() * screen;
         return new P3((int)MathF.Floor(w.X / T), (int)MathF.Floor(w.Y / T), Z);
     }
 
-    public Vector2 ScreenOf(P3 p) => GetCanvasTransform() * new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
+    public Vector2 ScreenOf(P3 p) => GetGlobalTransformWithCanvas() * new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
 
     public Rect2 ViewRect()
     {
-        Vector2 size = GetViewportRect().Size / Cam.Zoom;
-        return new Rect2(Cam.GetScreenCenterPosition() - size / 2, size);
+        Vector2 vp = GetViewportRect().Size;
+        Transform2D inv = GetGlobalTransformWithCanvas().AffineInverse();
+        Vector2 a = inv * Vector2.Zero, b = inv * new Vector2(vp.X, 0), c = inv * vp, d = inv * new Vector2(0, vp.Y);
+        Vector2 lo = new(Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)), Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)));
+        Vector2 hi = new(Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)), Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)));
+        return new Rect2(lo, hi - lo);
+    }
+
+    /// <summary>Isometric walls: a raised cap on every wall in view, and shaded faces where it meets open ground in front.</summary>
+    private void DrawRaisedWalls(int x0, int y0, int x1, int y1)
+    {
+        Vector2 up = IsoTilt.AffineInverse().BasisXform(new Vector2(0, -WallH));
+        // Back to front: the diagonal x + y grows towards the viewer.
+        for (int s = x0 + y0; s <= x1 + y1; s++)
+            for (int x = Math.Max(x0, s - y1); x <= Math.Min(x1, s - y0); x++)
+            {
+                int y = s - x;
+                int i = W.Idx(x, y, Z);
+                Shape sh = W.Shapes[i];
+                if (sh == Shape.Tree && !W.Has(i, CellFlag.Hidden))
+                {
+                    // A tree stands up: trunk and crown, drawn upright.
+                    Mat tm = Tables.Mats[W.Mats[i]];
+                    bool stalk = tm.Key == "stalkwood";
+                    Color leaf = stalk ? new Color(0.47f, 0.31f, 0.59f) : tm.Key == "pine" ? new Color(0.13f, 0.32f, 0.2f) : F.Season == 2 ? new Color(0.67f, 0.39f, 0.16f) : new Color(0.19f, 0.41f, 0.17f);
+                    Vector2 o = Upright(new Vector2((x + 0.5f) * T, (y + 0.5f) * T), 0);
+                    DrawRect(new Rect2(o + new Vector2(-1.5f, -9), new Vector2(3, 9)), new Color(0.35f, 0.24f, 0.14f));
+                    DrawCircle(o + new Vector2(0, -14), 7.5f, leaf.Darkened(0.25f));
+                    DrawCircle(o + new Vector2(-1.5f, -15.5f), 6, leaf);
+                    DrawCircle(o + new Vector2(-3, -17.5f), 2.2f, leaf.Lightened(0.25f));
+                    DrawSetTransformMatrix(Transform2D.Identity);
+                    continue;
+                }
+                if (sh != Shape.Wall && sh != Shape.Tree) continue;
+                bool hidden = W.Has(i, CellFlag.Hidden);
+                Vector2 p0 = new(x * T, y * T), p1 = new((x + 1) * T, y * T), p2 = new((x + 1) * T, (y + 1) * T), p3 = new(x * T, (y + 1) * T);
+                Color baseC;
+                if (hidden) baseC = new Color(0.07f, 0.06f, 0.06f);
+                else if (sh == Shape.Tree) baseC = UITheme.C(Tables.Mats[W.Mats[i]].Color).Darkened(0.2f).Lerp(new Color(0.2f, 0.42f, 0.18f), 0.6f);
+                else baseC = UITheme.C(Tables.Mats[W.Mats[i]].Color).Darkened(0.12f);
+                float n = Noise.Hash01(x, y, Z, 3) * 0.08f;
+                if (!hidden)
+                {
+                    // Faces where the cell in front is open: south (y+1) and east (x+1).
+                    if (y + 1 < W.H && !World.IsSolid(W.Shapes[W.Idx(x, y + 1, Z)]))
+                        DrawColoredPolygon(new[] { p3, p2, p2 + up, p3 + up }, baseC.Darkened(0.42f));
+                    if (x + 1 < W.W && !World.IsSolid(W.Shapes[W.Idx(x + 1, y, Z)]))
+                        DrawColoredPolygon(new[] { p1, p2, p2 + up, p1 + up }, baseC.Darkened(0.58f));
+                }
+                DrawColoredPolygon(new[] { p0 + up, p1 + up, p2 + up, p3 + up }, baseC.Lightened(n));
+            }
     }
 
     public override void _Process(double delta)
@@ -385,10 +465,14 @@ public partial class MapView : Node2D
         int x1 = Math.Min(W.W - 1, (int)(view.End.X / T)), y1 = Math.Min(W.H - 1, (int)(view.End.Y / T));
         DrawZones(x0, y0, x1, y1);
         DrawDesignations(x0, y0, x1, y1);
+        if (Iso) DrawRaisedWalls(x0, y0, x1, y1);
         DrawBuildings(view);
         DrawItems(x0, y0, x1, y1);
+        DrawSetTransformMatrix(Transform2D.Identity);
         DrawDwarves(view);
+        DrawSetTransformMatrix(Transform2D.Identity);
         DrawCreatures(view);
+        DrawSetTransformMatrix(Transform2D.Identity);
         DrawCursor();
     }
 
@@ -621,7 +705,7 @@ public partial class MapView : Node2D
                 if (n >= 4) break;
                 Vector2 at = new(p.X * T + 4 + (n % 2) * 8, p.Y * T + 4 + (n / 2) * 8);
                 if (kv.Value.Count == 1) at = new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
-                DrawItem(it, at, kv.Value.Count == 1 ? 1f : 0.7f);
+                DrawItem(it, Upright(at, 2), kv.Value.Count == 1 ? 1f : 0.7f);
                 n++;
             }
         }
@@ -681,6 +765,7 @@ public partial class MapView : Node2D
             if (c.Dead || W.Pos(c.Cell).Z != Z) continue;
             Vector2 at = CreaturePos(c);
             if (!view.HasPoint(at)) continue;
+            at = Upright(at);
             CreatureDef d = c.D;
             Color col = UITheme.C(d.Color);
             float s = d.Size * (c.Tame && !c.Adult(F.Tick) ? 0.65f : 1f);
@@ -770,6 +855,7 @@ public partial class MapView : Node2D
             Vector2 at = DwarfPos(d);
             if (!view.HasPoint(at)) continue;
             if (d.Dead) continue;
+            at = Upright(at);
             DrawDwarf(d, at, this, 1f, Time);
             if (d.Hp < d.MaxHp)
             {

@@ -210,12 +210,15 @@ public partial class WorldScreen : Control
         h.AddChild(name);
         h.AddChild(UITheme.B("Another", () => name.Text = Tables.FortName(_rng), 14));
         v.AddChild(h);
+        bool first = Enumerable.Range(1, 3).All(k => Profile.Peek(k, out _) == null || k == Slot);
+        var guide = new CheckBox { Text = "Guide me through the first steps (tutorial)", ButtonPressed = first, FocusMode = FocusModeEnum.None };
+        v.AddChild(guide);
         HBoxContainer go = UITheme.H(8);
         void Embark()
         {
             string n = name.Text.Trim();
             if (n.Length == 0) n = Tables.FortName(_rng);
-            Root.NewFortress(n, Slot, 0, Map.Seed, _pick.x, _pick.y);
+            Root.NewFortress(n, Slot, 0, Map.Seed, _pick.x, _pick.y, guide.ButtonPressed);
         }
         name.TextSubmitted += _ => Embark();
         go.AddChild(UITheme.B("Strike the earth!", Embark, 18));
