@@ -464,8 +464,8 @@ public partial class MapView : Node2D
         int x0 = Math.Max(0, (int)(view.Position.X / T)), y0 = Math.Max(0, (int)(view.Position.Y / T));
         int x1 = Math.Min(W.W - 1, (int)(view.End.X / T)), y1 = Math.Min(W.H - 1, (int)(view.End.Y / T));
         DrawZones(x0, y0, x1, y1);
-        DrawDesignations(x0, y0, x1, y1);
         if (Iso) DrawRaisedWalls(x0, y0, x1, y1);
+        DrawDesignations(x0, y0, x1, y1);
         DrawBuildings(view);
         DrawItems(x0, y0, x1, y1);
         DrawSetTransformMatrix(Transform2D.Identity);
@@ -521,7 +521,9 @@ public partial class MapView : Node2D
             P3 p = W.Pos(c);
             if (p.Z != Z || p.X < x0 || p.X > x1 || p.Y < y0 || p.Y > y1) continue;
             Desig g = W.Desigs[c];
-            var r = new Rect2(p.X * T, p.Y * T, T, T);
+            // In the isometric view a designated wall is marked on its raised top.
+            Vector2 lift = Iso && World.IsSolid(W.Shapes[c]) ? IsoTilt.AffineInverse().BasisXform(new Vector2(0, -WallH)) : Vector2.Zero;
+            var r = new Rect2(p.X * T + lift.X, p.Y * T + lift.Y, T, T);
             bool taken = F.Claims.ContainsKey(c);
             Color col = g switch
             {
@@ -536,11 +538,12 @@ public partial class MapView : Node2D
             for (int k = 4; k < T * 2; k += 5)
             {
                 Vector2 a = new(p.X * T + Math.Max(0, k - T), p.Y * T + Math.Min(T, k)), b = new(p.X * T + Math.Min(T, k), p.Y * T + Math.Max(0, k - T));
+                a += lift; b += lift;
                 DrawLine(a, b, new Color(col, 0.55f), 1);
             }
             DrawRect(r.Grow(-0.5f), new Color(col, 0.8f), false, 1);
             string glyph = g switch { Desig.StairUD => "X", Desig.StairDown => ">", Desig.StairUp => "<", Desig.Channel => "v", _ => null };
-            if (glyph != null) DrawString(UITheme.Mono, new Vector2(p.X * T + 4, p.Y * T + 12), glyph, HorizontalAlignment.Left, -1, 11, col);
+            if (glyph != null) DrawString(UITheme.Mono, new Vector2(p.X * T + 4, p.Y * T + 12) + lift, glyph, HorizontalAlignment.Left, -1, 11, col);
         }
     }
 

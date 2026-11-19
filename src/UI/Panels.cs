@@ -412,7 +412,13 @@ public partial class FortressScreen
         if (w.Depth[c] > 0) v.AddChild(UITheme.L($"{(w.IsMagma(c) ? "Magma" : "Water")}, {w.Depth[c]}/7 deep{(w.Depth[c] >= World.Deep ? " -- too deep to walk" : "")}.", 14, w.IsMagma(c) ? UITheme.Ember : UITheme.Water));
         else if (w.Has(c, CellFlag.Wet) && s == Shape.Floor) v.AddChild(UITheme.L("Muddy: crops will grow here.", 13, UITheme.Dim));
         if (w.Has(c, CellFlag.Shrub)) v.AddChild(UITheme.L(w.IsOutside(c) ? "A bramble bush grows here." : "Glowmoss grows here.", 14, UITheme.Text));
-        if (w.Desigs[c] != Desig.None) v.AddChild(UITheme.L($"Designated: {w.Desigs[c]}", 14, UITheme.Gold));
+        if (w.Desigs[c] != Desig.None)
+        {
+            HBoxContainer dh = UITheme.H(8);
+            dh.AddChild(UITheme.L($"Marked: {w.Desigs[c] switch { Desig.Dig => "dig", Desig.Channel => "channel", Desig.StairUD => "up/down stairs", Desig.StairDown => "down stair", Desig.StairUp => "up stair", Desig.Chop => "fell", Desig.Gather => "gather", _ => "remove" }}", 14, UITheme.Gold));
+            dh.AddChild(UITheme.B("Cancel it", () => { Undos.Designate(F, p, p, Desig.None); RefreshInfo(true); }, 13));
+            v.AddChild(dh);
+        }
         foreach (Item it in F.ItemsOn(c).Take(10))
         {
             v.AddChild(UITheme.L("· " + it.Name, 14, it.Artifact ? UITheme.Gold : UITheme.Text));
@@ -819,7 +825,7 @@ public partial class HelpPanel : Overlay
         Section("You do not command dwarves",
             "You say what should be done -- dig here, build that, stockpile there, make five beds -- and the dwarves choose their own tasks by skill, labor and whim. Hungry, thirsty or tired dwarves see to themselves first.");
         Section("Moving around",
-            "Arrow keys or middle-drag pan, the wheel zooms. The arrow buttons beside the level's name (or < and >, Page Up/Down, Shift+wheel) go up and down a level. F2 (or the Isometric button) switches to an isometric view and back. Open air shows the levels below it, dimmer the deeper they are. C centres on the wagon; Tab shows names.");
+            "Ctrl+Z (or Undo in the toolbar) takes back the last designation, zone or unbuilt building; R drags a box that clears designations; clicking a marked cell lets you cancel just that one. Arrow keys or middle-drag pan, the wheel zooms. The arrow buttons beside the level's name (or < and >, Page Up/Down, Shift+wheel) go up and down a level. F2 (or the Isometric button) switches to an isometric view and back. Open air shows the levels below it, dimmer the deeper they are. C centres on the wagon; Tab shows names.");
         Section("Time",
             "Space pauses; 1, 2 and 3 run at normal, fast and fastest. You can give orders while paused. Alerts (deaths, caverns, tantrums...) pause the game.");
         Section("Digging",

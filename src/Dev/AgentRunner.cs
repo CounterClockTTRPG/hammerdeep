@@ -164,9 +164,11 @@ public partial class AgentRunner : Node
 
     private async STask TapKey(string k, int holdMs)
     {
+        bool ctrl = k.StartsWith("ctrl+", StringComparison.OrdinalIgnoreCase);
+        if (ctrl) k = k[5..];
         Key key = KeyOf(k);
         bool shift = k is "<" or ">" or "?";
-        Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Unicode = Unicode(k), Pressed = true, ShiftPressed = shift, Device = Device });
+        Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Unicode = ctrl ? 0 : Unicode(k), Pressed = true, ShiftPressed = shift, CtrlPressed = ctrl, Device = Device });
         if (holdMs > 0) await Ms(holdMs); else await Frames(2);
         Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = false, Device = Device });
         await Frames(2);

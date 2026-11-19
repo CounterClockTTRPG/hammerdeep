@@ -112,6 +112,8 @@
    first fortress. Level buttons beside the level's name. An isometric view (F2, remembered):
    the map node tilted 45 degrees and halved in height, raised walls with shaded faces drawn
    back to front, upright figures and trees; every tool works the same in both views.
+   Undo (Ctrl+Z, or the toolbar): takes back the last designation or clearing, zone, or
+   building not yet built, up to 50 steps in a session; a marked cell's info has "Cancel it".
 
 ## The simulation
 

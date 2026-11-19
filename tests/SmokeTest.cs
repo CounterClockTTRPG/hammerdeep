@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -433,6 +433,45 @@ public partial class SmokeTest : Node
         Check(Tutorial.Steps.All(t => t.Title != null && t.How != null), "every goal says what to do");
         f.TutorialStep = 3;
         Eq(Save.Read(Save.Write(f)).TutorialStep, 3, "the tutorial's place is saved");
+    }
+
+    private void Undoing()
+    {
+        var f = Tiny(new[] { "##########", "#@.......#", "#........#", "#........#", "##########", "##########" });
+        World w = f.World;
+        var u = new UndoStack();
+        Eq(u.Undo(f), null, "nothing to undo at first");
+        u.Designate(f, new P3(2, 4, 1), new P3(6, 5, 1), Desig.Dig);
+        Eq(f.Designated.Count, 10, "ten cells marked to dig");
+        Check(u.Next != null && u.Next.Contains("digging"), $"undo knows what it will undo ({u.Next})");
+        u.Undo(f);
+        Eq(f.Designated.Count, 0, "undo takes the dig markers back");
+        // Clearing can be undone too.
+        u.Designate(f, new P3(2, 4, 1), new P3(4, 4, 1), Desig.Dig);
+        u.Designate(f, new P3(2, 4, 1), new P3(8, 5, 1), Desig.None);
+        Eq(f.Designated.Count, 0, "cleared");
+        u.Undo(f);
+        Eq(f.Designated.Count, 3, "undoing the clearing brings the markers back");
+        // A marker a dwarf is already working on is let go.
+        f.Spawn(ItemKind.Pick, Tables.Mi("copper"), f.Dwarves[0].Cell);
+        f.Advance(100);
+        u.Undo(f);
+        Eq(f.Designated.Count, 0, "and undoing the dig again clears them, even while being worked");
+        Check(f.Claims.Count == 0, "no dwarf keeps a claim on an undone marker");
+        // Buildings and zones.
+        Building b = f.Place("carpenter", 5, 1, 1);
+        u.Placed(b);
+        Zone z = f.AddZone(ZoneKind.Stockpile, new P3(1, 1, 1), new P3(2, 2, 1));
+        u.Zoned(z);
+        u.Undo(f);
+        Check(!f.Zones.Contains(z), "undo removes the zone just laid out");
+        u.Undo(f);
+        Check(!f.Buildings.Contains(b), "and then the building just placed");
+        Building built = f.Place("carpenter", 5, 1, 1);
+        built.Built = true;
+        u.Placed(built);
+        Eq(u.Undo(f), null, "a building already finished is not undone");
+        Check(f.Buildings.Contains(built), "it stays");
     }
 
     private Fortress _gen;

@@ -38,6 +38,18 @@ public partial class FortressScreen : Control
     public object Selected;
 
     private UITheme.Drawn _names;
+    public readonly UndoStack Undos = new();
+    private Button _undo;
+
+    public void UndoLast()
+    {
+        string what = Undos.Undo(F);
+        if (what == null) { Toast("Nothing to undo."); Sfx.Deny(); return; }
+        Toast($"Undone: {what}.");
+        Sfx.Place();
+        RefreshInfo(true);
+        RefreshHud();
+    }
     private Button _iso;
 
     /// <summary>A small triangle for the level buttons, drawn rather than taken from a font.</summary>
@@ -187,7 +199,10 @@ public partial class FortressScreen : Control
         ToolB(Tool.StairUp, "Up stair", "U", "The bottom of a shaft.");
         ToolB(Tool.Chop, "Fell trees", "T", "Woodcutters fell trees for logs.");
         ToolB(Tool.Gather, "Gather plants", "G", "Pick wild shrubs for fruit and seed.");
-        ToolB(Tool.Undesignate, "Undesignate", "R", "Clear designations.");
+        ToolB(Tool.Undesignate, "Undesignate", "R", "Drag a box to clear designations in it.");
+        _undo = Small("^Z  Undo", UndoLast);
+        _undo.TooltipText = "Take back the last designation, zone or building placed (Ctrl+Z).";
+        _toolbar.AddChild(_undo);
         Section("Zones");
         ToolB(Tool.Stockpile, "Stockpile", "P", "Where hauled goods are kept.");
         ToolB(Tool.Farm, "Farm plot", "F", "Soil to grow crops in: caves for dimcaps, sky for wheat and brambles.");
@@ -441,6 +456,8 @@ public partial class FortressScreen : Control
         foreach (var kv in _toolButtons) kv.Value.SetPressedNoSignal(kv.Key == Tool);
         _alarm.SetPressedNoSignal(F.Alarm);
         _iso.SetPressedNoSignal(Map.Iso);
+        _undo.Disabled = Undos.Count == 0;
+        _undo.TooltipText = Undos.Next != null ? $"Undo {Undos.Next} (Ctrl+Z)" : "Nothing to undo";
         _alarm.Text = F.Alarm ? "ALARM!" : "Alarm";
         _alarm.AddThemeColorOverride("font_color", F.Alarm ? UITheme.Bad : UITheme.Text);
         int foes = F.Hostiles.Count();
@@ -667,6 +684,7 @@ public partial class FortressScreen : Control
                 string why = F.CanPlace(BuildDef, c.X, c.Y, c.Z);
                 if (why != null) { Toast($"Cannot build here: {why}."); Sfx.Deny(); return; }
                 Building b = F.Place(BuildDef, c.X, c.Y, c.Z);
+                Undos.Placed(b);
                 Sfx.Place();
                 if (b.D.Kind == BuildKind.Workshop && !mb.ShiftPressed) { Pick(Tool.Select); SelectThing(b); }
                 return;
@@ -691,7 +709,7 @@ public partial class FortressScreen : Control
         };
         if (g != null)
         {
-            int n = F.Designate(a, b, g.Value);
+            int n = Undos.Designate(F, a, b, g.Value);
             if (n == 0) { Toast(g == Desig.None ? "Nothing designated there." : "Nothing there can take that designation."); Sfx.Deny(); return; }
             Sfx.Place();
             if (g != Desig.None && !F.AnyReachable(a, b))
@@ -722,6 +740,7 @@ public partial class FortressScreen : Control
             if (soil == 0) { Toast(outside ? "Farm plots need soil under open sky -- or soil underground for cave crops." : "Underground farm plots need a soil floor."); Sfx.Deny(); return; }
         }
         Zone z = F.AddZone(kind, a, b, crop);
+        Undos.Zoned(z);
         Sfx.Place();
         SelectThing(z);
         Pick(Tool.Select);
@@ -762,6 +781,7 @@ public partial class FortressScreen : Control
             if (k.Keycode == Godot.Key.Escape || (Overlay is not FallenPanel && OverlayKey(k))) { if (Overlay is not FallenPanel) CloseOverlay(); return true; }
             return false;
         }
+        if (k.CtrlPressed && k.Keycode == Godot.Key.Z) { UndoLast(); return true; }
         char ch = (char)k.Unicode;
         if (ch == '<' || k.Keycode == Godot.Key.Pageup) { ChangeZ(1); return true; }
         if (ch == '>' || k.Keycode == Godot.Key.Pagedown) { ChangeZ(-1); return true; }
@@ -867,7 +887,7 @@ public partial class FortressScreen : Control
         _toast?.QueueFree();
         _toast = UITheme.L(text, 16, UITheme.Ember, UITheme.Body, HorizontalAlignment.Center);
         AddChild(_toast);
-        Anchor(_toast, 0.5f, 1, 0.5f, 1, -300, -190, 300, -160);
+        Anchor(_toast, 0.5f, 1, 0.5f, 1, -300, -300, 300, -270);
         Label mine = _toast;
         GetTree().CreateTimer(2.5).Timeout += () => { if (IsInstanceValid(mine)) mine.QueueFree(); };
     }
