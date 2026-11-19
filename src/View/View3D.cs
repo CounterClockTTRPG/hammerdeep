@@ -175,6 +175,7 @@ public partial class View3D : Node3D
     {
         if (!Visible || F == null) return;
         PlaceCamera();
+        _dt = (float)delta;
         bool painted = Profile.Current?.PaintedArt ?? true;
         if (Map.Z != _z || F.Season != _season || painted != _painted)
         {
@@ -483,10 +484,13 @@ public partial class View3D : Node3D
             if (d.Dead || !FigureSeen(d.Cell)) continue;
             int key = d.Id;
             seen.Add(key);
-            Node3D n = Figure(key, () => MakeFigure(_painted ? Assets.Sprite("fig-" + d.Clan) : null, UITheme.C(Tables.Clan(d.Clan).Color), 1.05f));
+            bool modelled = _painted && Figure3D.Available && (d.Race ?? "dwarf") == "dwarf";
+            Node3D n = Figure(key, () => modelled ? new Figure3D() : MakeFigure(_painted ? Assets.Sprite("fig-" + d.Clan) : null, UITheme.C(Tables.Clan(d.Clan).Color), 1.05f));
             Vector2 at = Map.DwarfPos(d);
+            Vector3 was = n.Position;
             n.Position = new Vector3(at.X / MapView.T, W.Pos(d.Cell).Z, at.Y / MapView.T);
-            ((Node3D)n.GetChild(0)).Scale = Vector3.One * (d.Id == Map.SelDwarf ? 1.12f : 1f);
+            if (n is Figure3D fig) Animate(fig, d, new Vector2(n.Position.X - was.X, n.Position.Z - was.Z), _dt);
+            else ((Node3D)n.GetChild(0)).Scale = Vector3.One * (d.Id == Map.SelDwarf ? 1.12f : 1f);
         }
         foreach (Creature c in F.Creatures)
         {
@@ -499,6 +503,75 @@ public partial class View3D : Node3D
             n.Position = new Vector3(at.X / MapView.T, p.Z, at.Y / MapView.T);
         }
         foreach (int id in _figures.Keys.Where(k => !seen.Contains(k)).ToList()) { _figures[id].QueueFree(); _figures.Remove(id); }
+    }
+
+    private float _dt;
+    private static readonly Color[] Beards = { new(0.45f, 0.28f, 0.14f), new(0.7f, 0.3f, 0.12f), new(0.75f, 0.72f, 0.68f), new(0.85f, 0.7f, 0.35f), new(0.2f, 0.15f, 0.12f) };
+
+    /// <summary>A modelled dwarf: what they wear and hold, what they are doing, which way they face.</summary>
+    private void Animate(Figure3D fig, Dwarf d, Vector2 moved, float dt)
+    {
+        Item Of(int id) => id >= 0 && F.Items.TryGetValue(id, out Item it) ? it : null;
+        Color Metal(Item it) => it == null ? Colors.White : Col(it.M.Color, 1.25f);
+        Color clan = UITheme.C(Tables.Clan(d.Clan).Color);
+        Item armor = Of(d.Armor), helm = Of(d.Helm), shield = Of(d.Shield);
+        bool leather = armor != null && armor.M.Key == "leather";
+        string set = armor == null ? "cloth" : leather ? "leather" : "plate";
+        var pieces = new List<(string, Color)>();
+        foreach (string slot in new[] { "torso", "arms", "legs", "feet", "waist", "back" })
+        {
+            string piece = slot is "torso" or "arms" && armor != null ? $"{set}-{slot}" : $"cloth-{slot}";
+            if (!Kit.Has(piece)) piece = $"cloth-{slot}";
+            if (Kit.Has(piece)) pieces.Add((piece, piece.StartsWith("cloth") ? clan : Metal(armor)));
+        }
+        if (helm != null)
+        {
+            string h = helm.M.Key == "leather" ? "leather-head" : "plate-head";
+            if (Kit.Has(h)) pieces.Add((h, Metal(helm)));
+        }
+        string beard = $"beard-{d.Id % 3 + 1}";
+        if (Kit.Has(beard)) pieces.Add((beard, Beards[d.Id % Beards.Length]));
+        // In hand: the tool for the work, the weapon for a fight.
+        TaskKind k = d.Task?.Kind ?? TaskKind.Idle;
+        Item weapon = Of(d.Weapon), pick = Of(d.Pick), axe = Of(d.Axe);
+        (string held, Item heldItem) = k switch
+        {
+            TaskKind.Dig => ("pick", pick),
+            TaskKind.Chop => ("axe", axe),
+            TaskKind.Fight or TaskKind.Duty or TaskKind.Train => weapon != null ? ("hammer", weapon) : pick != null ? ("pick", pick) : axe != null ? ("axe", axe) : (null, null),
+            TaskKind.Build or TaskKind.Craft => ("hammer", null),
+            _ => (null, null),
+        };
+        if (held != null && !Kit.Has("held-" + held)) held = Kit.Has("held-sword") && k is TaskKind.Fight or TaskKind.Duty ? "sword" : null;
+        fig.Show(pieces, held, Metal(heldItem), shield != null ? "shield" : null, Metal(shield));
+        bool walking = F.Stepping.ContainsKey(d.Id) && d.Path != null;
+        if (walking) fig.Act(k == TaskKind.Flee ? new[] { "run", "walk" } : new[] { "walk" });
+        else fig.Act(k switch
+        {
+            TaskKind.Dig => new[] { "dig", "strike", "idle" },
+            TaskKind.Chop => new[] { "chop", "strike", "idle" },
+            TaskKind.Fight => new[] { "strike", "idle" },
+            TaskKind.Build or TaskKind.Craft => new[] { "hammer", "pickup", "idle" },
+            TaskKind.Sleep => new[] { "sleep", "idle" },
+            TaskKind.Eat or TaskKind.Drink => new[] { "eat", "idle" },
+            TaskKind.Pray => new[] { "pray", "idle" },
+            TaskKind.Tantrum or TaskKind.Rampage => new[] { "tantrum", "strike", "idle" },
+            TaskKind.Haul or TaskKind.Store or TaskKind.Plant or TaskKind.Harvest or TaskKind.Gather => new[] { "pickup", "idle" },
+            _ => new[] { "idle" },
+        });
+        // Face the way they go, or what they work on.
+        Vector2 face = moved;
+        if (!walking && d.Task != null)
+        {
+            int target = d.Task.Cell >= 0 ? d.Task.Cell : -1;
+            if (k == TaskKind.Fight && F.CreatureById(d.Task.Item) is Creature foe) target = foe.Cell;
+            if (target >= 0)
+            {
+                P3 a = W.Pos(d.Cell), b = W.Pos(target);
+                face = new Vector2(b.X - a.X, b.Y - a.Y);
+            }
+        }
+        fig.Face(face, dt);
     }
 
     private Node3D Figure(int key, Func<Node3D> make)

@@ -46,6 +46,7 @@ public partial class AgentRunner : Node
   drag X1 Y1 X2 Y2      left-drag from map cell to map cell on the level in view (designations, zones)
   down / up             hold / release the left button (e.g. down; key >; key >; at X Y; up -- a box several levels deep)
   goto X Y Z            centre the camera on a cell
+  zoom Z                camera zoom, 0.5 (far) .. 6 (near)
   level Z               show level Z
   wait MS               let the game run MS real milliseconds
   tick N                advance the fortress N ticks at once (50 ticks = 2.5 s of normal speed)
@@ -270,7 +271,12 @@ public partial class AgentRunner : Node
                 await Button(MouseButton.Left, false);
                 return null;
             }
+            case "zoom":
+                if (Root.Map != null) Root.Map.Cam.Zoom = Vector2.One * Math.Clamp(float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), 0.5f, 6f);
+                await Frames(2);
+                return null;
             case "goto":
+                if (a.Length < 4) return "goto needs X Y Z";
                 Root.Screen?.Jump(new P3(I(a[1]), I(a[2]), I(a[3])));
                 await Frames(2);
                 return null;
