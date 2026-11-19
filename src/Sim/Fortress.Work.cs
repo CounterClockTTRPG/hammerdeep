@@ -842,7 +842,11 @@ public sealed partial class Fortress
         Count("crafted");
         Count("made:" + r.Id);
         o.Worker = -1;
-        if (!o.Repeat && --o.Left <= 0) b.Orders.Remove(o);
+        if (!o.Repeat && --o.Left <= 0)
+        {
+            b.Orders.Remove(o);
+            Say($"{d.FirstName} has finished the order at the {b.D.Name.ToLower()}: {r.Name.ToLower()}.", LogKind.Good, center);
+        }
         return false;
     }
 

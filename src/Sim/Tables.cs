@@ -307,8 +307,8 @@ public static class Tables
         B("furnace", "Wood furnace", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'W', "W", "Burns logs into charcoal.", new Need("stone"));
         B("smelter", "Smelter", BuildKind.Workshop, 3, 3, Labor.Construction, 400, 'S', "S", "Ore and fuel into metal bars.", new Need("stone"), new Need("stone"));
         B("forge", "Metalsmith's forge", BuildKind.Workshop, 3, 3, Labor.Construction, 400, 'F', "F", "Bars and fuel into picks, axes, weapons and armor.", new Need("stone"), new Need("stone"));
-        B("kitchen", "Kitchen", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'K', "K", "Two foods into stew, which dwarves prefer.", new Need("stone"));
-        B("brewery", "Brewery", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'B', "B", "One brewable plant into five ale.", new Need("stone"));
+        B("kitchen", "Kitchen", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'K', "K", "Two foods into stew, which dwarves prefer.", new Need("buildmat"));
+        B("brewery", "Brewery", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'B', "B", "One brewable plant into five ale.", new Need("buildmat"));
         B("depot", "Trade depot", BuildKind.Workshop, 3, 3, Labor.Construction, 400, 'D', "D", "Where caravans set out their wares. Without one they turn back.", new Need("buildmat", 3));
         B("butcher", "Butcher's shop", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'U', "U", "Carcasses into meat, hide and bone.", new Need("stone"));
         B("tanner", "Tanner's shop", BuildKind.Workshop, 3, 3, Labor.Construction, 300, 'T', "T", "Hides into leather.", new Need("log"));

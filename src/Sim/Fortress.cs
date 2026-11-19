@@ -315,6 +315,30 @@ public sealed partial class Fortress
         Say($"The stockpiles are full: {homeless}{(Loose.Count > 200 ? "+" : "")} things lie about with nowhere to go. Lay out more stockpile room (P).", LogKind.Bad);
     }
 
+    [JsonIgnore] private readonly Dictionary<int, long> _wantSince = new();
+    [JsonIgnore] private readonly HashSet<int> _wantSaid = new();
+
+    /// <summary>
+    /// A planned building that has waited a day for something there is none of says so, once:
+    /// otherwise a brewery waiting for stone that soil never gives just sits there, unexplained.
+    /// </summary>
+    private void BuildWarning()
+    {
+        foreach (Building b in Buildings)
+        {
+            if (b.Built || _wantSaid.Contains(b.Id)) continue;
+            // Need is a struct: look for "any lacking" rather than a null.
+            var lacking = MissingParts(b).Where(n => !Items.Values.Any(i => i.Free && Tables.Matches(n.Tag, i))).ToList();
+            if (lacking.Count == 0) { _wantSince.Remove(b.Id); continue; }
+            Need lack = lacking[0];
+            if (!_wantSince.TryGetValue(b.Id, out long since)) { _wantSince[b.Id] = Tick; continue; }
+            if (Tick - since < Tables.TicksPerDay) continue;
+            _wantSaid.Add(b.Id);
+            string hint = lack.Tag == "stone" ? " Soil gives none: dig into rock." : "";
+            Say($"The planned {b.D.Name.ToLower()} is waiting for {Tables.NeedName(lack.Tag)}, and there is none to hand.{hint}", LogKind.Bad, World.Idx(b.X, b.Y, b.Z));
+        }
+    }
+
     /// <summary>Items lying on a stockpile cell, plus the ones promised to it.</summary>
     public int StockLoad(int cell) => (ItemsAt.TryGetValue(cell, out var l) ? l.Count : 0) + StockPromised.GetValueOrDefault(cell);
 
@@ -371,6 +395,7 @@ public sealed partial class Fortress
         if (Tick % 50 == 0) Growth();
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
         if (Tick % 500 == 250) StockWarning();
+        if (Tick % 500 == 300) BuildWarning();
         if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }

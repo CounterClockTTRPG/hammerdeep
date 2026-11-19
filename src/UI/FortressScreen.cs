@@ -660,15 +660,25 @@ public partial class FortressScreen : Control
 
     private bool BoxTool => Tool is Tool.Dig or Tool.Channel or Tool.StairUD or Tool.StairDown or Tool.StairUp or Tool.Chop or Tool.Gather or Tool.Undesignate or Tool.Stockpile or Tool.Farm or Tool.Meeting or Tool.Pasture;
 
-    private void UpdateDrag(Vector2 screen)
+    /// <summary>
+    /// Trees and shrubs are marked where they are seen: over open air, the cell under the
+    /// mouse is the one shown below it, so felling a wood down the slope just works.
+    /// </summary>
+    private P3 Aim(Vector2 screen)
     {
         P3 c = Map.CellAt(screen);
+        return Tool is Tool.Chop or Tool.Gather ? Map.SeenThrough(c) : c;
+    }
+
+    private void UpdateDrag(Vector2 screen)
+    {
+        P3 c = Aim(screen);
         Map.Box = (_dragFrom.Value, c);
     }
 
     private void Click(InputEventMouseButton mb)
     {
-        P3 c = Map.CellAt(mb.Position);
+        P3 c = BoxTool ? Aim(mb.Position) : Map.CellAt(mb.Position);
         if (BoxTool)
         {
             if (mb.Pressed) { _dragFrom = c; UpdateDrag(mb.Position); }
@@ -712,8 +722,10 @@ public partial class FortressScreen : Control
             int n = Undos.Designate(F, a, b, g.Value);
             if (n == 0) { Toast(g == Desig.None ? "Nothing designated there." : "Nothing there can take that designation."); Sfx.Deny(); return; }
             Sfx.Place();
+            bool stairsComing = F.Designated.Any(c => F.World.Desigs[c] is Desig.StairDown or Desig.StairUp or Desig.StairUD);
             if (g != Desig.None && !F.AnyReachable(a, b))
-                Toast(a.Z != F.World.SurfaceZ || b.Z != F.World.SurfaceZ
+                Toast(stairsComing ? "The dwarves will reach it once the stairs you marked are dug."
+                    : a.Z != F.World.SurfaceZ || b.Z != F.World.SurfaceZ
                     ? "Nobody can reach that yet. Dig a way down first: J (down stair) on the level above, U (up stair) or X (up/down) beneath it."
                     : "Nobody can reach that yet: it needs a way in from where the dwarves can walk.");
             return;
@@ -748,15 +760,20 @@ public partial class FortressScreen : Control
 
     private void SelectAt(P3 c)
     {
-        // A dwarf first (the nearest within a cell), then a creature, a building, a zone.
-        Dwarf d = F.Living.Where(x => F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= 1)
+        // What is exactly under the cursor wins: a dwarf or creature on that cell, then a
+        // building (a dwarf at work beside it must not hide a whole workshop), then a dwarf or
+        // creature within a cell -- a forgiving aim on open ground -- then a zone.
+        Dwarf DwarfWithin(int r) => F.Living.Where(x => F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= r)
             .OrderBy(x => F.World.Pos(x.Cell).Dist(c)).FirstOrDefault();
-        if (d != null) { SelectThing(d); return; }
-        Creature cr = F.Creatures.Where(x => !x.Dead && F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= 1).OrderBy(x => F.World.Pos(x.Cell).Dist(c)).FirstOrDefault();
-        if (cr != null) { SelectThing(cr); return; }
+        Creature CreatureWithin(int r) => F.Creatures.Where(x => !x.Dead && F.World.Pos(x.Cell).Z == c.Z && F.World.Pos(x.Cell).Dist(c) <= r)
+            .OrderBy(x => F.World.Pos(x.Cell).Dist(c)).FirstOrDefault();
+        if (DwarfWithin(0) is Dwarf d0) { SelectThing(d0); return; }
+        if (CreatureWithin(0) is Creature c0) { SelectThing(c0); return; }
         int cell = F.World.Idx(c);
         Building b = F.BuildingOn(cell);
         if (b != null) { SelectThing(b); return; }
+        if (DwarfWithin(1) is Dwarf d1) { SelectThing(d1); return; }
+        if (CreatureWithin(1) is Creature c1) { SelectThing(c1); return; }
         Zone z = F.ZoneAt(c.X, c.Y, c.Z);
         if (z != null) { SelectThing(z); return; }
         SelectThing(c);

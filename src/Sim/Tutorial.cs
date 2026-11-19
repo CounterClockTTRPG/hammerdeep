@@ -94,7 +94,7 @@ public static class Tutorial
         {
             Title = "A stockpile",
             Text = "The wagon's load lies on the grass. Haulers will carry it to a stockpile -- give them one, and a big one: logs and stone take room.",
-            How = "Press P (Stockpile), then drag a box of at least 6 by 6 on the grass near the wagon.",
+            How = "Press P (Stockpile), then drag a box on the grass near the wagon -- 8 by 8 or more: the wagon's load and the first logs fill a small one fast.",
             Glow = Tool.Stockpile,
             Done = (f, w) => f.Zones.Any(z => z.Kind == ZoneKind.Stockpile && z.Area >= 25),
         },
@@ -118,7 +118,7 @@ public static class Tutorial
         {
             Title = "Ale",
             Text = "Dwarves without ale are miserable dwarves. A brewery turns a plant into five ale, and gives back a seed.",
-            How = "Build a brewery (B, then B), click it, and press the repeat button (∞) beside Brew ale. Brambles and the farm's wheat will feed it.",
+            How = "Press B (Build) and choose Brewery, place it on clear ground, then click it and press the repeat button (∞) beside Brew ale. Brambles and the farm's wheat will feed it.",
             Glow = Tool.Build,
             Done = (f, w) => f.Buildings.Any(b => b.Def == "brewery" && b.Orders.Any(o => o.Recipe == "ale")),
         },
@@ -142,7 +142,7 @@ public static class Tutorial
         {
             Title = "A carpenter",
             Text = "Furniture is made in workshops, then placed. Start with a carpenter's shop: logs into beds, tables and chairs.",
-            How = "Press B (Build), then C for the carpenter's shop, and click a clear 3 by 3 floor -- in the hall, or on the surface.",
+            How = "Press B (Build) and choose Carpenter's shop, then click a clear 3 by 3 floor -- in the hall, or on the surface. (A red outline means it does not fit there.)",
             Glow = Tool.Build,
             Done = (f, w) => f.Buildings.Any(b => b.Def == "carpenter"),
         },
@@ -157,7 +157,7 @@ public static class Tutorial
         {
             Title = "Bedrooms",
             Text = "A finished bed sits in the stockpile until you place it. Each dwarf claims a bed and sleeps better in it.",
-            How = "When a bed has been made, press B, then b, and click a floor cell underground. (Let the clock run until then.)",
+            How = "Let the clock run: the log says when the beds are made. Then press B (Build), choose Bed, and click a floor cell underground.",
             Glow = Tool.Build,
             Done = (f, w) => f.Buildings.Any(b => b.Def == "bed"),
         },
@@ -165,7 +165,7 @@ public static class Tutorial
         {
             Title = "Trade",
             Text = "Caravans come in Highsun and Leaffall -- but only to a trade depot. Without one they turn back.",
-            How = "Press B, then D (Trade depot), and place it on the surface near the wagon.",
+            How = "Press B (Build), choose Trade depot, and place it on the surface near the wagon.",
             Glow = Tool.Build,
             Done = (f, w) => f.Buildings.Any(b => b.Def == "depot"),
         },

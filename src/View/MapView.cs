@@ -110,6 +110,20 @@ public partial class MapView : Node2D
     /// <summary>The offset at which a cell's markers and outline are drawn: its top, if it is a raised block.</summary>
     public Vector2 TopOf(int c) => Iso && Raised(c) ? LiftVec : Vector2.Zero;
 
+    /// <summary>The cell actually seen at p: down through open air, as far as the map shows lower levels.</summary>
+    public P3 SeenThrough(P3 p)
+    {
+        if (!W.In(p)) return p;
+        P3 q = p;
+        for (int k = 0; k < 3 && q.Z > 0; k++)
+        {
+            int i = W.Idx(q);
+            if (W.Shapes[i] != Shape.Empty || W.Has(i, CellFlag.Hidden)) break;
+            q = new P3(q.X, q.Y, q.Z - 1);
+        }
+        return W.Shapes[W.Idx(q)] == Shape.Empty ? p : q;
+    }
+
     /// <summary>
     /// The cell under a screen point, on the level in view. In the isometric view the point is
     /// tested from a block's top down to the ground, so clicking a wall's raised top picks that
@@ -603,8 +617,9 @@ public partial class MapView : Node2D
                 ZoneKind.Pasture => new Color(0.85f, 0.7f, 0.45f),
                 _ => new Color(0.55f, 0.7f, 1f),
             };
-            DrawRect(r, new Color(c, sel ? 0.16f : 0.07f));
-            DrawDashed(r, new Color(c, sel ? 0.9f : 0.45f));
+            // Strong enough to find on grass, squashed in the isometric view; faint enough to see the ground.
+            DrawRect(r, new Color(c, sel ? 0.2f : 0.12f));
+            DrawDashed(r, new Color(c, sel ? 0.95f : 0.75f));
             if (z.Kind == ZoneKind.Farm)
                 foreach (P3 p in z.Cells())
                 {
