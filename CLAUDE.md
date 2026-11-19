@@ -29,6 +29,7 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
     python3 scripts/models.py   3D models via assetgen's Blender agent (REST, ASSETGEN_URL, default
                                 http://192.168.86.29:8765, project hammerdeep): fetches finished ones,
                                 asks for missing ones (minutes each; run again later); --list, --force NAME
+    python3 scripts/figures.py  the 3D dwarves' parts (body, outfits, clips, tools), same server and habits
     bash scripts/assets.sh      generate missing sprites via ../assetgen (project `hammerdeep`, Replicate
                                 credits: ask first); --list, --force NAME, --recut (re-cut from the library, free)
 
@@ -72,6 +73,10 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   terrain, buildings from `assets/models/*.glb` (glTF read at run time; `-colonly` collider
   meshes dropped), sprite billboards for figures, an overlay for zones and the cursor; `MapView`
   keeps the state and asks it for picking (`CellAt`), panning and screen positions when `Is3D`.
+- `src/View/Figure3D.cs` -- modelled dwarves for the 3D view: `Kit` loads `assets/figures` (a base body,
+  outfit pieces, clips, held things -- all on assetgen's humanoid skeleton template), `Figure3D` puts one
+  together (pieces moved onto the body's skeleton by bone name, held things in the socket_* nodes, clips
+  retargeted to the body). `View3D.Animate` dresses it from the dwarf's gear and picks the clip from the task.
 - `src/UI` -- `FortressScreen` (clock, camera, tools, HUD; `Panels.cs`: info panel and the
   overlays: dwarves, labors, military, animals, trade, chronicle, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
   widget builders, `Anchor` -- always anchor a control *after* adding it).

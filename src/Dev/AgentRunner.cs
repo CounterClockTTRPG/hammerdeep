@@ -56,6 +56,7 @@ public partial class AgentRunner : Node
   caravan [low|mountain]   (debug) send a caravan and wait until it reaches the depot
   raid [N]              (debug) a grimling raid of N
   mood [NAME]           (debug) a strange mood for a dwarf
+  arm [NAME|all]        (debug) iron armour, helm, hammer and shield
   help";
 
     public override void _Ready()
@@ -328,6 +329,23 @@ public partial class AgentRunner : Node
                 Dwarf d = f.Living.FirstOrDefault(x => rest.Length == 0 || x.Name.Contains(rest, StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("no such dwarf");
                 f.StartMood(d);
                 return $"{d.Name} is in a {d.Strange} mood, wanting {string.Join(", ", d.MoodNeeds)}";
+            }
+            case "arm":
+            {
+                // (debug) iron breastplate, helm, war hammer and shield for one dwarf, or everyone: "arm all".
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                var who = rest == "all" ? f.Living.ToList() : f.Living.Where(x => rest.Length == 0 || x.Name.Contains(rest, StringComparison.OrdinalIgnoreCase)).Take(1).ToList();
+                if (who.Count == 0) throw new Exception("no such dwarf");
+                byte iron = Tables.Mi("iron");
+                foreach (Dwarf d in who)
+                {
+                    Item Give(ItemKind k) { Item it = f.Spawn(k, iron, d.Cell); f.PickUp(it, d); return it; }
+                    d.Armor = Give(ItemKind.Armor).Id;
+                    d.Helm = Give(ItemKind.Helm).Id;
+                    d.Weapon = Give(ItemKind.Weapon).Id;
+                    d.Shield = Give(ItemKind.Shield).Id;
+                }
+                return $"armed {who.Count}";
             }
             case "freeze": Frozen = a.Length < 2 || a[1] != "off"; return $"freeze {(Frozen ? "on" : "off")}";
         }

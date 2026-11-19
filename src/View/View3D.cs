@@ -512,7 +512,7 @@ public partial class View3D : Node3D
     private void Animate(Figure3D fig, Dwarf d, Vector2 moved, float dt)
     {
         Item Of(int id) => id >= 0 && F.Items.TryGetValue(id, out Item it) ? it : null;
-        Color Metal(Item it) => it == null ? Colors.White : Col(it.M.Color, 1.25f);
+        Color Metal(Item it) => it == null ? Colors.White : Col(it.M.Color, 1.4f).Lerp(Colors.White, 0.45f);
         Color clan = UITheme.C(Tables.Clan(d.Clan).Color);
         Item armor = Of(d.Armor), helm = Of(d.Helm), shield = Of(d.Shield);
         bool leather = armor != null && armor.M.Key == "leather";

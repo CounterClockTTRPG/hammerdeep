@@ -526,6 +526,30 @@ public partial class SmokeTest : Node
             Check(broken.Count == 0, $"{models.Count} models load, with meshes and no colliders (not: {string.Join(", ", broken)})");
             Assets.ForgetModels();
         }
+        // The 3D dwarves' parts: a body on the template skeleton with its sockets, clips that play, skinned pieces.
+        if (Godot.FileAccess.FileExists(Kit.Dir + "/manifest.txt") && Kit.Has("body"))
+        {
+            Node3D body = Kit.Part("body");
+            Skeleton3D skel = Kit.Find<Skeleton3D>(body);
+            string[] bones = { "root", "hips", "spine_01", "spine_02", "spine_03", "neck", "head", "hand_l", "hand_r", "foot_l", "foot_r" };
+            Check(skel != null && bones.All(b => skel.FindBone(b) >= 0), "the dwarf body is on the template skeleton");
+            Check(Kit.FindNamed(body, "socket_hand_r") != null && Kit.FindNamed(body, "socket_forearm_l") != null, "and has the hand and forearm sockets");
+            AnimationLibrary clips = Kit.Clips(skel);
+            var names = Godot.FileAccess.GetFileAsString(Kit.Dir + "/manifest.txt").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')).Select(l => l.Split(' ')[0]).ToList();
+            var dead = names.Where(n => n.StartsWith("clip-") && !clips.HasAnimation(n[5..])).ToList();
+            Check(dead.Count == 0, $"every clip plays on the body (not: {string.Join(", ", dead)})");
+            Check(clips.HasAnimation("walk") && clips.HasAnimation("idle"), "at least walk and idle");
+            var unskinned = new List<string>();
+            foreach (string n in names.Where(n => !n.StartsWith("clip-") && !n.StartsWith("held-") && n != "body"))
+            {
+                Node3D piece = Kit.Part(n);
+                if (piece == null || !piece.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>().Any(m => m.Skin != null)) unskinned.Add(n);
+                piece?.Free();
+            }
+            Check(unskinned.Count == 0, $"every outfit piece is skinned to the template (not: {string.Join(", ", unskinned)})");
+            body.Free();
+            Kit.Forget();
+        }
     }
 
     private static int Meshes(Node n) => (n is MeshInstance3D ? 1 : 0) + n.GetChildren().Sum(Meshes);
