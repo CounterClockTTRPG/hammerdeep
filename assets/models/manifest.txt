@@ -1,5 +1,27 @@
 # Hammerdeep 3D models: name, assetgen asset id (project hammerdeep, Blender agent).
 # Written by scripts/models.py; the .glb beside each is that asset's current version.
 bed bed-57bf57
+brewery brewery-eb3979
+bridge bridge-5d6e2f
+butcher butcher-f6d542
 carpenter carpenter-4af525
+chair chair-118a78
+chest chest-cd8aa9
+coffin coffin-5a18ba
+craftsdwarf craftsdwarf-16356b
+depot depot-9ad041
+door door-e03638
+floodgate floodgate-58c196
+forge forge-d2182d
+furnace furnace-eafdf0
+kitchen kitchen-a84c2a
+leatherworks leatherworks-039c94
+mason mason-3e2437
+shrine shrine-58a982
+smelter smelter-df3ddf
+statue statue-a0d418
 table table-9b3b52
+tanner tanner-30754e
+temple temple-811a73
+trap trap-214e91
+well well-b71423
