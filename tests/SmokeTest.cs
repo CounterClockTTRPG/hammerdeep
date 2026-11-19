@@ -509,7 +509,27 @@ public partial class SmokeTest : Node
         Check(stray.Count == 0, $"the manifest names nothing the game does not have (stray: {string.Join(", ", stray)})");
         var bad = listed.Where(n => Assets.Sprite(n) == null).ToList();
         Check(bad.Count == 0, $"every listed sprite is there and decodes (not: {string.Join(", ", bad)})");
+        // The 3D models: each listed one names a building, loads, and comes without its collision meshes.
+        string mf = Assets.ModelDir + "/manifest.txt";
+        if (Godot.FileAccess.FileExists(mf))
+        {
+            var models = Godot.FileAccess.GetFileAsString(mf).Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')).Select(l => l.Split(' ')[0]).ToList();
+            Check(models.All(Tables.Build.ContainsKey), $"every model is of a building ({string.Join(", ", models.Where(m => !Tables.Build.ContainsKey(m)))})");
+            var broken = new List<string>();
+            foreach (string m in models)
+            {
+                Node3D n = Assets.Model(m);
+                bool ok = n != null && Meshes(n) > 0 && !HasCollider(n);
+                n?.Free();
+                if (!ok) broken.Add(m);
+            }
+            Check(broken.Count == 0, $"{models.Count} models load, with meshes and no colliders (not: {string.Join(", ", broken)})");
+            Assets.ForgetModels();
+        }
     }
+
+    private static int Meshes(Node n) => (n is MeshInstance3D ? 1 : 0) + n.GetChildren().Sum(Meshes);
+    private static bool HasCollider(Node n) => n.Name.ToString().EndsWith("-colonly") || n.GetChildren().Any(HasCollider);
 
     private void Undoing()
     {

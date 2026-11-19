@@ -122,6 +122,19 @@
    front (walls, markers, buildings, items and figures by diagonal), so walls hide what is
    behind them; drops show their far sides; ramps and stairs rise; clicking a wall's top picks it.
 
+13. **A 3D view** (done) — the view button (F2) goes round top-down, isometric, 3D. `View3D`
+   draws the same state as `MapView`, which stays the controller (camera centre, zoom, level,
+   cursor, box, ghost, selection): a cell is a metre, everything above the level in view cut
+   away, three levels below seen through open air. Terrain meshed per 16x16 chunk in vertex
+   colours from the materials (walls, floors, ramps, stairs, trees, shrubs, water and magma),
+   rebuilt from `World.Changed`; buildings are low-poly glTF models from assetgen's Blender
+   agent (`assets/models`, `scripts/models.py`, read at run time with `GltfDocument`), fitted
+   to their footprint, see-through while planned, a lettered block where there is no model;
+   figures are the painted sprites standing up and turned to the camera; items small blocks in
+   their material. Zones, designations, the drag box (with its soil/grass marks), the ghost and
+   selection drawn over it; picking by ray (a wall's top on the level in view, else the floor).
+   [ and ] turn the camera by 45 degrees; the wheel zooms, arrows and middle-drag pan as before.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

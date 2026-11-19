@@ -51,6 +51,23 @@ public partial class MapView : Node2D
         TextureFilter = TextureFilterEnum.LinearWithMipmaps;
         _ground = new GroundLayer { Name = "Ground", Map = this, ShowBehindParent = true, TextureFilter = TextureFilterEnum.Nearest };
         AddChild(_ground);
+        // The 3D view lives beside the map (a 3D node is not drawn by the canvas) and draws the same state.
+        Three = new View3D { Name = "View3D", Map = this };
+        GetParent().AddChild(Three);
+    }
+
+    // ---- the 3D option ------------------------------------------------------------------
+
+    /// <summary>The 3D view; while it is on, the 2D map is hidden but still keeps the camera, level and cursor state.</summary>
+    public View3D Three;
+    public bool Is3D { get; private set; }
+
+    public void Set3D(bool on)
+    {
+        Is3D = on;
+        Visible = !on;
+        Three?.SetOn(on);
+        if (!on) Cam.MakeCurrent();
     }
 
     private GroundLayer _ground;
@@ -94,7 +111,7 @@ public partial class MapView : Node2D
     }
 
     /// <summary>A movement on screen (pixels), as a movement of the camera in map space.</summary>
-    public Vector2 ScreenDeltaToLocal(Vector2 v) => Transform.AffineInverse().BasisXform(v / Cam.Zoom);
+    public Vector2 ScreenDeltaToLocal(Vector2 v) => Is3D ? Three.ScreenDeltaToLocal(v) : Transform.AffineInverse().BasisXform(v / Cam.Zoom);
 
     /// <summary>Draw figures upright at a point: undo the tilt there. Returns where to draw (relative).</summary>
     private Vector2 Upright(Vector2 at, float lift = 6)
@@ -135,6 +152,7 @@ public partial class MapView : Node2D
     /// </summary>
     public P3 CellAt(Vector2 screen)
     {
+        if (Is3D) return Three.CellAt(screen);
         Vector2 w = GetGlobalTransformWithCanvas().AffineInverse() * screen;
         if (Iso)
         {
@@ -150,7 +168,7 @@ public partial class MapView : Node2D
     }
 
     /// <summary>Where a cell is seen on screen: its centre, on a raised block's top in the isometric view.</summary>
-    public Vector2 ScreenOf(P3 p) => GetGlobalTransformWithCanvas() * (new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T) + (W.In(p) ? TopOf(W.Idx(p)) : Vector2.Zero));
+    public Vector2 ScreenOf(P3 p) => Is3D ? Three.ScreenOf(new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T), p.Z, W.In(p) && World.IsSolid(W.Shapes[W.Idx(p)]) ? 1 : 0) : GetGlobalTransformWithCanvas() * (new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T) + (W.In(p) ? TopOf(W.Idx(p)) : Vector2.Zero));
 
     public Rect2 ViewRect()
     {
@@ -243,6 +261,7 @@ public partial class MapView : Node2D
         // The world says what changed; a change at z shows on z..z+3 (seen from above through air).
         if (W.Changed.Count > 0)
         {
+            Three?.Changed(W.Changed);
             foreach (int c in W.Changed)
             {
                 P3 p = W.Pos(c);

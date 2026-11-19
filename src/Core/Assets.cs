@@ -38,4 +38,48 @@ public static class Assets
         }
         return _sprites[name] = t;
     }
+
+    /// <summary>The 3D models (<c>assets/models/*.glb</c>), made by the Blender agent through assetgen.</summary>
+    public static readonly string ModelDir = FileAccess.FileExists("res://assets/models/manifest.txt")
+        ? "res://assets/models"
+        : OS.GetExecutablePath().GetBaseDir() + "/assets/models";
+
+    private static readonly Dictionary<string, Node3D> _models = new();
+
+    /// <summary>A fresh copy of a model by name (glTF read at run time, not imported), or null when there is none.</summary>
+    public static Node3D Model(string name)
+    {
+        if (!_models.TryGetValue(name, out Node3D proto))
+        {
+            proto = null;
+            string path = $"{ModelDir}/{name}.glb";
+            if (FileAccess.FileExists(path))
+            {
+                var doc = new GltfDocument();
+                var state = new GltfState();
+                if (doc.AppendFromBuffer(FileAccess.GetFileAsBytes(path), "", state) == Error.Ok) proto = doc.GenerateScene(state) as Node3D;
+                // Collision shapes ride along as "-colonly" meshes (an editor import hint): not for drawing.
+                if (proto != null) DropColliders(proto);
+            }
+            _models[name] = proto;
+        }
+        return proto?.Duplicate() as Node3D;
+    }
+
+    /// <summary>Free the loaded models (they live outside the tree): on quitting, and after the self-check.</summary>
+    public static void ForgetModels()
+    {
+        foreach (Node3D n in _models.Values) n?.Free();
+        _models.Clear();
+    }
+
+    private static void DropColliders(Node n)
+    {
+        foreach (Node c in n.GetChildren())
+        {
+            string name = c.Name.ToString();
+            if (name.EndsWith("-colonly") || name.EndsWith("-col") || name.EndsWith("_colonly")) { n.RemoveChild(c); c.Free(); }
+            else DropColliders(c);
+        }
+    }
 }

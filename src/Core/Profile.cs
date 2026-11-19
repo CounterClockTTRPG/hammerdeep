@@ -23,6 +23,8 @@ public sealed class Profile
     public bool MusicOn = true;
     /// <summary>The isometric view instead of top-down.</summary>
     public bool Isometric;
+    /// <summary>The 3D view (over either of the others).</summary>
+    public bool ThreeD;
     /// <summary>The painted sprites (assets/art) for figures and buildings; off draws them the original way, in code.</summary>
     public bool PaintedArt = true;
     public float MusicVolume = 0.5f;

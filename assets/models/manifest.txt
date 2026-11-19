@@ -1,0 +1,5 @@
+# Hammerdeep 3D models: name, assetgen asset id (project hammerdeep, Blender agent).
+# Written by scripts/models.py; the .glb beside each is that asset's current version.
+bed bed-57bf57
+carpenter carpenter-4af525
+table table-9b3b52

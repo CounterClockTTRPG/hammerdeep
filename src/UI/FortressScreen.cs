@@ -66,12 +66,23 @@ public partial class FortressScreen : Control
         return ImageTexture.CreateFromImage(img);
     }
 
+    /// <summary>The view button and F2 go round: top-down, isometric, 3D.</summary>
     public void ToggleIso()
     {
-        Profile.Current.Isometric = !Map.Iso;
-        Profile.Current.Save();
-        Map.SetIso(Profile.Current.Isometric);
+        Profile p = Profile.Current;
+        if (p.ThreeD) { p.ThreeD = false; p.Isometric = false; }
+        else if (p.Isometric) p.ThreeD = true;
+        else p.Isometric = true;
+        p.Save();
+        ApplyView();
         RefreshHud();
+    }
+
+    private void ApplyView()
+    {
+        Map.SetIso(Profile.Current.Isometric && !Profile.Current.ThreeD);
+        Map.Set3D(Profile.Current.ThreeD);
+        _iso.Text = Profile.Current.ThreeD ? "3D" : Profile.Current.Isometric ? "Isometric" : "Top-down";
     }
     private Button _alarm;
 
@@ -106,7 +117,7 @@ public partial class FortressScreen : Control
         BuildAlert();
         if (F.TutorialStep == 0) Speed = 0;
         BuildTutorial();
-        Map.SetIso(Profile.Current.Isometric);
+        ApplyView();
         var names = new UITheme.Drawn { OnDraw = DrawNames, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(names);
         Anchor(names, 0, 0, 1, 1, 0, 0, 0, 0);
@@ -164,8 +175,7 @@ public partial class FortressScreen : Control
         row.AddChild(down);
         row.AddChild(_depth);
         row.AddChild(up);
-        _iso = UITheme.B("Isometric", ToggleIso, 14, "Switch between the top-down and the isometric view (F2)");
-        _iso.ToggleMode = true;
+        _iso = UITheme.B("Top-down", ToggleIso, 14, "Switch the view: top-down, isometric, 3D (F2). In 3D, [ and ] turn the camera.");
         row.AddChild(_iso);
         _alarm = UITheme.B("Alarm", ToggleAlarm, 14, "Sound the alarm: civilians drop everything and shelter in the meeting hall (A)");
         _alarm.ToggleMode = true;
@@ -455,7 +465,6 @@ public partial class FortressScreen : Control
         _depth.Text = $"{DepthName(Map.Z)}  (z {Map.Z})";
         foreach (var kv in _toolButtons) kv.Value.SetPressedNoSignal(kv.Key == Tool);
         _alarm.SetPressedNoSignal(F.Alarm);
-        _iso.SetPressedNoSignal(Map.Iso);
         _undo.Disabled = Undos.Count == 0;
         _undo.TooltipText = Undos.Next != null ? $"Undo {Undos.Next} (Ctrl+Z)" : "Nothing to undo";
         _alarm.Text = F.Alarm ? "ALARM!" : "Alarm";
@@ -597,7 +606,7 @@ public partial class FortressScreen : Control
         if (_held.Contains(Key.Down)) v.Y += 1;
         if (_held.Contains(Key.Left)) v.X -= 1;
         if (_held.Contains(Key.Right)) v.X += 1;
-        if (v != Vector2.Zero) { Follow = null; Map.Cam.Position += Map.Iso ? Map.ScreenDeltaToLocal(v * speed * Map.Cam.Zoom.X) : v * speed; ClampCam(); }
+        if (v != Vector2.Zero) { Follow = null; Map.Cam.Position += Map.Is3D ? Map.Three.PanDir(v) * speed : Map.Iso ? Map.ScreenDeltaToLocal(v * speed * Map.Cam.Zoom.X) : v * speed; ClampCam(); }
     }
 
     private void ClampCam()
@@ -664,6 +673,7 @@ public partial class FortressScreen : Control
     private void Zoom(int dir, Vector2 at)
     {
         float z = Math.Clamp(Map.Cam.Zoom.X * (dir > 0 ? 1.2f : 1 / 1.2f), 0.5f, 6f);
+        if (Map.Is3D) { Map.Cam.Zoom = new Vector2(z, z); return; }
         Vector2 before = Map.GetGlobalTransformWithCanvas().AffineInverse() * at;
         Map.Cam.Zoom = new Vector2(z, z);
         Map.Cam.ForceUpdateScroll();
@@ -839,6 +849,8 @@ public partial class FortressScreen : Control
             case Godot.Key.Tab: ShowNamesToggle(); return true;
             case Godot.Key.F1: Open(new HelpPanel(this)); return true;
             case Godot.Key.F2: ToggleIso(); return true;
+            case Godot.Key.Bracketleft when Map.Is3D: Map.Three.Yaw -= 45; return true;
+            case Godot.Key.Bracketright when Map.Is3D: Map.Three.Yaw += 45; return true;
         }
         if (Tool == Tool.Build && BuildDef == null)
         {
@@ -900,7 +912,8 @@ public partial class FortressScreen : Control
         foreach (Dwarf d in F.Living)
         {
             if (!(Map.ShowNames || d.Id == Map.SelDwarf) || F.World.Pos(d.Cell).Z != Map.Z) continue;
-            Vector2 at = Map.GetGlobalTransformWithCanvas() * Map.DwarfPos(d) + new Vector2(0, Map.Iso ? -26 : -9 * Map.Cam.Zoom.X / 2);
+            Vector2 at = Map.Is3D ? Map.Three.ScreenOf(Map.DwarfPos(d), Map.Z, 1.25f) : Map.GetGlobalTransformWithCanvas() * Map.DwarfPos(d) + new Vector2(0, Map.Iso ? -26 : -9 * Map.Cam.Zoom.X / 2);
+            if (Map.Is3D && Map.Three.Behind(Map.DwarfPos(d), Map.Z)) continue;
             if (at.X < 0 || at.Y < 0 || at.X > Size.X || at.Y > Size.Y) continue;
             Font f = UITheme.LabelFont;
             Vector2 sz = f.GetStringSize(d.FirstName, HorizontalAlignment.Left, -1, 14);

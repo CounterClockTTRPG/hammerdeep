@@ -26,6 +26,9 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
     bash scripts/export.sh [DIR]  Windows build (exe + pack + .NET data + assets) to DIR (default
                                 C:/temp/Hammerdeep), then the self-check against the exported exe.
     python3 scripts/make_icon.py icon   redraw icon.png / icon.ico (needs Pillow).
+    python3 scripts/models.py   3D models via assetgen's Blender agent (REST, ASSETGEN_URL, default
+                                http://192.168.86.29:8765, project hammerdeep): fetches finished ones,
+                                asks for missing ones (minutes each; run again later); --list, --force NAME
     bash scripts/assets.sh      generate missing sprites via ../assetgen (project `hammerdeep`, Replicate
                                 credits: ask first); --list, --force NAME, --recut (re-cut from the library, free)
 
@@ -65,6 +68,10 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
   coordinates always go through `GetGlobalTransformWithCanvas`, never `GetCanvasTransform`): terrain painted per 32x32 chunk as pixel art
   (repainted from `World.Changed`), open air showing lower levels; zones, designations,
   buildings, items and dwarves drawn over it each frame.
+- `src/View/View3D.cs` -- the 3D view (F2 cycles top-down, isometric, 3D): chunked vertex-colour
+  terrain, buildings from `assets/models/*.glb` (glTF read at run time; `-colonly` collider
+  meshes dropped), sprite billboards for figures, an overlay for zones and the cursor; `MapView`
+  keeps the state and asks it for picking (`CellAt`), panning and screen positions when `Is3D`.
 - `src/UI` -- `FortressScreen` (clock, camera, tools, HUD; `Panels.cs`: info panel and the
   overlays: dwarves, labors, military, animals, trade, chronicle, stocks, help, fallen), `TitleScreen`, `UITheme` (palette, fonts,
   widget builders, `Anchor` -- always anchor a control *after* adding it).

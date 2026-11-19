@@ -60,6 +60,7 @@ public partial class Root : Node
     {
         // Ironman: closing the window keeps the fortress where it was.
         if (what == NotificationWMCloseRequest && Fortress != null && !Profile.Scratch) Profile.SaveFortress(Fortress);
+        if (what == NotificationPredelete) Assets.ForgetModels();
     }
 
     private void Clear()
