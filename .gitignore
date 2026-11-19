@@ -9,3 +9,5 @@ agent/
 # Local machine settings.
 .env
 .claude/
+# Python byte-code, left by scripts run with ../assetgen's interpreter.
+__pycache__/
