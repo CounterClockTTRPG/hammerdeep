@@ -353,8 +353,10 @@ public sealed class World
         {
             Desig.None => true,
             Desig.Dig => s == Shape.Wall && !built,
-            // Stairs can be cut into rock or into a floor that is already dug.
-            Desig.StairUD or Desig.StairUp or Desig.StairDown => (s == Shape.Wall && !built) || (s == Shape.Floor && !built),
+            // Stairs can be cut into rock or into a floor that is already dug; a one-way stair can be
+            // recut to go both ways, so a shaft can always be taken deeper (or higher).
+            Desig.StairUD or Desig.StairUp or Desig.StairDown => !built && (s is Shape.Wall or Shape.Floor
+                || (s == Shape.StairUp && d != Desig.StairUp) || (s == Shape.StairDown && d != Desig.StairDown)),
             Desig.Channel => s is Shape.Floor or Shape.Wall && !built && Pos(i).Z > 0,
             Desig.Chop => s == Shape.Tree,
             Desig.Gather => s == Shape.Floor && Has(i, CellFlag.Shrub),

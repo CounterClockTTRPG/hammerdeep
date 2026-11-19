@@ -104,9 +104,9 @@ public sealed class Overseer
     {
         var (a, b) = HallBox();
         int k = 0;
-        foreach (string clan in F.Living.Select(d => d.Clan).Distinct().OrderBy(c => c))
+        // Each god someone here prays to (other peoples bring their own; the faithless none).
+        foreach (DeityDef god in F.Living.Select(Fortress.GodOf).Where(g => g != null).DistinctBy(g => g.Key).OrderBy(g => g.Key))
         {
-            DeityDef god = Fortress.Deities.First(g => g.Clan == clan);
             if (!F.Buildings.Any(x => x.Def == "shrine" && x.Deity == god.Key))
             {
                 for (int x = a.X + k * 3; x <= b.X; x++)

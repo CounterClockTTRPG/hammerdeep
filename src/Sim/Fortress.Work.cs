@@ -14,6 +14,25 @@ public sealed partial class Fortress
     /// <summary>Chairs taken by someone eating (chair building id -> dwarf).</summary>
     public Dictionary<int, int> Seats = new();
 
+    /// <summary>Beds claimed the same day share one line: "Gimola, Durdis and Morga have claimed beds."</summary>
+    private void SayBedClaimed(Dwarf d, Building bed)
+    {
+        long day = Tick / Tables.TicksPerDay;
+        int at = Log.FindLastIndex(l => l.Tick / Tables.TicksPerDay == day && l.Names != null);
+        if (at >= 0)
+        {
+            LogEntry e = Log[at];
+            Log.RemoveAt(at);
+            e.Names.Add(d.FirstName);
+            e.Text = $"{string.Join(", ", e.Names.Take(e.Names.Count - 1))} and {e.Names[^1]} have claimed beds.";
+            e.Tick = Tick;
+            Log.Add(e);
+            return;
+        }
+        Say($"{d.FirstName} has claimed a bed.", LogKind.Info, World.Idx(bed.X, bed.Y, bed.Z));
+        Log[^1].Names = new List<string> { d.FirstName };
+    }
+
     private void Needs(Dwarf d)
     {
         Heal(d);
@@ -146,7 +165,9 @@ public sealed partial class Fortress
         if (d.Breaking > 0) { d.Task = new Task { Kind = TaskKind.Tantrum }; return; }
         t = PlanThreat(d);
         if (t == null && d.Thirst > Tables.ThirstyAt) t = PlanDrink(d);
-        if (t == null && d.Hunger > Tables.HungryAt) t = PlanEat(d);
+        if (t == null && d.Hunger > Tables.EatAt) t = PlanEat(d);
+        // A long sleep on an empty stomach wakes hungry: eat first.
+        if (t == null && d.Fatigue > Tables.TiredAt && d.Hunger > Tables.EatBeforeBedAt && d.Fatigue < Tables.ExhaustedAt) t = PlanEat(d);
         if (t == null && d.Fatigue > Tables.TiredAt) t = new Task { Kind = TaskKind.Sleep };
         if (t == null && d.Strange != null) t = new Task { Kind = TaskKind.Mood };
         if (t == null && d.Strange == null) t = PlanPrayer(d);
@@ -374,7 +395,12 @@ public sealed partial class Fortress
                 foreach (Need n in r.Inputs)
                     for (int k = 0; k < n.Count && ok; k++)
                     {
-                        Item it = inside.FirstOrDefault(x => Tables.Matches(n.Tag, x) && !use.Contains(x))
+                        // The brewer reaches for what nobody can eat (hearthwheat) before the larder's fruit.
+                        Item it = n.Tag == "brewable"
+                            ? inside.FirstOrDefault(x => Tables.Matches(n.Tag, x) && !x.M.Edible && !use.Contains(x))
+                              ?? NearestFree(d, x => Tables.Matches(n.Tag, x) && !x.M.Edible && !use.Contains(x), center)
+                            : null;
+                        it ??= inside.FirstOrDefault(x => Tables.Matches(n.Tag, x) && !use.Contains(x))
                             ?? NearestFree(d, x => Tables.Matches(n.Tag, x) && !use.Contains(x), center);
                         if (it == null) { ok = false; o.Stuck = "needs " + Tables.NeedName(n.Tag); }
                         else use.Add(it);
@@ -429,6 +455,17 @@ public sealed partial class Fortress
     }
 
     /// <summary>Soil floor; surface crops need the sky, cave crops need the dark.</summary>
+    /// <summary>What a new plot grows: something edible before something only fit for the brewer,
+    /// and among those the crop with the most seed in store.</summary>
+    public string DefaultCrop(bool outside)
+    {
+        return Tables.Mats.Where(m => m.Grow > 0 && (outside ? m.Surface : m.Underground))
+            .OrderByDescending(m => Items.Values.Any(i => i.Kind == ItemKind.Seed && i.Mat == m.Id) ? 1 : 0)
+            .ThenByDescending(m => m.Edible)
+            .ThenByDescending(m => Items.Values.Count(i => i.Kind == ItemKind.Seed && i.Mat == m.Id))
+            .First().Key;
+    }
+
     public bool Farmable(int c, Mat crop)
     {
         if (World.Shapes[c] != Shape.Floor || BuildingAt.ContainsKey(c) || World.Depth[c] >= 3) return false;
@@ -592,6 +629,8 @@ public sealed partial class Fortress
         Claims.Remove(c);
         // Digging out the cell under a down stair makes the stair's other end: the way down is open.
         if (g == Desig.Dig && c + W.W * W.H < W.N && W.Shapes[c + W.W * W.H] is Shape.StairDown or Shape.StairUD) g = Desig.StairUp;
+        // Recutting a one-way stair (or cutting the other way into one) leaves a stair both ways.
+        if (before is Shape.StairUp or Shape.StairDown && g is Desig.StairUp or Desig.StairDown or Desig.StairUD) g = Desig.StairUD;
         switch (g)
         {
             case Desig.Dig: W.SetShape(c, Shape.Floor); break;
@@ -894,6 +933,7 @@ public sealed partial class Fortress
         Destroy(food);
         t.Item = -1;
         d.Hunger = meal ? 0 : Math.Max(0, d.Hunger - 2200);
+        if (d.Hunger <= Tables.HungryAt) d.Thoughts.RemoveAll(x => x.Id == "hungry");
         AddThought(d, meal ? "ate_meal" : "ate_raw", meal && d.Has("glutton") ? 2 : 1);
         if (food.Kind == ItemKind.Meat) AddThought(d, "ate_meat");
         if (t.Building >= 0) { AddThought(d, "ate_table"); Seats.Remove(t.Building); t.Building = -1; }
@@ -952,6 +992,7 @@ public sealed partial class Fortress
             AddThought(d, BesideWell(d.Cell) ? "drank_well" : "drank_water");
         }
         d.Thirst = 0;
+        d.Thoughts.RemoveAll(x => x.Id == "thirsty");
         Count("drinks");
         return false;
     }
@@ -992,7 +1033,7 @@ public sealed partial class Fortress
             {
                 d.Bed = -1;
                 bed = Buildings.Where(b => b.Built && b.Def == "bed" && b.Owner < 0).OrderBy(b => new P3(b.X, b.Y, b.Z).Dist(World.Pos(d.Cell))).FirstOrDefault();
-                if (bed != null) { bed.Owner = d.Id; d.Bed = bed.Id; Say($"{d.FirstName} has claimed a bed.", LogKind.Info, World.Idx(bed.X, bed.Y, bed.Z)); }
+                if (bed != null) { bed.Owner = d.Id; d.Bed = bed.Id; SayBedClaimed(d, bed); }
             }
             if (bed != null)
             {
@@ -1196,6 +1237,8 @@ public sealed partial class Fortress
                     if (World.Has(c, CellFlag.Hidden) && g is not (Desig.Dig or Desig.StairUD or Desig.StairDown or Desig.StairUp or Desig.Channel)) continue;
                     if (!World.CanDesignate(c, g)) continue;
                     if (World.Desigs[c] == g) continue;
+                    // A dig box drawn over a marked shaft keeps the stairs: they are the way down.
+                    if (g == Desig.Dig && World.Desigs[c] is Desig.StairUD or Desig.StairUp or Desig.StairDown) continue;
                     World.Desigs[c] = g;
                     Designated.Add(c);
                     World.Changed.Add(c);
@@ -1241,17 +1284,29 @@ public sealed partial class Fortress
                 if (bd.Kind == BuildKind.Construction)
                 {
                     if (bd.Makes == Shape.Floor) { if (s != Shape.Empty) return "floors go over open air"; }
-                    else if (s != Shape.Floor) return "needs open floor";
+                    else if (s != Shape.Floor) return Blocked(s);
                     continue;
                 }
                 if (def == "bridge") { if (s is not (Shape.Floor or Shape.Empty)) return "a drawbridge goes on a floor or over a gap"; continue; }
                 if (def == "well") { if (s != Shape.Empty || !WaterBelow(c)) return "a well goes over open air with water a few levels below"; continue; }
                 if (World.Depth[c] >= World.Deep) return "under deep liquid";
-                if (s != Shape.Floor) return "needs open floor";
+                if (s != Shape.Floor) return Blocked(s);
             }
         if (def is "msmelter" or "mforge" && !MagmaNear(x, y, z, bd.W, bd.H)) return "needs magma close by (beside it, or one level down)";
         return null;
     }
+
+    /// <summary>Why a cell will not take a building, in terms of what to do about it.</summary>
+    private static string Blocked(Shape s) => s switch
+    {
+        Shape.Tree => "a tree is in the way -- fell it first (T)",
+        Shape.Wall => "solid rock is in the way -- dig it out first (D)",
+        Shape.Ramp => "the ground slopes there -- it needs level floor",
+        Shape.Empty => "open air -- the ground is lower there (try the level below)",
+        Shape.StairUp or Shape.StairDown or Shape.StairUD => "stairs are in the way",
+        Shape.Water or Shape.Magma => "liquid is in the way",
+        _ => "needs open floor",
+    };
 
     public Building Place(string def, int x, int y, int z)
     {

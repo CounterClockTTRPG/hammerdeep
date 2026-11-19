@@ -369,7 +369,7 @@ public partial class FortressScreen
                 foreach (Mat m in Tables.Mats.Where(m => m.Grow > 0 && (outside ? m.Surface : m.Underground)))
                 {
                     Mat mm = m;
-                    Button b = UITheme.B((z.Crop == m.Key ? "> " : "") + m.Name, () => { z.Crop = mm.Key; RefreshInfo(true); }, 14);
+                    Button b = UITheme.B((z.Crop == m.Key ? "> " : "") + m.Name + (m.Edible ? "" : " (for brewing only)"), () => { z.Crop = mm.Key; RefreshInfo(true); }, 14);
                     v.AddChild(b);
                 }
                 break;
@@ -796,8 +796,10 @@ public partial class Stocks : Overlay
 
     protected override void Fill()
     {
+        // Plants nobody can eat (hearthwheat) are only for the brewer: list them apart, so Food is what can be eaten.
         var groups = F.Items.Values
-            .GroupBy(i => i.Def.Cat).OrderBy(g => g.Key);
+            .GroupBy(i => i.Kind == ItemKind.Plant && !i.M.Edible ? "Brewing plants" : i.Def.Cat.ToString())
+            .OrderBy(g => g.Key == "Brewing plants" ? (int)StockCat.Food + 0.5 : (int)Enum.Parse<StockCat>(g.Key));
         foreach (var g in groups)
         {
             Body.AddChild(UITheme.L($"{g.Key}  ({g.Count()})", 15, UITheme.Bronze, UITheme.Title));

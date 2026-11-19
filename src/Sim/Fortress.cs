@@ -352,10 +352,57 @@ public sealed partial class Fortress
         }
     }
 
+    private long _foodSaid = -100000, _drinkSaid = -100000, _starveSaid = -100000;
+
+    /// <summary>Twice a day: say when food or drink is short, and stop the clock when someone starts to starve.</summary>
+    private void SupplyWarning()
+    {
+        int alive = Living.Count();
+        if (alive == 0 || Tick < Tables.TicksPerDay) return;
+        int food = Items.Values.Count(i => Tables.Matches("food", i));
+        int drink = Items.Values.Count(i => i.Kind == ItemKind.Drink);
+        Dwarf starving = Living.FirstOrDefault(d => d.Hunger > Tables.StarvingAt || d.Thirst > Tables.ParchedAt);
+        if (starving != null && Tick - _starveSaid > Tables.TicksPerDay * 2)
+        {
+            _starveSaid = Tick;
+            bool hunger = starving.Hunger > Tables.StarvingAt;
+            Say(hunger
+                ? $"{starving.Name} is starving{(food == 0 ? " and there is nothing to eat" : "")}! Gather plants (G), farm bramblefruit, slaughter or butcher animals, or buy food from a caravan."
+                : $"{starving.Name} is parched{(drink == 0 ? " and there is nothing to drink" : "")}! Brew ale at a brewery, or dig a well.", LogKind.Alert, starving.Cell);
+            return;
+        }
+        if (food < alive * 2 && Tick - _foodSaid > Tables.TicksPerDay * 3)
+        {
+            _foodSaid = Tick;
+            Say(food == 0 ? $"There is no food left for {alive} mouths. Gather plants, farm, butcher, or trade for it."
+                : $"Food is running low: {food} left for {alive} mouths. Hearthwheat only brews; dwarves eat fruit, dimcaps, eggs, meat and stew.", LogKind.Bad);
+        }
+        if (drink < alive * 2 && Tick - _drinkSaid > Tables.TicksPerDay * 3)
+        {
+            _drinkSaid = Tick;
+            Say($"Ale is running low: {drink} left for {alive}. Keep the brewery busy.", LogKind.Bad);
+        }
+    }
+
     // ---- the log ------------------------------------------------------------------------
 
     public void Say(string text, LogKind kind = LogKind.Info, int cell = -1)
     {
+        // The same line again the same day (a demand, a tantrum) is counted, not repeated.
+        long day = Tick / Tables.TicksPerDay;
+        int at = Log.Count == 0 ? -1 : Log.FindLastIndex(Log.Count - 1, Math.Min(Log.Count, 8), l => l.Text == text && l.Tick / Tables.TicksPerDay == day);
+        if (at >= 0)
+        {
+            LogEntry same = Log[at];
+            Log.RemoveAt(at);
+            same.Repeat++;
+            same.Tick = Tick;
+            same.Kind = (LogKind)Math.Max((int)same.Kind, (int)kind);
+            if (cell >= 0) same.Cell = cell;
+            Log.Add(same);
+            if (kind == LogKind.Alert) PauseFor = text;
+            return;
+        }
         Log.Add(new LogEntry { Tick = Tick, Text = text, Kind = kind, Cell = cell });
         if (Log.Count > 400) Log.RemoveRange(0, Log.Count - 400);
         if (kind == LogKind.Alert) PauseFor = text;
@@ -394,7 +441,7 @@ public sealed partial class Fortress
         Timing[0] += t1 - t0; Timing[1] += t2 - t1; Timing[2] += t3 - t2;
         if (Tick % 50 == 0) Growth();
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
-        if (Tick % 500 == 250) StockWarning();
+        if (Tick % 500 == 250) { StockWarning(); SupplyWarning(); }
         if (Tick % 500 == 300) BuildWarning();
         if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
@@ -425,14 +472,25 @@ public sealed partial class Fortress
         if (Tick < Tables.TicksPerSeason || Alive == 0) return;
         int wealth = Wealth;
         int n = Rng.Range(1, 3) + Math.Min(12, wealth / 4000) + (Alive < 10 ? 2 : 0);
-        if (Alive + n > 220) n = Math.Max(0, 220 - Alive);
-        if (n == 0) return;
+        // Word of hard times travels too: every death in the past year turns someone back,
+        // and a hold with an empty larder draws only the desperate.
+        int lately = Dwarves.Count(d => d.Dead && Tick - d.DiedAt < Tables.TicksPerSeason * 4);
+        int food = Items.Values.Count(i => Tables.Matches("food", i));
+        bool hungry = food < Alive * 3;
+        n -= lately;
+        if (hungry) n = Math.Min(n, 1);
+        if (Alive + n > 220) n = 220 - Alive;
+        if (n <= 0)
+        {
+            if (lately > 0 || hungry) Say($"No migrants come this season: word has spread of {(lately > 0 ? "the dead" : "the empty larder")} at {Name}.", LogKind.Info);
+            return;
+        }
         P3 edge = EdgeArrival();
         var clans = Tables.Clans.Where(c => c.Race == "dwarf").Select(c => c.Id).ToList();
         // Now and then a band of another people comes too: whoever lives near.
         string band = null;
         var near = NearPeoples();
-        if (near.Count > 0 && Rng.Chance(0.35)) band = Rng.Pick(near);
+        if (near.Count > 0 && !hungry && Rng.Chance(0.35)) band = Rng.Pick(near);
         int bandN = band switch { "delvling" => Rng.Range(2, 4), "rootfolk" => Rng.Range(1, 3), "stonekin" => 1, _ => 0 };
         if (band == "stonekin" && !Rng.Chance(0.4)) { band = null; bandN = 0; }
         for (int k = 0; k < n; k++)

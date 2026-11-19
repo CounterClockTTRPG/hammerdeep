@@ -476,14 +476,14 @@ public partial class FortressScreen : Control
     private void RefreshLog()
     {
         var last = F.Log.Skip(Math.Max(0, F.Log.Count - 7)).ToList();
-        string sig = last.Count + ":" + (last.LastOrDefault()?.Tick ?? 0) + (last.LastOrDefault()?.Text ?? "");
+        string sig = last.Count + ":" + (last.LastOrDefault()?.Tick ?? 0) + (last.LastOrDefault()?.Text ?? "") + (last.LastOrDefault()?.Repeat ?? 0);
         if (sig == _logSig) return;
         _logSig = sig;
         foreach (Node n in _log.GetChildren()) n.QueueFree();
         foreach (LogEntry e in last)
         {
             Color c = e.Kind switch { LogKind.Good => UITheme.Good, LogKind.Bad => UITheme.Ember, LogKind.Alert => UITheme.Bad, _ => UITheme.Dim };
-            var b = new Button { Text = $"{Fortress.ShortDate(e.Tick)}  {e.Text}", Flat = true, Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, ClipText = true };
+            var b = new Button { Text = $"{Fortress.ShortDate(e.Tick)}  {e.Text}{(e.Repeat > 1 ? $"  x{e.Repeat}" : "")}", Flat = true, Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, ClipText = true };
             b.CustomMinimumSize = new Vector2(620, 0);
             b.AddThemeFontSizeOverride("font_size", 14);
             b.AddThemeColorOverride("font_color", c);
@@ -542,11 +542,19 @@ public partial class FortressScreen : Control
         _buildPanel = new PanelContainer();
         _buildPanel.Position = new Vector2(182, 46);
         AddChild(_buildPanel);
-        var v = UITheme.V(3);
-        _buildPanel.AddChild(v);
-        v.AddChild(UITheme.Heading("Build", 18));
+        var outer = UITheme.V(3);
+        _buildPanel.AddChild(outer);
+        outer.AddChild(UITheme.Heading("Build", 18));
+        // Two columns -- workshops; furniture and constructions -- so the whole list fits the screen.
+        var cols = new HBoxContainer();
+        cols.AddThemeConstantOverride("separation", 10);
+        outer.AddChild(cols);
+        VBoxContainer left = UITheme.V(3), right = UITheme.V(3);
+        cols.AddChild(left);
+        cols.AddChild(right);
         foreach (BuildKind kind in new[] { BuildKind.Workshop, BuildKind.Furniture, BuildKind.Construction })
         {
+            VBoxContainer v = kind == BuildKind.Workshop ? left : right;
             v.AddChild(UITheme.L(kind switch { BuildKind.Workshop => "Workshops", BuildKind.Furniture => "Furniture (made in shops first)", _ => "Constructions" }, 13, UITheme.Bronze, UITheme.Title));
             foreach (BuildDef d in Tables.Buildings.Where(b => b.Kind == kind))
             {
@@ -642,7 +650,13 @@ public partial class FortressScreen : Control
         {
             if (_panning) { Map.Cam.Position -= Map.ScreenDeltaToLocal(mm.Relative); Follow = null; ClampCam(); }
             Map.Hover = Map.CellAt(mm.Position);
-            if (Map.Ghost != null && Map.Hover is P3 h) Map.GhostOk = F.CanPlace(Map.Ghost, h.X, h.Y, h.Z) == null;
+            if (Map.Ghost != null && Map.Hover is P3 h)
+            {
+                string why = F.CanPlace(Map.Ghost, h.X, h.Y, h.Z);
+                Map.GhostOk = why == null;
+                // Say why the footprint is red, not just that it is.
+                _toolHint.Text = $"Click to place: {Tables.Build[Map.Ghost].Name}. Right-click to stop." + (why == null ? "" : $"\nNot here: {why}.");
+            }
             if (_dragFrom != null) UpdateDrag(mm.Position);
         }
     }
@@ -744,7 +758,7 @@ public partial class FortressScreen : Control
         if (kind == ZoneKind.Farm)
         {
             bool outside = F.World.IsOutside(F.World.Idx(a));
-            crop = outside ? "hearthwheat" : "dimcap";
+            crop = F.DefaultCrop(outside);
             int soil = 0;
             for (int y = Math.Min(a.Y, b.Y); y <= Math.Max(a.Y, b.Y); y++)
                 for (int x = Math.Min(a.X, b.X); x <= Math.Max(a.X, b.X); x++)
@@ -819,7 +833,14 @@ public partial class FortressScreen : Control
         }
         if (Tool == Tool.Build && BuildDef == null)
         {
+            // The exact letter first (b bed, B brewery); then, without Shift, whichever one building
+            // the letter names in either case (m: the Mason's shop), rather than a sidebar tool.
             BuildDef d = Tables.Buildings.FirstOrDefault(b => b.Key == ch.ToString());
+            if (d == null)
+            {
+                var loose = Tables.Buildings.Where(b => b.Key != null && b.Key.Equals(ch.ToString(), StringComparison.OrdinalIgnoreCase)).ToList();
+                if (loose.Count == 1) d = loose[0];
+            }
             if (d != null) { ChooseBuild(d.Id); return true; }
         }
         switch (char.ToLower(ch))

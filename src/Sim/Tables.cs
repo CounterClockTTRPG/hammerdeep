@@ -149,6 +149,8 @@ public static class Tables
     // ---- bodies ------------------------------------------------------------------------
     public const int StepTicks = 5, DiagTicks = 7, StairTicks = 8;
     public const int HungryAt = 2600, StarvingAt = 7000, StarveDeath = 14000;
+    /// <summary>Dwarves go looking for food a little before hunger sours their mood; before sleep, sooner still.</summary>
+    public const int EatAt = 2100, EatBeforeBedAt = 1500;
     public const int ThirstyAt = 1500, ParchedAt = 4000, ThirstDeath = 9000;
     public const int TiredAt = 2000, ExhaustedAt = 3600;
     public const int SleepRecover = 6;
@@ -326,7 +328,7 @@ public static class Tables
         B("floodgate", "Floodgate", BuildKind.Furniture, 1, 1, Labor.Construction, 150, 'H', "y", "Holds back water and magma when shut (it is built shut); opened, lets them through.", new Need("mechanism"), new Need("buildmat"));
         B("msmelter", "Magma smelter", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'G', "G", "A smelter heated by magma close by: no fuel needed.", new Need("stone", 3));
         B("mforge", "Magma forge", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'J', "J", "A forge heated by magma close by: no fuel needed.", new Need("stone", 3));
-        B("coffin", "Coffin", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '0', "o", "A resting place for one of the dead. Dig a quiet tomb for them.", new Need("coffin"));
+        B("coffin", "Coffin", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '0', "n", "A resting place for one of the dead. Dig a quiet tomb for them.", new Need("coffin"));
         B("bridge", "Drawbridge", BuildKind.Furniture, 1, 1, Labor.Construction, 150, '=', "g", "Spans a gap or sits on a floor. Raised, it drops whatever is on it into the gap, or seals the way.", new Need("mechanism"), new Need("buildmat"));
         B("trap", "Stonefall trap", BuildKind.Furniture, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself.", new Need("mechanism"), new Need("stone"));
         Add(new BuildDef { Id = "wall", Name = "Wall", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 120, Glyph = '#', Key = "w", Makes = Shape.Wall, Cost = new[] { new Need("buildmat") }, Help = "A built wall." });

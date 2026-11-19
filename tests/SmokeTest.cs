@@ -122,6 +122,7 @@ public partial class SmokeTest : Node
     {
         foreach (Recipe r in Tables.Recipes) Check(Tables.Build.ContainsKey(r.Shop), $"recipe {r.Id} has a shop");
         foreach (BuildDef b in Tables.Buildings) Check(b.Cost.Length > 0, $"{b.Id} costs something");
+        foreach (var g in Tables.Buildings.Where(b => !string.IsNullOrEmpty(b.Key)).GroupBy(b => b.Key)) Check(g.Count() == 1, $"build key {g.Key} is {string.Join(" and ", g.Select(b => b.Id))}");
         foreach (ClanDef c in Tables.Clans) Check(Tables.Clans.Any(o => o.Id == c.Grudge), $"{c.Id} has a real grudge");
         foreach (ItemDef i in Tables.Items.Values) if (i.Places != null) Check(Tables.Build.ContainsKey(i.Places), $"{i.Kind} places a real building");
         Check(Tables.Mats.Count < 255, "materials fit a byte");
@@ -191,6 +192,16 @@ public partial class SmokeTest : Node
         Run(f, () => f.Designated.Count == 0, 20000);
         Check(f.Path.Find(d.Cell, w.Idx(3, 2, 0)) != null, "and the level below can be walked to");
         Check(!f.AnyReachable(new P3(1, 3, 0), new P3(1, 3, 0)) || true, "(reachability is checked)");
+        // A shaft's one-way bottom can be recut both ways, so the shaft goes deeper.
+        int bottom = w.Idx(5, 1, 0);
+        Eq(f.Designate(new P3(5, 1, 0), new P3(5, 1, 0), Desig.StairUD), 1, "an up stair takes an up/down designation");
+        Run(f, () => f.Designated.Count == 0, 20000);
+        Eq(w.Shapes[bottom], Shape.StairUD, "and is recut to go both ways");
+        Eq(f.Designate(new P3(5, 1, 0), new P3(5, 1, 0), Desig.StairUD), 0, "a stair both ways needs nothing more");
+        // A dig box drawn over a marked shaft leaves the stair marked.
+        f.Designate(new P3(6, 2, 1), new P3(6, 2, 1), Desig.StairUD);
+        f.Designate(new P3(6, 2, 1), new P3(6, 3, 1), Desig.Dig);
+        Eq(w.Desigs[w.Idx(6, 2, 1)], Desig.StairUD, "digging over a marked stair keeps the stair");
         // No pick, no mining.
         var g = Tiny(new[] { "#####", "#@..#", "#####" });
         g.Designate(new P3(2, 2, 1), new P3(2, 2, 1), Desig.Dig);
@@ -273,6 +284,17 @@ public partial class SmokeTest : Node
         f.AddOrder(shop, "smelt", 1);
         Run(f, () => false, 300);
         Check(shop.Orders[0].Stuck?.Contains("ore") == true, "a stuck order names what it needs");
+        // The brewer reaches for wheat nobody can eat before the fruit in the larder, even when the fruit is nearer.
+        var g = Tiny(new[] { "##########", "#@.......#", "#........#", "#........#", "##########" });
+        Building brew = g.Place("brewery", 5, 1, 1);
+        brew.Built = true;
+        g.Spawn(ItemKind.Plant, Tables.Mi("bramble"), g.World.Idx(4, 2, 1));
+        g.Spawn(ItemKind.Plant, Tables.Mi("hearthwheat"), g.World.Idx(1, 3, 1));
+        g.AddOrder(brew, "ale", 1);
+        Run(g, () => brew.Orders.Count == 0, 8000);
+        Eq(brew.Orders.Count, 0, "the ale is brewed");
+        Check(g.Items.Values.Any(i => i.Kind == ItemKind.Plant && i.M.Key == "bramble"), "the bramblefruit is left to eat");
+        Check(!g.Items.Values.Any(i => i.Kind == ItemKind.Plant && i.M.Key == "hearthwheat"), "the hearthwheat went into the ale");
     }
 
     private void Needs()
@@ -301,6 +323,27 @@ public partial class SmokeTest : Node
         Check(s.Dead, "no food is fatal");
         Check(g.Fallen, "and with the last dwarf, the fortress falls");
         Check(g.Items.Values.Any(i => i.Kind == ItemKind.Corpse), "leaving a corpse");
+        // Hunger is warned of before it kills: short food is said, and starving stops the clock.
+        var k = Tiny(new[] { "######", "#@@..#", "#...~#", "######" });
+        k.Advance(Tables.TicksPerDay + 300);
+        Check(k.Log.Any(l => l.Text.Contains("no food left")), "an empty larder is reported");
+        k.Dwarves[0].Hunger = Tables.StarvingAt + 10;
+        k.Advance(600);
+        Check(k.Log.Any(l => l.Kind == LogKind.Alert && l.Text.Contains("is starving")), "a starving dwarf raises the alarm");
+        // A dwarf eats before hunger sours the mood, and a meal takes the hungry thought away.
+        var m = Tiny(new[] { "######", "#@...#", "######" });
+        Dwarf e = m.Dwarves[0];
+        for (int i = 0; i < 6; i++) m.Spawn(ItemKind.Plant, Tables.Mi("bramble"), m.World.Idx(3, 1, 1));
+        e.Hunger = Tables.EatAt + 10;
+        Run(m, () => e.Hunger < 100, 1000);
+        Check(e.Hunger < 100, "a peckish dwarf eats before going hungry");
+        Check(!e.Thoughts.Any(t => t.Id == "hungry"), "without the hungry thought");
+        // The same line twice in a day is counted, not repeated.
+        int lines = m.Log.Count;
+        m.Say("Urist demands leather!", LogKind.Bad);
+        m.Say("Urist demands leather!", LogKind.Bad);
+        Eq(m.Log.Count, lines + 1, "a repeated line is folded");
+        Eq(m.Log[^1].Repeat, 2, "and counted");
     }
 
     private void Farming()
@@ -317,6 +360,13 @@ public partial class SmokeTest : Node
         Check(f.Items.Values.Count(i => i.Kind == ItemKind.Plant) >= 2, "and the produce kept (what was not eaten)");
         Check(f.Items.Values.Any(i => i.Kind == ItemKind.Seed) || f.Stats.GetValueOrDefault("planted") > 2, "with seed kept back for the next sowing");
         Check(!f.Farmable(w.Idx(7, 1, 1), Tables.M("dimcap")), "rock is not farmland");
+        // New plots under the sky grow what can be eaten, not wheat that only brews.
+        var h = Tiny(new[] { "#####", "#@..#", "#####" });
+        Eq(h.DefaultCrop(true), "bramble", "a new surface plot grows bramblefruit");
+        h.Spawn(ItemKind.Seed, Tables.Mi("hearthwheat"), h.World.Idx(2, 1, 1));
+        Eq(h.DefaultCrop(true), "hearthwheat", "unless only wheat seed is to hand");
+        h.Spawn(ItemKind.Seed, Tables.Mi("bramble"), h.World.Idx(3, 1, 1));
+        Eq(h.DefaultCrop(true), "bramble", "bramble seed beats wheat seed");
     }
 
     private void Moods()

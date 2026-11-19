@@ -302,4 +302,8 @@ public sealed class LogEntry
     public string Text;
     public LogKind Kind;
     public int Cell = -1;
+    /// <summary>How many times the same line was said that day (shown as "x3").</summary>
+    public int Repeat = 1;
+    /// <summary>For a line that gathers names as the day goes on (beds claimed).</summary>
+    public List<string> Names;
 }
