@@ -177,6 +177,8 @@ public sealed partial class Fortress
             if (d.Can(Labor.Husbandry) && c.MarkTame && !c.Tame && c.D.Tamable) { pick = c; kind = TaskKind.Tame; break; }
             if (d.Can(Labor.Husbandry) && c.MarkTrain && c.Tame && !c.War && c.D.Trainable) { pick = c; kind = TaskKind.Train; break; }
             if (d.Can(Labor.Butchery) && c.MarkSlaughter && c.Tame) { pick = c; kind = TaskKind.Slaughter; break; }
+            // A wild beast marked for the pot is hunted: by a butcher fit to fight it.
+            if (d.Can(Labor.Butchery) && c.MarkSlaughter && !c.Tame && d.Hp > 60 && d.Breaking == 0) { pick = c; kind = TaskKind.Slaughter; break; }
         }
         if (pick == null) return null;
         pick.Claim = d.Id;
@@ -241,8 +243,16 @@ public sealed partial class Fortress
     {
         Creature c = CreatureById(t.Item);
         if (c == null || c.Dead || c.Claim != d.Id || !c.MarkSlaughter) return false;
-        d.Activity = $"Slaughtering {A(c.D.Name)}";
+        d.Activity = c.Tame ? $"Slaughtering {A(c.D.Name)}" : $"Hunting {A(c.D.Name)}";
         if (!CloseOn(d, c, t)) return t.Stage < 1000;
+        if (!c.Tame)
+        {
+            // The quarry fights or flees; the hunter strikes when ready. The kill leaves a carcass.
+            if (d.Hp < 35) return false;
+            if (d.AttackWait <= 0) DwarfHits(d, c);
+            if (c.Dead) { Gain(d, Labor.Butchery, 20); Count("hunted"); }
+            return !c.Dead;
+        }
         c.Path = null;
         if (++t.Work < 60) return true;
         c.Dead = true;
@@ -264,7 +274,8 @@ public sealed partial class Fortress
         Count("butchered");
     }
 
-    public void MarkSlaughter(Creature c, bool on) { c.MarkSlaughter = on && c.Tame; if (!on) Unclaim(c); }
+    /// <summary>Slaughter a tame beast, or hunt a wild one that is not out for blood (a fellbuck, a badger left alone).</summary>
+    public void MarkSlaughter(Creature c, bool on) { c.MarkSlaughter = on && (c.Tame || !c.D.Hostile); if (!on) Unclaim(c); }
     public void MarkTame(Creature c, bool on) { c.MarkTame = on && !c.Tame && c.D.Tamable; if (!on) Unclaim(c); }
     public void MarkTrain(Creature c, bool on) { c.MarkTrain = on && c.Tame && c.D.Trainable && !c.War; if (!on) Unclaim(c); }
 

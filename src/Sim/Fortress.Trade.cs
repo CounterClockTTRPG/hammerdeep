@@ -69,6 +69,7 @@ public sealed partial class Fortress
                 (G(ItemKind.Bar, "iron"), 3, 8), (G(ItemKind.Bar, "bronze"), 1, 4), (G(ItemKind.Boulder, "coal"), 3, 8),
                 (G(ItemKind.Pick, "iron"), 1, 2), (G(ItemKind.Weapon, "iron"), 1, 3), (G(ItemKind.Armor, "iron"), 0, 2), (G(ItemKind.Helm, "iron"), 1, 3),
                 (G(ItemKind.Drink, "dimcap"), 10, 25), (G(ItemKind.Seed, "dimcap"), 3, 8), (G(ItemKind.Mechanism, "granite"), 1, 3),
+                (G(ItemKind.Plant, "ration"), 4, 10),
             },
         },
         new FactionDef
@@ -123,6 +124,19 @@ public sealed partial class Fortress
         }
     }
 
+    /// <summary>Four days before a season turns: word of the caravans it will bring, so there is time for a depot.</summary>
+    private void CaravanWord()
+    {
+        int next = (Season + 1) % Tables.SeasonsPerYear;
+        foreach (FactionDef f in FactionDefs.Where(f => f.Season == next))
+        {
+            if (Map != null && WorldX >= 0 && CaravanHome(f.Key) == null) continue;
+            bool depot = Buildings.Any(b => b.Def == "depot");
+            Say($"Word comes that a caravan of {f.Name} will arrive in {Tables.Seasons[next]}." + (depot ? "" : " Build a trade depot (B, D) to meet it."),
+                depot ? LogKind.Info : LogKind.Bad);
+        }
+    }
+
     public Caravan SendCaravan(FactionDef f)
     {
         int standing = Standing.GetValueOrDefault(f.Key);
@@ -132,6 +146,14 @@ public sealed partial class Fortress
         {
             int n = (int)Math.Round(Math.Max(1, Rng.Range(lo, hi)) * scale * (Requested(f.Key, good) ? 2 : 1));
             if (n > 0) c.Goods.Add(good.Copy(n));
+        }
+        // Word of a hungry hold travels: merchants bring rations to sell it.
+        int food = Items.Values.Count(i => Tables.Matches("food", i));
+        if (food < Alive * 3)
+        {
+            Good ration = c.Goods.FirstOrDefault(g => g.Kind == ItemKind.Plant && g.Mat == "ration");
+            int more = Math.Max(10, Alive * 2);
+            if (ration != null) ration.Count += more; else c.Goods.Add(G(ItemKind.Plant, "ration").Copy(more));
         }
         if (Requests.Remove(f.Key, out var asked) && asked.Count > 0) Say($"The merchants of {f.Name} bring the {string.Join(", ", asked)} you asked for.", LogKind.Good);
         P3 at = EdgeArrival();
@@ -163,7 +185,9 @@ public sealed partial class Fortress
                 Building depot = Depot();
                 if (depot == null)
                 {
-                    if (Tick - c.Arrived > Tables.TicksPerDay) { c.State = CaravanState.Leaving; Say($"Finding no trade depot, the caravan from {c.F.Name} turns back.", LogKind.Bad); Standing[c.Faction] = Standing.GetValueOrDefault(c.Faction) - 5; }
+                    // They wait a day -- or, while a depot is being built for them, a few.
+                    long patience = Tables.TicksPerDay * (Buildings.Any(b => b.Def == "depot") ? TradeDays : 1);
+                    if (Tick - c.Arrived > patience) { c.State = CaravanState.Leaving; Say($"Finding no trade depot, the caravan from {c.F.Name} turns back.", LogKind.Bad); Standing[c.Faction] = Standing.GetValueOrDefault(c.Faction) - 5; }
                     else if (at.Dist(Embark) > 8) MarchTo(m, Embark);
                     return;
                 }

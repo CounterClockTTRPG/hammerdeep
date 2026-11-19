@@ -81,6 +81,19 @@ public sealed partial class Fortress
         _ => tag,
     };
 
+    /// <summary>Where the thing a moody dwarf demands comes from, for the player who does not know.</summary>
+    public static string MoodNeedHint(string tag) => tag switch
+    {
+        "gem" => "Dig for them; caravans sell them too.",
+        "shiny" => "Gems, or metal bars from a smelter.",
+        "bone" => "Butcher a carcass at a butcher's shop.",
+        "bar" => "Smelt ore at a smelter.",
+        "log" => "Fell trees (T).",
+        "stone" => "Dig out rock: boulders are left behind.",
+        "leather" => "Tan a hide at a tanner's shop -- butchering gives hides -- or buy it from the Lowland towns.",
+        _ => "",
+    };
+
     private bool DoMood(Dwarf d, Task t)
     {
         if (d.Strange == null) return false;
@@ -136,7 +149,7 @@ public sealed partial class Fortress
                 // The first demand stops the game: there are days, not weeks, to find it.
                 bool first = !d.MoodAsked.Contains(missing);
                 d.MoodAsked.Add(missing);
-                Say($"{d.FirstName} demands {MoodNeedName(missing)}!", first ? LogKind.Alert : LogKind.Bad, center);
+                Say($"{d.FirstName} demands {MoodNeedName(missing)}! {MoodNeedHint(missing)}".TrimEnd(), first ? LogKind.Alert : LogKind.Bad, center);
             }
             if (d.Cell != center && d.Path == null) Walk(d, center);
             return true;

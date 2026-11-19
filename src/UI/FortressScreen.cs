@@ -688,6 +688,15 @@ public partial class FortressScreen : Control
     {
         P3 c = Aim(screen);
         Map.Box = (_dragFrom.Value, c);
+        // Farms and pastures show, as the box is drawn, which cells will take them.
+        Mat sky = Tool == Tool.Farm ? Tables.M(F.DefaultCrop(true)) : null, dark = Tool == Tool.Farm ? Tables.M(F.DefaultCrop(false)) : null;
+        Map.BoxUsable = Tool switch
+        {
+            Tool.Farm => i => F.Farmable(i, F.World.IsOutside(i) ? sky : dark),
+            Tool.Pasture => i => F.World.Has(i, CellFlag.Grass) && F.World.IsOutside(i),
+            _ => null,
+        };
+        Map.BoxUsableName = Tool == Tool.Farm ? "soil" : "grass";
     }
 
     private void Click(InputEventMouseButton mb)

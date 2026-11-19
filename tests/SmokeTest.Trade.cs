@@ -29,6 +29,11 @@ public partial class SmokeTest
                 if (f.CanPlace("depot", x, y, e.Z) == null) depot = f.Place("depot", x, y, e.Z);
             }
         Check(depot != null, "a depot can be placed by the wagon");
+        // While it is still being built, they wait for it.
+        Caravan waits = f.SendCaravan(low);
+        f.Advance(Tables.TicksPerDay * 2);
+        Check(waits.State != CaravanState.Leaving, $"with a depot under way, a caravan waits for it ({waits.State})");
+        f.Caravans.Remove(waits);
         depot.Built = true;
         Caravan c = f.SendCaravan(low);
         Check(f.PauseFor != null, "the caravan's arrival is announced");
@@ -74,5 +79,17 @@ public partial class SmokeTest
         byte[] data = Save.Write(f);
         Fortress g = Save.Read(data);
         Eq(g.Standing.GetValueOrDefault("lowlands"), f.Standing.GetValueOrDefault("lowlands"), "standing is saved");
+        // A hungry hold: merchants bring rations to sell, and word of the next caravan comes ahead of it.
+        foreach (Item food in g.Items.Values.Where(i => Tables.Matches("food", i)).ToList()) g.Items.Remove(food.Id);
+        Caravan fed = g.SendCaravan(mh);
+        Check(fed.Goods.Any(x => x.Kind == ItemKind.Plant && x.Mat == "ration" && x.Count >= 10), "to a hungry hold, merchants bring rations");
+        long word = (g.Tick / Tables.TicksPerSeason + 1) * Tables.TicksPerSeason - Tables.TicksPerDay * 4;
+        if (FactionDefs(g, (int)(word / Tables.TicksPerSeason + 1) % Tables.SeasonsPerYear))
+        {
+            g.Advance((int)(word - g.Tick) + 1);
+            Check(g.Log.Any(l => l.Text.StartsWith("Word comes that a caravan")), "word of a caravan comes days ahead");
+        }
     }
+
+    private static bool FactionDefs(Fortress f, int season) => Fortress.FactionDefs.Any(x => x.Season == season);
 }

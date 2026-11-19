@@ -126,6 +126,19 @@ public partial class SmokeTest
         Creature raider = g.SpawnCreature("raider", g.World.Idx(26, 1, 1), raider: true);
         Run(g, () => hen.Dead || hen.Hp < 15, 2500);
         Check(hen.Dead || hen.Hp < 15, "a raider with no dwarf in sight goes for the hens");
+        // A wild fellbuck marked for the pot is hunted down, and leaves a carcass for the butcher.
+        var hunt = Tiny(new[] { "##############", "#@...........#", "#............#", "##############" });
+        Dwarf hunter = hunt.Dwarves[0];
+        hunt.Spawn(ItemKind.Weapon, Tables.Mi("copper"), hunter.Cell);
+        Creature buck = hunt.SpawnCreature("fellbuck", hunt.World.Idx(10, 2, 1));
+        hunt.MarkSlaughter(buck, true);
+        Check(buck.MarkSlaughter, "a wild fellbuck can be marked for hunting");
+        Run(hunt, () => buck.Dead || hunter.Dead, 8000);
+        Check(buck.Dead, "the hunter brings it down");
+        Check(hunt.Items.Values.Any(i => i.Kind == ItemKind.Carcass), "leaving a carcass");
+        Creature foe = hunt.SpawnCreature("crawler", hunt.World.Idx(12, 1, 1));
+        hunt.MarkSlaughter(foe, true);
+        Check(!foe.D.Hostile || !foe.MarkSlaughter, "a hostile beast is fought, not hunted");
         // An old save, with fewer labors, loads with the new ones switched on.
         Fortress h = Tiny(new[] { "#####", "#@..#", "#####" });
         Dwarf o = h.Dwarves[0];

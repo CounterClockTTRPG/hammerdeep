@@ -150,6 +150,7 @@ public partial class FortressScreen
         {
             v.AddChild(UITheme.L(c.MarkTame ? (c.Claim >= 0 ? $"{F.DwarfById(c.Claim)?.FirstName} is trying to tame it." : "Marked for taming.") : "It could be tamed by someone good with animals.", 14, UITheme.Text));
             v.AddChild(UITheme.B(c.MarkTame ? "Leave it be" : "Tame it", () => { F.MarkTame(c, !c.MarkTame); RefreshInfo(true); }, 14));
+            if (!c.D.Hostile) v.AddChild(UITheme.B(c.MarkSlaughter ? "Call off the hunt" : "Hunt it", () => { F.MarkSlaughter(c, !c.MarkSlaughter); RefreshInfo(true); }, 14, "A butcher hunts it down; the butcher's shop turns the carcass into meat, hide and bone."));
         }
     }
 
@@ -251,9 +252,15 @@ public partial class FortressScreen
                 v.AddChild(UITheme.Wrap(god.Deep ? "The Sleeper below. Its worshippers hear sweet whispers; some wake changed. A shrine to it hastens rune work." : $"God of {god.Sphere}, worshipped by clan {Tables.Clan(god.Clan).Name}. Its faithful come here to pray.", 13, UITheme.Dim, 320));
             }
             HBoxContainer gods = UITheme.H(4);
+            // With how many here pray to each, and whether one of its shrines already stands.
             foreach (DeityDef g in Fortress.Deities.Where(g => !g.Deep || (F.RunesKnown && b.Z <= F.CavernZ + 2)))
-                gods.AddChild(UITheme.B(g.Deep ? "Sleeper" : g.Name, () => { F.Dedicate(b, g.Key); RefreshInfo(true); }, 12, g.Deep ? "That Which Sleeps Below" : $"{g.Name} {g.Title}"));
-            v.AddChild(UITheme.L("Dedicate to:", 13, UITheme.Bronze));
+            {
+                int faithful = F.Living.Count(x => Fortress.GodOf(x)?.Key == g.Key);
+                bool housed = F.Buildings.Any(x => x.Def == "shrine" && x.Deity == g.Key && x != b);
+                gods.AddChild(UITheme.B((g.Deep ? "Sleeper" : g.Name) + (faithful > 0 ? $" ({faithful})" : ""), () => { F.Dedicate(b, g.Key); RefreshInfo(true); }, 12,
+                    (g.Deep ? "That Which Sleeps Below" : $"{g.Name} {g.Title}") + $"\n{faithful} here pray to them" + (housed ? "; they already have a shrine" : "")));
+            }
+            v.AddChild(UITheme.L("Dedicate to (number who pray to each):", 13, UITheme.Bronze));
             v.AddChild(gods);
         }
         if (d.Id == "temple")
@@ -308,6 +315,15 @@ public partial class FortressScreen
             h.AddChild(UITheme.B("+5", () => { F.AddOrder(b, r.Id, 5); RefreshInfo(true); }, 12, inputs));
             h.AddChild(UITheme.B("∞", () => { F.AddOrder(b, r.Id, 1, true); RefreshInfo(true); }, 12, "Repeat for ever"));
             v.AddChild(h);
+            // What it takes, and how much of that is to hand.
+            bool short_ = false;
+            string uses = string.Join(" + ", r.Inputs.Select(n =>
+            {
+                int have = F.Items.Values.Count(i => i.Free && Tables.Matches(n.Tag, i));
+                if (have < n.Count) short_ = true;
+                return $"{(n.Count > 1 ? n.Count + " " : "")}{Tables.NeedName(n.Tag)} ({have})";
+            }));
+            v.AddChild(UITheme.L("   uses " + uses, 12, short_ ? UITheme.Ember : UITheme.Faint));
         }
         v.AddChild(UITheme.L("Work orders", 13, UITheme.Bronze, UITheme.Title));
         if (b.Orders.Count == 0) v.AddChild(UITheme.L("None yet: add one above.", 13, UITheme.Faint));
@@ -720,7 +736,7 @@ public partial class AnimalsPanel : Overlay
             Body.AddChild(UITheme.L($"{g.Count()} {Tables.Creatures[g.Key].Name}s: {g.Count(c => c.Female)} female, {g.Count(c => !c.Adult(F.Tick))} young", 14, UITheme.Dim));
         foreach (Creature c in tame) Body.AddChild(RowFor(c));
         var wild = F.Creatures.Where(c => !c.Dead && !c.Tame && c.D.Tamable && !c.D.Hostile).OrderBy(c => F.World.Pos(c.Cell).Dist(F.Embark)).Take(12).ToList();
-        Body.AddChild(UITheme.L($"Wild beasts that could be tamed ({wild.Count})", 16, UITheme.Bronze, UITheme.Title));
+        Body.AddChild(UITheme.L($"Wild beasts to tame or hunt ({wild.Count})", 16, UITheme.Bronze, UITheme.Title));
         foreach (Creature c in wild) Body.AddChild(RowFor(c));
         Body.AddChild(UITheme.Wrap("Animal carers tame and train; butchers slaughter. Carcasses -- from slaughter or the hunt -- go to the butcher's shop for meat, hide and bone; the tanner makes leather, the leatherworks armour and caps.", 13, UITheme.Dim, 820));
     }
@@ -741,7 +757,11 @@ public partial class AnimalsPanel : Overlay
             h.AddChild(UITheme.B(c.MarkSlaughter ? "Spare" : "Slaughter", () => F.MarkSlaughter(c, !c.MarkSlaughter), 12));
             if (c.D.Trainable && !c.War) h.AddChild(UITheme.B(c.MarkTrain ? "Stop training" : "Train for war", () => F.MarkTrain(c, !c.MarkTrain), 12));
         }
-        else h.AddChild(UITheme.B(c.MarkTame ? "Leave be" : "Tame", () => F.MarkTame(c, !c.MarkTame), 12));
+        else
+        {
+            h.AddChild(UITheme.B(c.MarkTame ? "Leave be" : "Tame", () => F.MarkTame(c, !c.MarkTame), 12));
+            if (!c.D.Hostile) h.AddChild(UITheme.B(c.MarkSlaughter ? "Call off" : "Hunt", () => F.MarkSlaughter(c, !c.MarkSlaughter), 12, "A butcher hunts it down; the butcher's shop turns the carcass into meat, hide and bone."));
+        }
         return h;
     }
 }
@@ -756,20 +776,25 @@ public partial class LaborGrid : Overlay
 
     protected override void Fill()
     {
-        Body.AddChild(UITheme.L("Tick what each dwarf may do. Numbers are skill levels; skilled dwarves prefer their crafts.", 13, UITheme.Dim));
+        Body.AddChild(UITheme.L("Tick what each dwarf may do. Numbers are skill levels; skilled dwarves prefer their crafts. Click a heading or a name to toggle the whole column or row.", 13, UITheme.Dim));
         var grid = new GridContainer { Columns = Shown.Length + 1 };
         grid.AddThemeConstantOverride("h_separation", 2);
         grid.AddChild(UITheme.L("", 12));
         foreach (Labor l in Shown)
         {
-            Label h = UITheme.L(Tables.LaborName(l)[..Math.Min(6, Tables.LaborName(l).Length)], 12, UITheme.Bronze, UITheme.LabelFont, HorizontalAlignment.Center);
+            Labor ll = l;
+            Button h = UITheme.B(Short(l), () => SetAll(F.Living, ll), 12, $"{Tables.LaborName(l)}: click to allow or forbid it for everyone");
+            h.Flat = true;
             h.CustomMinimumSize = new Vector2(62, 0);
-            h.TooltipText = Tables.LaborName(l);
+            h.AddThemeColorOverride("font_color", UITheme.Bronze);
             grid.AddChild(h);
         }
         foreach (Dwarf d in F.Living.OrderBy(d => d.Name))
         {
-            Label n = UITheme.L(d.Name, 13, UITheme.Text);
+            Dwarf who = d;
+            Button n = UITheme.B(d.Name, () => { bool any = Shown.Any(x => !who.Can(x)); foreach (Labor x in Shown) who.Labors[(int)x] = any; Rebuild(); }, 13, "Click to allow or forbid every labor");
+            n.Flat = true;
+            n.Alignment = HorizontalAlignment.Left;
             n.CustomMinimumSize = new Vector2(190, 0);
             grid.AddChild(n);
             foreach (Labor l in Shown)
@@ -785,6 +810,25 @@ public partial class LaborGrid : Overlay
             }
         }
         Body.AddChild(grid);
+    }
+
+    /// <summary>A heading that fits the column: whole words, not cut-off ones.</summary>
+    private static string Short(Labor l) => l switch
+    {
+        Labor.Mining => "Mine", Labor.Woodcutting => "Chop", Labor.Hauling => "Haul", Labor.Construction => "Build",
+        Labor.Carpentry => "Joiner", Labor.Masonry => "Mason", Labor.Smelting => "Smelt", Labor.Smithing => "Smith",
+        Labor.Crafting => "Craft", Labor.Cooking => "Cook", Labor.Brewing => "Brew", Labor.Farming => "Farm",
+        Labor.Gathering => "Gather", Labor.Husbandry => "Beasts", Labor.Butchery => "Butcher", Labor.Leatherwork => "Leather",
+        _ => Tables.LaborName(l).Length <= 7 ? Tables.LaborName(l) : Tables.LaborName(l)[..6],
+    };
+
+    /// <summary>A column: all on, unless all are on already -- then all off.</summary>
+    private void SetAll(IEnumerable<Dwarf> who, Labor l)
+    {
+        var list = who.ToList();
+        bool on = list.Any(d => !d.Can(l));
+        foreach (Dwarf d in list) d.Labors[(int)l] = on;
+        Rebuild();
     }
 }
 

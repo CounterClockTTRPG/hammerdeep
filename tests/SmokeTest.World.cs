@@ -16,6 +16,11 @@ public partial class SmokeTest
         Check(m.Sites.Count(s => s.Kind == SiteKind.Mountainhome) == 1, "there is one Mountainhome");
         Check(m.Sites.Any(s => s.Kind == SiteKind.Town) && m.Sites.Any(s => s.Kind is SiteKind.Warren or SiteKind.Ruin), "and towns, and warrens (or their ruins)");
         Check(m.Sites.Any(s => WorldMap.People(s.Kind) != null), "and the homes of other peoples");
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            var w = new WorldMap(seed);
+            Check(w.Sites.Select(s => s.Name).Distinct().Count() == w.Sites.Count, $"world {seed}: no two sites share a name");
+        }
         Check(m.History.Count > 20, $"two centuries of history ({m.History.Count} events)");
         GD.Print($"    world: {m.Name}; {m.Sites.Count} sites; e.g. \"{m.History[m.History.Count / 2].Text}\"");
         var (ex, ey) = m.DefaultEmbark();

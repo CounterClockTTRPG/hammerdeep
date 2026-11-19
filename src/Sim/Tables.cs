@@ -424,7 +424,7 @@ public static class Tables
         T("made_artifact", "made a legendary artifact", 30, 24);
         T("prayed", "prayed at a shrine", 5, 3);
         T("prayed_temple", "prayed at the temple", 8, 3);
-        T("no_prayer", "has not been able to pray", -5, 1);
+        T("no_prayer", "has not been able to pray (needs a shrine to their god, or a temple)", -5, 1);
         T("feast", "enjoyed the Feast of the Founding", 12, 6);
         T("whispers", "heard sweet whispers from the deep", 10, 3);
         T("friend_mad", "saw a friend lose their mind", -20, 8);

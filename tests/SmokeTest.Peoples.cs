@@ -49,6 +49,8 @@ public partial class SmokeTest
         Check(rf.Speed(Labor.Farming) > f.Dwarves[0].Speed(Labor.Farming) || rf.Skill(Labor.Farming) >= f.Dwarves[0].Skill(Labor.Farming), "Rootfolk farm faster");
         // Migrants bring other peoples now and then.
         Fortress m = Fortress.New("Mixhold", 4040);
+        // A well-stocked larder: a hungry hold draws no bands of other peoples.
+        for (int k = 0; k < 400; k++) m.Spawn(ItemKind.Plant, Tables.Mi("ration"), m.World.Idx(m.Embark));
         for (int k = 0; k < 16; k++) { m.Tick = Tables.TicksPerSeason * (k + 1) - 1; m.Step(); }
         Check(m.Living.Any(d => d.Race != "dwarf"), $"over four years, other peoples arrive ({string.Join(",", m.Living.GroupBy(d => d.Race).Select(gr => gr.Key + gr.Count()))})");
         Check(m.Dwarves.Take(7).All(d => d.Race == "dwarf"), "the founders are all dwarves");

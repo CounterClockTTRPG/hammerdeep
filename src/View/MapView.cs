@@ -29,6 +29,10 @@ public partial class MapView : Node2D
     public P3? Hover;
     public (P3 a, P3 b)? Box;
     public Color BoxColor = new(1, 0.85f, 0.3f, 0.35f);
+    /// <summary>While a box is dragged: which cells in it will take the zone (soil for a farm, grass for a
+    /// pasture). Those are marked, and counted beside the size.</summary>
+    public Func<int, bool> BoxUsable;
+    public string BoxUsableName = "usable";
     public string Ghost;
     public bool GhostOk;
     public int SelDwarf = -1, SelBuilding = -1, SelZone = -1;
@@ -1164,6 +1168,19 @@ public partial class MapView : Node2D
             DrawRect(r, BoxColor);
             DrawRect(r, new Color(BoxColor, 0.9f), false, 1.5f);
             string size = $"{Math.Abs(a.X - b.X) + 1}x{Math.Abs(a.Y - b.Y) + 1}" + (a.Z != b.Z ? $"x{Math.Abs(a.Z - b.Z) + 1}" : "");
+            if (BoxUsable != null && W.In(a))
+            {
+                int good = 0;
+                Vector2 lift = TopOf(W.Idx(a));
+                for (int y = Math.Min(a.Y, b.Y); y <= Math.Max(a.Y, b.Y); y++)
+                    for (int x = Math.Min(a.X, b.X); x <= Math.Max(a.X, b.X); x++)
+                    {
+                        if (!W.In(x, y, a.Z) || !BoxUsable(W.Idx(x, y, a.Z))) continue;
+                        good++;
+                        DrawRect(new Rect2(new Vector2(x * T + T * 0.3f, y * T + T * 0.3f) + lift, new Vector2(T * 0.4f, T * 0.4f)), new Color(0.45f, 0.9f, 0.4f, 0.75f));
+                    }
+                size += $"  {good} {BoxUsableName}";
+            }
             DrawString(UITheme.Mono, r.End + new Vector2(3, 0), size, HorizontalAlignment.Left, -1, 10, UITheme.Text);
         }
         if (Hover is P3 h && W.In(h))

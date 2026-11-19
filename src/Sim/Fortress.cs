@@ -445,6 +445,7 @@ public sealed partial class Fortress
         if (Tick % 500 == 300) BuildWarning();
         if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
+        else if (Tick % Tables.TicksPerSeason == Tables.TicksPerSeason - Tables.TicksPerDay * 4) CaravanWord();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
         if (Alive == 0 && !Fallen)
         {

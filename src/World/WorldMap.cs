@@ -124,7 +124,10 @@ public sealed class WorldMap
             {
                 int x = _rng.Range(2, W - 3), y = _rng.Range(2, H - 3);
                 if (!where(At(x, y)) || !Free(x, y, gap)) continue;
-                Sites.Add(new Site { Id = id++, Kind = kind, X = x, Y = y, Name = name(), Size = _rng.Range(40, 400), Founded = -_rng.Range(20, HistoryYears) });
+                // No two sites share a name (two Tok's Burrows read as one place).
+                string nm = name();
+                for (int n = 0; n < 20 && Sites.Any(q => q.Name == nm); n++) nm = name();
+                Sites.Add(new Site { Id = id++, Kind = kind, X = x, Y = y, Name = nm, Size = _rng.Range(40, 400), Founded = -_rng.Range(20, HistoryYears) });
                 k++;
             }
         }
