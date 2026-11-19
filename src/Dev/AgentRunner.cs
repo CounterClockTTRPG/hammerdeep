@@ -178,15 +178,22 @@ public partial class AgentRunner : Node
     {
         Vector2 from = _mouse;
         _mouse = to;
-        Input.ParseInputEvent(new InputEventMouseMotion { Position = to, GlobalPosition = to, Relative = to - from, ButtonMask = mask, Device = Device });
+        Vector2 wt = Win(to);
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = wt, GlobalPosition = wt, Relative = wt - Win(from), ButtonMask = mask, Device = Device });
         await Frames(1);
     }
 
     private async STask Button(MouseButton b, bool down)
     {
-        Input.ParseInputEvent(new InputEventMouseButton { Position = _mouse, GlobalPosition = _mouse, ButtonIndex = b, Pressed = down, ButtonMask = down ? (b == MouseButton.Left ? MouseButtonMask.Left : MouseButtonMask.Right) : 0, Device = Device });
+        Input.ParseInputEvent(new InputEventMouseButton { Position = Win(_mouse), GlobalPosition = Win(_mouse), ButtonIndex = b, Pressed = down, ButtonMask = down ? (b == MouseButton.Left ? MouseButtonMask.Left : MouseButtonMask.Right) : 0, Device = Device });
         await Frames(2);
     }
+
+    /// <summary>
+    /// The agent works in the game's own 1600x900 layout; input events are read in window pixels,
+    /// which differ when the window is bigger or smaller and the layout is stretched to fill it.
+    /// </summary>
+    private Vector2 Win(Vector2 layout) => GetTree().Root.GetFinalTransform() * layout;
 
     private Vector2 CellScreen(int x, int y)
     {

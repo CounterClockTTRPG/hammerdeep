@@ -95,14 +95,38 @@ public partial class MapView : Node2D
         return new Vector2(0, -lift);
     }
 
-    /// <summary>The cell under a screen point, on the level in view.</summary>
+    /// <summary>In the isometric view, how far a block's top sits from its ground, in map space.</summary>
+    private static Vector2 LiftVec => IsoTilt.AffineInverse().BasisXform(new Vector2(0, -WallH));
+
+    /// <summary>Whether the isometric view draws this cell as a raised block (markers go on its top).</summary>
+    public bool Raised(int c) => W.Shapes[c] == Shape.Wall;
+
+    /// <summary>The offset at which a cell's markers and outline are drawn: its top, if it is a raised block.</summary>
+    public Vector2 TopOf(int c) => Iso && Raised(c) ? LiftVec : Vector2.Zero;
+
+    /// <summary>
+    /// The cell under a screen point, on the level in view. In the isometric view the point is
+    /// tested from a block's top down to the ground, so clicking a wall's raised top picks that
+    /// wall and not the cell behind it on the ground.
+    /// </summary>
     public P3 CellAt(Vector2 screen)
     {
         Vector2 w = GetGlobalTransformWithCanvas().AffineInverse() * screen;
+        if (Iso)
+        {
+            Vector2 lift = LiftVec;
+            for (int k = 8; k >= 1; k--)
+            {
+                Vector2 q = w - lift * (k / 8f);
+                int x = (int)MathF.Floor(q.X / T), y = (int)MathF.Floor(q.Y / T);
+                if (W.In(x, y, Z) && World.IsSolid(W.Shapes[W.Idx(x, y, Z)])) return new P3(x, y, Z);
+            }
+        }
         return new P3((int)MathF.Floor(w.X / T), (int)MathF.Floor(w.Y / T), Z);
     }
 
-    public Vector2 ScreenOf(P3 p) => GetGlobalTransformWithCanvas() * new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
+    /// <summary>Where a cell is seen on screen: its centre, on a raised block's top in the isometric view.</summary>
+    public Vector2 ScreenOf(P3 p) => GetGlobalTransformWithCanvas() * (new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T) + (W.In(p) ? TopOf(W.Idx(p)) : Vector2.Zero));
 
     public Rect2 ViewRect()
     {
@@ -522,7 +546,7 @@ public partial class MapView : Node2D
             if (p.Z != Z || p.X < x0 || p.X > x1 || p.Y < y0 || p.Y > y1) continue;
             Desig g = W.Desigs[c];
             // In the isometric view a designated wall is marked on its raised top.
-            Vector2 lift = Iso && World.IsSolid(W.Shapes[c]) ? IsoTilt.AffineInverse().BasisXform(new Vector2(0, -WallH)) : Vector2.Zero;
+            Vector2 lift = TopOf(c);
             var r = new Rect2(p.X * T + lift.X, p.Y * T + lift.Y, T, T);
             bool taken = F.Claims.ContainsKey(c);
             Color col = g switch
@@ -938,6 +962,8 @@ public partial class MapView : Node2D
         {
             var (a, b) = Box.Value;
             var r = new Rect2(Math.Min(a.X, b.X) * T, Math.Min(a.Y, b.Y) * T, (Math.Abs(a.X - b.X) + 1) * T, (Math.Abs(a.Y - b.Y) + 1) * T);
+            // A box started on a block's top is drawn on the tops, where the markers will appear.
+            if (W.In(a)) r.Position += TopOf(W.Idx(a));
             DrawRect(r, BoxColor);
             DrawRect(r, new Color(BoxColor, 0.9f), false, 1.5f);
             string size = $"{Math.Abs(a.X - b.X) + 1}x{Math.Abs(a.Y - b.Y) + 1}" + (a.Z != b.Z ? $"x{Math.Abs(a.Z - b.Z) + 1}" : "");
@@ -953,7 +979,7 @@ public partial class MapView : Node2D
                 DrawRect(r, new Color(c, 0.25f));
                 DrawRect(r, c, false, 1.5f);
             }
-            else DrawRect(new Rect2(h.X * T, h.Y * T, T, T), new Color(1, 1, 1, 0.7f), false, 1);
+            else DrawRect(new Rect2(new Vector2(h.X * T, h.Y * T) + TopOf(W.Idx(h)), new Vector2(T, T)), new Color(1, 1, 1, 0.7f), false, 1);
         }
     }
 }
