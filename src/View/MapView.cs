@@ -43,8 +43,13 @@ public partial class MapView : Node2D
         AddChild(Cam);
         Cam.MakeCurrent();
         CenterOn(f.Embark);
-        TextureFilter = TextureFilterEnum.Nearest;
+        // The terrain is pixel art (crisp); the sprites drawn here are scaled (smooth).
+        TextureFilter = TextureFilterEnum.LinearWithMipmaps;
+        _ground = new GroundLayer { Name = "Ground", Map = this, ShowBehindParent = true, TextureFilter = TextureFilterEnum.Nearest };
+        AddChild(_ground);
     }
+
+    private GroundLayer _ground;
 
     public void CenterOn(P3 p)
     {
@@ -81,6 +86,7 @@ public partial class MapView : Node2D
         Iso = on;
         Transform = on ? IsoTilt : Transform2D.Identity;
         QueueRedraw();
+        _ground?.QueueRedraw();
     }
 
     /// <summary>A movement on screen (pixels), as a movement of the camera in map space.</summary>
@@ -139,16 +145,44 @@ public partial class MapView : Node2D
     }
 
     /// <summary>Isometric walls: a raised cap on every wall in view, and shaded faces where it meets open ground in front.</summary>
-    private void DrawRaisedWalls(int x0, int y0, int x1, int y1)
+    private void DrawWallCell(int x, int y)
     {
-        Vector2 up = IsoTilt.AffineInverse().BasisXform(new Vector2(0, -WallH));
-        // Back to front: the diagonal x + y grows towards the viewer.
-        for (int s = x0 + y0; s <= x1 + y1; s++)
-            for (int x = Math.Max(x0, s - y1); x <= Math.Min(x1, s - y0); x++)
+        Vector2 up = LiftVec;
             {
-                int y = s - x;
                 int i = W.Idx(x, y, Z);
                 Shape sh = W.Shapes[i];
+                if (sh == Shape.Empty && !W.Has(i, CellFlag.Hidden))
+                {
+                    // Open air: the far sides of the drop, so the level below sinks away.
+                    Vector2 q0 = new(x * T, y * T), q1 = new((x + 1) * T, y * T), q3 = new(x * T, (y + 1) * T);
+                    if (y > 0 && W.Shapes[W.Idx(x, y - 1, Z)] != Shape.Empty)
+                        DrawColoredPolygon(new[] { q0, q1, q1 - up * 1.3f, q0 - up * 1.3f }, new Color(0.05f, 0.04f, 0.04f, 0.55f));
+                    if (x > 0 && W.Shapes[W.Idx(x - 1, y, Z)] != Shape.Empty)
+                        DrawColoredPolygon(new[] { q0, q3, q3 - up * 1.3f, q0 - up * 1.3f }, new Color(0.05f, 0.04f, 0.04f, 0.4f));
+                    return;
+                }
+                if (sh == Shape.Ramp && !W.Has(i, CellFlag.Hidden))
+                {
+                    // A ramp rises towards the back: a lit slope from the front edge to half height at the back.
+                    Vector2 r0 = new(x * T, y * T), r1 = new((x + 1) * T, y * T), r2 = new((x + 1) * T, (y + 1) * T), r3 = new(x * T, (y + 1) * T);
+                    Color rc = UITheme.C(Tables.Mats[W.Mats[i]].Color);
+                    DrawColoredPolygon(new[] { r0 + up * 0.6f, r1 + up * 0.6f, r2, r3 }, new Color(rc.Lightened(0.15f), 0.85f));
+                    return;
+                }
+                if (sh is Shape.StairUp or Shape.StairUD && !W.Has(i, CellFlag.Hidden))
+                {
+                    // Three steps climbing to the back.
+                    Color sc = UITheme.C(Tables.Mats[W.Mats[i]].Color);
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float y0f = y * T + T * (2 - k) / 3f, y1f = y0f + T / 3f;
+                        Vector2 lift = up * (0.25f * (k + 1));
+                        Vector2 a = new(x * T + 2, y0f), b = new((x + 1) * T - 2, y0f), c = new((x + 1) * T - 2, y1f), d = new(x * T + 2, y1f);
+                        DrawColoredPolygon(new[] { c, d, d + lift, c + lift }, sc.Darkened(0.45f));
+                        DrawColoredPolygon(new[] { a + lift, b + lift, c + lift, d + lift }, sc.Lightened(0.1f * k));
+                    }
+                    return;
+                }
                 if (sh == Shape.Tree && !W.Has(i, CellFlag.Hidden))
                 {
                     // A tree stands up: trunk and crown, drawn upright.
@@ -161,9 +195,9 @@ public partial class MapView : Node2D
                     DrawCircle(o + new Vector2(-1.5f, -15.5f), 6, leaf);
                     DrawCircle(o + new Vector2(-3, -17.5f), 2.2f, leaf.Lightened(0.25f));
                     DrawSetTransformMatrix(Transform2D.Identity);
-                    continue;
+                    return;
                 }
-                if (sh != Shape.Wall && sh != Shape.Tree) continue;
+                if (sh != Shape.Wall && sh != Shape.Tree) return;
                 bool hidden = W.Has(i, CellFlag.Hidden);
                 Vector2 p0 = new(x * T, y * T), p1 = new((x + 1) * T, y * T), p2 = new((x + 1) * T, (y + 1) * T), p3 = new(x * T, (y + 1) * T);
                 Color baseC;
@@ -208,6 +242,7 @@ public partial class MapView : Node2D
         foreach (int k in _dirty) _chunks.Remove(k);
         _dirty.Clear();
         QueueRedraw();
+        _ground?.QueueRedraw();
     }
 
     private static int Key(int cx, int cy) => cy * 1024 + cx;
@@ -472,6 +507,28 @@ public partial class MapView : Node2D
     {
         if (F == null) return;
         Rect2 view = ViewRect().Grow(T * 2);
+
+        int x0 = Math.Max(0, (int)(view.Position.X / T)), y0 = Math.Max(0, (int)(view.Position.Y / T));
+        int x1 = Math.Min(W.W - 1, (int)(view.End.X / T)), y1 = Math.Min(W.H - 1, (int)(view.End.Y / T));
+        DrawZones(x0, y0, x1, y1);
+        if (Iso) DrawIsoScene(x0, y0, x1, y1, view);
+        else
+        {
+            DrawDesignations(x0, y0, x1, y1);
+            DrawBuildings(view);
+            DrawItems(x0, y0, x1, y1);
+            DrawDwarves(view);
+            DrawCreatures(view);
+        }
+        DrawSetTransformMatrix(Transform2D.Identity);
+        DrawCursor();
+    }
+
+    /// <summary>The terrain, on the ground layer behind this node.</summary>
+    public void DrawGround(CanvasItem on)
+    {
+        if (F == null) return;
+        Rect2 view = ViewRect().Grow(T * 2);
         int cx0 = Math.Max(0, (int)(view.Position.X / (CH * T))), cy0 = Math.Max(0, (int)(view.Position.Y / (CH * T)));
         int cx1 = Math.Min((W.W - 1) / CH, (int)(view.End.X / (CH * T))), cy1 = Math.Min((W.H - 1) / CH, (int)(view.End.Y / (CH * T)));
         int built = 0;
@@ -480,24 +537,56 @@ public partial class MapView : Node2D
             {
                 // A few new chunks per frame keeps scrolling smooth; the rest are drawn next frame.
                 if (!_chunks.ContainsKey(Key(cx, cy)) && built++ > 10) continue;
-                DrawTextureRect(Chunk(cx, cy), new Rect2(cx * CH * T, cy * CH * T, CH * T, CH * T), false);
+                on.DrawTextureRect(Chunk(cx, cy), new Rect2(cx * CH * T, cy * CH * T, CH * T, CH * T), false);
             }
         // Map edge.
-        DrawRect(new Rect2(0, 0, W.W * T, W.H * T), new Color(0.5f, 0.36f, 0.19f, 0.6f), false, 2);
+        on.DrawRect(new Rect2(0, 0, W.W * T, W.H * T), new Color(0.5f, 0.36f, 0.19f, 0.6f), false, 2);
+    }
 
-        int x0 = Math.Max(0, (int)(view.Position.X / T)), y0 = Math.Max(0, (int)(view.Position.Y / T));
-        int x1 = Math.Min(W.W - 1, (int)(view.End.X / T)), y1 = Math.Min(W.H - 1, (int)(view.End.Y / T));
-        DrawZones(x0, y0, x1, y1);
-        if (Iso) DrawRaisedWalls(x0, y0, x1, y1);
-        DrawDesignations(x0, y0, x1, y1);
-        DrawBuildings(view);
-        DrawItems(x0, y0, x1, y1);
-        DrawSetTransformMatrix(Transform2D.Identity);
-        DrawDwarves(view);
-        DrawSetTransformMatrix(Transform2D.Identity);
-        DrawCreatures(view);
-        DrawSetTransformMatrix(Transform2D.Identity);
-        DrawCursor();
+    /// <summary>
+    /// The isometric scene, back to front: diagonal by diagonal (x + y grows towards the
+    /// viewer), the raised walls and their markers, then whatever stands on that diagonal --
+    /// so a wall in front hides a dwarf behind it, and a dwarf in front stands over the wall.
+    /// </summary>
+    private void DrawIsoScene(int x0, int y0, int x1, int y1, Rect2 view)
+    {
+        var things = new List<(float depth, Action draw)>();
+        foreach (Building b in F.Buildings)
+        {
+            if (b.Z != Z) continue;
+            var r = new Rect2(b.X * T, b.Y * T, b.W * T, b.H * T);
+            if (view.Intersects(r)) things.Add((b.X + b.W - 1 + b.Y + b.H - 1 - 0.5f, () => DrawBuilding(b, r)));
+        }
+        foreach (var kv in F.ItemsAt)
+        {
+            P3 p = W.Pos(kv.Key);
+            if (p.Z == Z && p.X >= x0 && p.X <= x1 && p.Y >= y0 && p.Y <= y1) things.Add((p.X + p.Y - 0.25f, () => DrawItemStack(kv.Key, kv.Value)));
+        }
+        foreach (Dwarf d in F.Dwarves)
+            if (DwarfShown(d, view)) { Vector2 at = DwarfPos(d); things.Add(((at.X + at.Y) / T - 1, () => DrawOneDwarf(d))); }
+        foreach (Creature c in F.Creatures)
+            if (CreatureShown(c, view)) { Vector2 at = CreaturePos(c); things.Add(((at.X + at.Y) / T - 1, () => DrawOneCreature(c))); }
+        things.Sort((a, b) => a.depth.CompareTo(b.depth));
+        var marks = new Dictionary<int, List<int>>();
+        foreach (int c in F.Designated)
+        {
+            P3 p = W.Pos(c);
+            if (p.Z != Z || p.X < x0 || p.X > x1 || p.Y < y0 || p.Y > y1) continue;
+            if (!marks.TryGetValue(p.X + p.Y, out var l)) marks[p.X + p.Y] = l = new List<int>();
+            l.Add(c);
+        }
+        int next = 0;
+        for (int s = x0 + y0; s <= x1 + y1; s++)
+        {
+            for (int x = Math.Max(x0, s - y1); x <= Math.Min(x1, s - y0); x++) DrawWallCell(x, s - x);
+            if (marks.TryGetValue(s, out var ms)) foreach (int c in ms) DrawDesignation(c);
+            while (next < things.Count && things[next].depth < s + 1)
+            {
+                things[next++].draw();
+                DrawSetTransformMatrix(Transform2D.Identity);
+            }
+        }
+        while (next < things.Count) { things[next++].draw(); DrawSetTransformMatrix(Transform2D.Identity); }
     }
 
     private void DrawZones(int x0, int y0, int x1, int y1)
@@ -544,6 +633,14 @@ public partial class MapView : Node2D
         {
             P3 p = W.Pos(c);
             if (p.Z != Z || p.X < x0 || p.X > x1 || p.Y < y0 || p.Y > y1) continue;
+            DrawDesignation(c);
+        }
+    }
+
+    private void DrawDesignation(int c)
+    {
+        P3 p = W.Pos(c);
+        {
             Desig g = W.Desigs[c];
             // In the isometric view a designated wall is marked on its raised top.
             Vector2 lift = TopOf(c);
@@ -578,6 +675,13 @@ public partial class MapView : Node2D
             if (b.Z != Z) continue;
             var r = new Rect2(b.X * T, b.Y * T, b.W * T, b.H * T);
             if (!view.Intersects(r)) continue;
+            DrawBuilding(b, r);
+        }
+    }
+
+    private void DrawBuilding(Building b, Rect2 r)
+    {
+        {
             BuildDef d = b.D;
             Color mc = b.Built ? UITheme.C(Tables.Mats[b.Mat].Color) : new Color(0.7f, 0.7f, 0.7f);
             bool sel = SelBuilding == b.Id;
@@ -587,17 +691,61 @@ public partial class MapView : Node2D
                 DrawDashed(r.Grow(-1), new Color(0.75f, 0.85f, 1f, 0.8f));
                 DrawString(UITheme.LabelFont, r.Position + new Vector2(r.Size.X / 2 - 4, r.Size.Y / 2 + 5), d.Glyph.ToString(), HorizontalAlignment.Left, -1, d.W > 1 ? 18 : 12, new Color(0.8f, 0.9f, 1f, 0.8f));
                 if (sel) DrawRect(r, UITheme.Gold, false, 1.5f);
-                continue;
+                return;
             }
             switch (d.Kind)
             {
-                case BuildKind.Workshop: DrawWorkshop(b, r, mc); break;
-                default: DrawFurniture(b, r, mc); break;
+                case BuildKind.Workshop: if (!DrawShopSprite(b, r)) DrawWorkshop(b, r, mc); break;
+                default: if (!DrawFurnitureSprite(b, r)) DrawFurniture(b, r, mc); break;
             }
             if (b.Artifact) DrawRect(r.Grow(0.5f), new Color(1f, 0.85f, 0.3f, 0.5f + 0.3f * MathF.Sin(Time * 3)), false, 1);
             if (b.MoodClaim >= 0) DrawRect(r.Grow(1), new Color(0.9f, 0.6f, 1f, 0.6f + 0.3f * MathF.Sin(Time * 5)), false, 2);
             if (sel) DrawRect(r.Grow(1), UITheme.Gold, false, 1.5f);
         }
+    }
+
+    /// <summary>A workshop's painted sprite: from above in the top-down view, standing on its diamond in the isometric one.</summary>
+    private bool DrawShopSprite(Building b, Rect2 r)
+    {
+        Texture2D t = Assets.Sprite($"shop-{b.Def}-{(Iso ? "iso" : "top")}");
+        if (t == null) return false;
+        if (Iso)
+        {
+            // In the tilted frame the footprint is a diamond: the picture spans its width and stands on its front corner.
+            Vector2 a = IsoTilt * r.Position, bq = IsoTilt * new Vector2(r.End.X, r.Position.Y), c = IsoTilt * r.End, d = IsoTilt * new Vector2(r.Position.X, r.End.Y);
+            float minX = Math.Min(Math.Min(a.X, bq.X), Math.Min(c.X, d.X)), maxX = Math.Max(Math.Max(a.X, bq.X), Math.Max(c.X, d.X));
+            float bottom = Math.Max(Math.Max(a.Y, bq.Y), Math.Max(c.Y, d.Y));
+            float w = (maxX - minX) * 1.04f, h = w * t.GetHeight() / t.GetWidth();
+            DrawSetTransformMatrix(IsoTilt.AffineInverse());
+            DrawTextureRect(t, new Rect2((minX + maxX) / 2 - w / 2, bottom - h + w * 0.02f, w, h), false);
+            float top = Math.Min(Math.Min(a.Y, bq.Y), Math.Min(c.Y, d.Y));
+            if (b.Orders.Any(o => o.Worker >= 0)) DrawCircle(new Vector2((minX + maxX) / 2, (top + bottom) / 2 - 18 + Mathf.Sin(Time * 8) * 1.5f), 2.5f, UITheme.Ember);
+            DrawSetTransformMatrix(Transform2D.Identity);
+            return true;
+        }
+        DrawTextureRect(t, r, false);
+        Vector2 cc = r.GetCenter();
+        if (b.Orders.Any(o => o.Worker >= 0)) DrawCircle(cc + new Vector2(14, -14 + Mathf.Sin(Time * 8) * 1.5f), 2, UITheme.Ember);
+        if (b.Orders.Count > 0)
+        {
+            DrawRect(new Rect2(r.Position + new Vector2(2, 2), new Vector2(10, 11)), new Color(0, 0, 0, 0.55f));
+            DrawString(UITheme.Mono, r.Position + new Vector2(4, 11), b.Orders.Count.ToString(), HorizontalAlignment.Left, -1, 10, UITheme.Text);
+        }
+        return true;
+    }
+
+    /// <summary>A piece of furniture's sprite, standing upright on its cell in both views.</summary>
+    private bool DrawFurnitureSprite(Building b, Rect2 r)
+    {
+        Texture2D t = Assets.Sprite("furn-" + b.Def);
+        if (t == null) return false;
+        Vector2 o = Upright(r.GetCenter(), 0);
+        float k = 17f / Math.Max(t.GetWidth(), t.GetHeight());
+        Vector2 size = new(t.GetWidth() * k, t.GetHeight() * k);
+        DrawTextureRect(t, new Rect2(o + new Vector2(-size.X / 2, 6 - size.Y), size), false);
+        if (b.Def == "bed" && b.Owner >= 0) DrawCircle(o + new Vector2(size.X / 2 - 2, 4 - size.Y), 1.8f, new Color(0.85f, 0.3f, 0.3f));
+        DrawSetTransformMatrix(Transform2D.Identity);
+        return true;
     }
 
     private void DrawWorkshop(Building b, Rect2 r, Color mc)
@@ -724,15 +872,24 @@ public partial class MapView : Node2D
         {
             P3 p = W.Pos(kv.Key);
             if (p.Z != Z || p.X < x0 || p.X > x1 || p.Y < y0 || p.Y > y1) continue;
-            if (F.BuildingAt.TryGetValue(kv.Key, out int bid) && F.BuildingById(bid)?.Built == true && kv.Value.All(id => F.Items[id].InBuilding >= 0)) continue;
+            DrawItemStack(kv.Key, kv.Value);
+        }
+    }
+
+    private void DrawItemStack(int cell, List<int> ids)
+    {
+        P3 p = W.Pos(cell);
+        if (F.BuildingAt.TryGetValue(cell, out int bid) && F.BuildingById(bid)?.Built == true && ids.All(id => F.Items[id].InBuilding >= 0)) return;
+        {
             int n = 0;
-            foreach (int id in kv.Value)
+            foreach (int id in ids)
             {
                 Item it = F.Items[id];
                 if (n >= 4) break;
                 Vector2 at = new(p.X * T + 4 + (n % 2) * 8, p.Y * T + 4 + (n / 2) * 8);
-                if (kv.Value.Count == 1) at = new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
-                DrawItem(it, Upright(at, 2), kv.Value.Count == 1 ? 1f : 0.7f);
+                if (ids.Count == 1) at = new Vector2((p.X + 0.5f) * T, (p.Y + 0.5f) * T);
+                DrawItem(it, Upright(at, 2), ids.Count == 1 ? 1f : 0.7f);
+                DrawSetTransformMatrix(Transform2D.Identity);
                 n++;
             }
         }
@@ -788,17 +945,28 @@ public partial class MapView : Node2D
     private void DrawCreatures(Rect2 view)
     {
         foreach (Creature c in F.Creatures)
+            if (CreatureShown(c, view)) { DrawOneCreature(c); DrawSetTransformMatrix(Transform2D.Identity); }
+    }
+
+    private bool CreatureShown(Creature c, Rect2 view) => !c.Dead && W.Pos(c.Cell).Z == Z && view.HasPoint(CreaturePos(c));
+
+    private void DrawOneCreature(Creature c)
+    {
         {
-            if (c.Dead || W.Pos(c.Cell).Z != Z) continue;
-            Vector2 at = CreaturePos(c);
-            if (!view.HasPoint(at)) continue;
-            at = Upright(at);
+            Vector2 at = Upright(CreaturePos(c));
             CreatureDef d = c.D;
             Color col = UITheme.C(d.Color);
             float s = d.Size * (c.Tame && !c.Adult(F.Tick) ? 0.65f : 1f);
             bool foe = (d.Hostile || c.Angry) && !c.Tame;
             DrawCircle(at + new Vector2(0, 4 * s), 5 * s, new Color(0, 0, 0, 0.3f));
-            switch (d.Home)
+            Texture2D spr = Assets.Sprite("cr-" + c.Def);
+            if (spr != null)
+            {
+                float k = 22f * s / Math.Max(spr.GetWidth(), spr.GetHeight());
+                Vector2 sz = new(spr.GetWidth() * k, spr.GetHeight() * k);
+                DrawTextureRect(spr, new Rect2(at + new Vector2(-sz.X / 2, 6 * s - sz.Y), sz), false);
+            }
+            else switch (d.Home)
             {
                 case Habitat.Visitor:
                     if (c.Def == "trader") { DrawCircle(at + new Vector2(0, 2) * s, 5 * s, col.Darkened(0.3f)); DrawCircle(at + new Vector2(0, 1.5f) * s, 4.2f * s, col); DrawCircle(at + new Vector2(0, -3) * s, 3.2f * s, new Color(0.92f, 0.74f, 0.6f)); DrawColoredPolygon(new[] { at + new Vector2(-3, -2.5f) * s, at + new Vector2(3, -2.5f) * s, at + new Vector2(0, 4) * s }, new Color(0.75f, 0.72f, 0.68f)); }
@@ -876,13 +1044,15 @@ public partial class MapView : Node2D
     private void DrawDwarves(Rect2 view)
     {
         foreach (Dwarf d in F.Dwarves)
+            if (DwarfShown(d, view)) { DrawOneDwarf(d); DrawSetTransformMatrix(Transform2D.Identity); }
+    }
+
+    private bool DwarfShown(Dwarf d, Rect2 view) => !d.Dead && W.Pos(d.Cell).Z == Z && view.HasPoint(DwarfPos(d));
+
+    private void DrawOneDwarf(Dwarf d)
+    {
         {
-            P3 p = W.Pos(d.Cell);
-            if (p.Z != Z) continue;
-            Vector2 at = DwarfPos(d);
-            if (!view.HasPoint(at)) continue;
-            if (d.Dead) continue;
-            at = Upright(at);
+            Vector2 at = Upright(DwarfPos(d));
             DrawDwarf(d, at, this, 1f, Time);
             if (d.Hp < d.MaxHp)
             {
@@ -915,6 +1085,18 @@ public partial class MapView : Node2D
             on.DrawRect(new Rect2(at + new Vector2(-6, -2) * s, new Vector2(12, 6) * s), cloak);
             on.DrawCircle(at + new Vector2(-5, 0) * s, 3 * s, skin);
             on.DrawString(UITheme.LabelFont, at + new Vector2(3, -5) * s, "z", HorizontalAlignment.Left, -1, (int)(9 * s), new Color(0.8f, 0.85f, 1f, 0.6f + 0.4f * MathF.Sin(time * 3)));
+            return;
+        }
+        Texture2D spr = Assets.Sprite("fig-" + d.Clan);
+        if (spr != null)
+        {
+            // The clan's painted figure, feet on the shadow; what the dwarf is doing still shows over it.
+            float k = 22f * s / spr.GetHeight();
+            Vector2 sz = new(spr.GetWidth() * k, spr.GetHeight() * k);
+            on.DrawTextureRect(spr, new Rect2(at + new Vector2(-sz.X / 2, 6.5f * s - sz.Y), sz), false);
+            if (d.Carry >= 0) on.DrawRect(new Rect2(at + new Vector2(3.5f, 0) * s, new Vector2(4, 4) * s), new Color(0.75f, 0.6f, 0.35f));
+            if (d.Breaking > 0) on.DrawString(UITheme.Title, at + new Vector2(-2, -16) * s, "!", HorizontalAlignment.Left, -1, (int)(12 * s), UITheme.Bad);
+            if (d.Squad >= 0) on.DrawRect(new Rect2(at + new Vector2(-1.5f, -18) * s, new Vector2(3, 3) * s), UITheme.Gold);
             return;
         }
         on.DrawCircle(at + new Vector2(0, 2) * s, 5 * s, cloak.Darkened(0.25f));

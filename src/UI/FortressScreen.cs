@@ -917,6 +917,9 @@ public partial class FortressScreen : Control
         var alerts = new CheckBox { Text = "Pause on alerts", ButtonPressed = Profile.Current.PauseOnAlerts, FocusMode = FocusModeEnum.None };
         alerts.Toggled += on => { Profile.Current.PauseOnAlerts = on; Profile.Current.Save(); };
         v.AddChild(alerts);
+        var art = new CheckBox { Text = "Painted art", ButtonPressed = Profile.Current.PaintedArt, FocusMode = FocusModeEnum.None, TooltipText = "Painted figures, creatures and buildings. Off: the original look, drawn by the game itself." };
+        art.Toggled += on => { Profile.Current.PaintedArt = on; Profile.Current.Save(); };
+        v.AddChild(art);
         v.AddChild(UITheme.B("Save and leave to the title", () => { CloseMenu(); Root.ShowTitle(); }, 18));
         v.AddChild(UITheme.B("Save and quit the game", () => { if (!Profile.Scratch) Profile.SaveFortress(F); GetTree().Quit(); }, 18));
         v.AddChild(UITheme.L("Ironman: the fortress saves every season and when you leave.", 13, UITheme.Faint));

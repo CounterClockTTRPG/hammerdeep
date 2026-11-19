@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -433,6 +433,32 @@ public partial class SmokeTest : Node
         Check(Tutorial.Steps.All(t => t.Title != null && t.How != null), "every goal says what to do");
         f.TutorialStep = 3;
         Eq(Save.Read(Save.Write(f)).TutorialStep, 3, "the tutorial's place is saved");
+    }
+
+    /// <summary>The generated sprites match the tables: every clan, creature, workshop and piece of furniture has one, and each decodes.</summary>
+    private void Sprites()
+    {
+        var listed = new HashSet<string>();
+        foreach (string line in Godot.FileAccess.GetFileAsString(Assets.ArtDir + "/manifest.txt").Split('\n'))
+        {
+            string t = line.Trim();
+            if (t.Length == 0 || t.StartsWith('#')) continue;
+            listed.Add(t.Split('|')[0].Trim());
+        }
+        var want = new List<string>();
+        foreach (ClanDef c in Tables.Clans) want.Add("fig-" + c.Id);
+        foreach (string k in Tables.Creatures.Keys) want.Add("cr-" + k);
+        foreach (BuildDef b in Tables.Buildings)
+        {
+            if (b.Kind == BuildKind.Workshop) { want.Add($"shop-{b.Id}-iso"); want.Add($"shop-{b.Id}-top"); }
+            else if (b.Kind == BuildKind.Furniture) want.Add("furn-" + b.Id);
+        }
+        var missing = want.Where(n => !listed.Contains(n)).ToList();
+        Check(missing.Count == 0, $"every clan, creature and building has a sprite in the manifest (missing: {string.Join(", ", missing)})");
+        var stray = listed.Where(n => !want.Contains(n)).ToList();
+        Check(stray.Count == 0, $"the manifest names nothing the game does not have (stray: {string.Join(", ", stray)})");
+        var bad = listed.Where(n => Assets.Sprite(n) == null).ToList();
+        Check(bad.Count == 0, $"every listed sprite is there and decodes (not: {string.Join(", ", bad)})");
     }
 
     private void Undoing()

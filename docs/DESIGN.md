@@ -115,6 +115,13 @@
    Undo (Ctrl+Z, or the toolbar): takes back the last designation or clearing, zone, or
    building not yet built, up to 50 steps in a session; a marked cell's info has "Cancel it".
 
+12. **Painted art and a fuller isometric view** (done) — 61 generated sprites (`assets/art`,
+   through ../assetgen's `hammerdeep` project): a figure per clan, the creatures, the
+   furniture, and every workshop twice (isometric, and from above). Optional: Painted art in
+   the settings switches back to the original drawn look. The isometric view draws back to
+   front (walls, markers, buildings, items and figures by diagonal), so walls hide what is
+   behind them; drops show their far sides; ramps and stairs rise; clicking a wall's top picks it.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

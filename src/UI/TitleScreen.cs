@@ -40,6 +40,9 @@ public partial class TitleScreen : Control
         var music = new CheckBox { Text = "Music", ButtonPressed = Profile.Current.MusicOn, FocusMode = FocusModeEnum.None };
         music.Toggled += on => { Profile.Current.MusicOn = on; Music.Instance?.SetVolume(Profile.Current.MusicVolume, on); Profile.Current.Save(); };
         row.AddChild(music);
+        var art = new CheckBox { Text = "Painted art", ButtonPressed = Profile.Current.PaintedArt, FocusMode = FocusModeEnum.None, TooltipText = "Painted figures, creatures and buildings. Off: the original look, drawn by the game itself." };
+        art.Toggled += on => { Profile.Current.PaintedArt = on; Profile.Current.Save(); };
+        row.AddChild(art);
         var full = new CheckBox { Text = "Full screen (F11)", ButtonPressed = Profile.Current.Fullscreen, FocusMode = FocusModeEnum.None };
         full.Toggled += on => { Profile.Current.Fullscreen = on; Profile.Current.Apply(); Profile.Current.Save(); };
         row.AddChild(full);

@@ -26,6 +26,8 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
     bash scripts/export.sh [DIR]  Windows build (exe + pack + .NET data + assets) to DIR (default
                                 C:/temp/Hammerdeep), then the self-check against the exported exe.
     python3 scripts/make_icon.py icon   redraw icon.png / icon.ico (needs Pillow).
+    bash scripts/assets.sh      generate missing sprites via ../assetgen (project `hammerdeep`, Replicate
+                                credits: ask first); --list, --force NAME, --recut (re-cut from the library, free)
 
 Machine paths default in `scripts/common.sh`; override in `.env` (see `.env.example`).
 Settings live in `user://hammerdeep.json`, the fortresses in `user://fort1.sav` .. `fort3.sav`.
@@ -73,6 +75,10 @@ name (`taskkill /IM`): other projects' games may be running -- use the agent's `
 - `tests/SmokeTest.cs` -- the self-check: rules on tiny hand-built maps, the generator over a
   real seed, a save round trip, and a whole year with the overseer plus a balance report.
 - `assets/fonts` -- Cinzel, Barlow, Inconsolata (OFL, licences beside them), read as bytes.
+- `assets/art` -- the generated sprites (figures per clan, creatures, furniture, workshops iso and
+  top-down) and their `manifest.txt`; `Assets.Sprite` returns null when one is missing or the player
+  turned Painted art off, and every caller then draws its own. `scripts/fit_sprite.py` cuts them out.
+  The terrain is drawn by `GroundLayer` (nearest filtering) behind `MapView` (smooth, for the sprites).
 
 ## Conventions
 

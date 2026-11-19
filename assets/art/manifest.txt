@@ -1,0 +1,77 @@
+# Hammerdeep's generated sprites: name | pixels [green] | subject
+#
+# scripts/assets.sh turns each line into a prompt (the view comes from the name's prefix),
+# generates it through ../assetgen's `hammerdeep` project, keys out the flat background
+# (scripts/fit_sprite.py) and writes assets/art/<name>.webp at <pixels> on its longest side.
+# `green` asks for a green background instead of magenta, for purple subjects.
+# Everything here is optional: the game draws its own figure for anything missing.
+
+# ---- figures, one per clan (the clan sets the people) ----
+fig-ironhand    | 192 | a stout bearded dwarf smith of the Ironhand clan, rust-red hooded tunic, leather apron, heavy iron pick over one shoulder, braided brown beard, sturdy boots
+fig-mossbeard   | 192 | a stout bearded dwarf farmer of the Mossbeard clan, moss-green hooded tunic, a sack of seed on the hip, a little sprig of herbs in the long fair beard, sturdy boots
+fig-stoneward   | 192 | a stout bearded dwarf mason of the Stoneward clan, slate-blue tunic with a short mail shirt, a stone mallet in hand, grey braided beard, sturdy boots
+fig-gemhollow   | 192 green | a stout bearded dwarf jeweller of the Gemhollow clan, violet hooded tunic, a loupe on a cord, rings on the fingers, black forked beard, sturdy boots
+fig-copperclaw  | 192 | a small quick scaly lizard-like tunneller of the Delvling people, copper-orange scales, bright yellow eyes, a ragged copper-coloured tunic, a lantern and a little pick, a long tail
+fig-hollyhock   | 192 | a small green-skinned gardener of the Rootfolk people, a broad leafy cap like a mushroom top with a red berry on it, a woven green smock, a watering can
+fig-graniteborn | 192 | a huge half-giant of the Stonekin people made of living grey stone, heavy brow, no hair, cracked stony skin with moss in the cracks, a plain grey loincloth and wide stone hands
+
+# ---- creatures ----
+cr-crawler   | 160 green | a cave crawler: a long purple many-legged centipede-like cave beast with pale mandibles, menacing
+cr-stalker   | 192 | a deep stalker: a gaunt dark violet-grey cave predator on all fours with long raking claws and small glowing eyes, menacing
+cr-fellbuck  | 160 | a fellbuck: a shy brown mountain deer with short antlers, side view standing
+cr-badger    | 160 | a dire badger: a big grey-and-black badger with a white stripe, heavy claws, side view standing
+cr-goat      | 160 | a shaggy pale grey mountain goat with curved horns, side view standing
+cr-hen       | 128 | a plump cream-white hen with a red comb, side view standing
+cr-trader    | 192 | a dwarf merchant from the Mountainhome, ochre travelling coat and wide hat, a heavy pack, a counting purse, grey beard
+cr-merchant  | 192 | a tall human merchant from the lowland towns, blue travelling coat, a feathered cap, a ledger under the arm, clean-shaven
+cr-raider    | 192 | a grimling raider: a wiry green-skinned goblin warrior in scraps of leather, a notched sword, yellow eyes, menacing
+cr-brute     | 192 | a grimling brute: a hulking dark-green goblin ogre with a spiked wooden club, crude armour plates, menacing
+
+# ---- furniture (upright, one cell) ----
+furn-bed       | 128 | an empty sturdy wooden dwarven bed with a straw mattress, a wool blanket and a pillow, furniture only, no people
+furn-table     | 128 | a heavy square wooden table
+furn-chair     | 128 | a stout wooden chair with a carved back
+furn-door      | 128 | a closed heavy wooden door with iron bands in a stone door frame
+furn-chest     | 128 | a closed iron-bound wooden chest
+furn-statue    | 128 | a small grey stone statue of a dwarf hero standing on a square stone plinth, all carved from stone
+furn-shrine    | 128 | a small carved stone altar shrine with one candle and an offering bowl on it, the object alone, no people, no floor
+furn-well      | 128 | a round stone well with a wooden winch, a rope and a bucket
+furn-coffin    | 128 | a closed carved stone coffin
+furn-floodgate | 128 | a heavy iron sluice floodgate set in a stone frame, shut
+furn-trap      | 128 | a stonefall trap: a big boulder held up in a wooden frame over a square stone pressure plate
+furn-bridge    | 128 | a short lowered wooden drawbridge with iron chains
+
+# ---- workshops, isometric (iso view) and from directly above (top-down view) ----
+shop-carpenter-iso    | 320 | a dwarven carpenter's workshop: a workbench, saws and planes on the wall, stacked logs, a half-made barrel
+shop-mason-iso        | 320 | a dwarven mason's workshop: a stone-cutting bench, chisels and mallets, stacked stone blocks
+shop-craftsdwarf-iso  | 320 | a dwarven craftsdwarf's workshop: a small bench with carving tools, a gem-cutting wheel, figurines on a shelf
+shop-furnace-iso      | 320 | a dwarven wood furnace: a squat stone kiln burning logs into charcoal, sacks of charcoal
+shop-smelter-iso      | 320 | a dwarven smelter: a tall stone furnace with molten metal glowing in a crucible, ore heaps, metal bars
+shop-forge-iso        | 320 | a dwarven metalsmith's forge: a stone hearth with glowing coals, an anvil, bellows, hammers on a rack
+shop-kitchen-iso      | 320 | a dwarven kitchen: a stone hearth with a bubbling stew pot, a chopping table, hanging herbs and sausages
+shop-brewery-iso      | 320 | a dwarven brewery: three big wooden vats, barrels of ale, a copper still
+shop-depot-iso        | 320 | a dwarven trade depot: a covered market platform with crates, sacks, scales for weighing goods
+shop-butcher-iso      | 320 | a dwarven butcher's shop: a chopping block, cleavers, hooks with hanging meat
+shop-tanner-iso       | 320 | a dwarven tanner's shop: hides stretched on wooden frames, tanning vats
+shop-leatherworks-iso | 320 | a dwarven leatherworks: a bench with leather, awls and thread, finished leather caps and jerkins on pegs
+shop-temple-iso       | 320 | a small dwarven temple: stone pillars at the corners, a golden altar glowing softly in the middle, banners
+shop-runeforge-iso    | 320 | a dwarven runeforge: a dark stone anvil carved with glowing cyan runes, a rune-etched hearth
+shop-msmelter-iso     | 320 | a dwarven magma smelter: a stone furnace fed by a channel of glowing orange magma, crucibles of molten metal
+shop-mforge-iso       | 320 | a dwarven magma forge: an anvil beside a stone basin of glowing orange magma, tongs and hammers
+
+shop-carpenter-top    | 256 | a dwarven carpenter's workshop: a workbench, saws and planes on the wall, stacked logs, a half-made barrel
+shop-mason-top        | 256 | a dwarven mason's workshop: a stone-cutting bench, chisels and mallets, stacked stone blocks
+shop-craftsdwarf-top  | 256 | a dwarven craftsdwarf's workshop: a small bench with carving tools, a gem-cutting wheel, figurines on a shelf
+shop-furnace-top      | 256 | a dwarven wood furnace: a squat stone kiln burning logs into charcoal, sacks of charcoal
+shop-smelter-top      | 256 | a dwarven smelter: a tall stone furnace with molten metal glowing in a crucible, ore heaps, metal bars
+shop-forge-top        | 256 | a dwarven metalsmith's forge: a stone hearth with glowing coals, an anvil, bellows, hammers on a rack
+shop-kitchen-top      | 256 | a dwarven kitchen: a stone hearth with a bubbling stew pot, a chopping table, hanging herbs and sausages
+shop-brewery-top      | 256 | a dwarven brewery: three big wooden vats, barrels of ale, a copper still
+shop-depot-top        | 256 | a dwarven trade depot: a covered market platform with crates, sacks, scales for weighing goods
+shop-butcher-top      | 256 | a dwarven butcher's shop: a chopping block, cleavers, hooks with hanging meat
+shop-tanner-top       | 256 | a dwarven tanner's shop: hides stretched on wooden frames, tanning vats
+shop-leatherworks-top | 256 | a dwarven leatherworks: a bench with leather, awls and thread, finished leather caps and jerkins on pegs
+shop-temple-top       | 256 | a small dwarven temple: stone pillars at the corners, a golden altar glowing softly in the middle, banners
+shop-runeforge-top    | 256 | a dwarven runeforge: a dark stone anvil carved with glowing cyan runes, a rune-etched hearth
+shop-msmelter-top     | 256 | a dwarven magma smelter: a stone furnace fed by a channel of glowing orange magma, crucibles of molten metal
+shop-mforge-top       | 256 | a dwarven magma forge: an anvil beside a stone basin of glowing orange magma, tongs and hammers
