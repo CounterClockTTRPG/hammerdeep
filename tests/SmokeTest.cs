@@ -514,7 +514,11 @@ public partial class SmokeTest : Node
         if (Godot.FileAccess.FileExists(mf))
         {
             var models = Godot.FileAccess.GetFileAsString(mf).Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')).Select(l => l.Split(' ')[0]).ToList();
-            Check(models.All(Tables.Build.ContainsKey), $"every model is of a building ({string.Join(", ", models.Where(m => !Tables.Build.ContainsKey(m)))})");
+            // A building by its id, a creature as cr-<key>, one of the other peoples as race-<key>.
+            bool Known(string m) => Tables.Build.ContainsKey(m)
+                || (m.StartsWith("cr-") && Tables.Creatures.ContainsKey(m[3..]))
+                || (m.StartsWith("race-") && Races.All.Any(r => r.Key == m[5..]));
+            Check(models.All(Known), $"every model is of a building, creature or people ({string.Join(", ", models.Where(m => !Known(m)))})");
             var broken = new List<string>();
             foreach (string m in models)
             {

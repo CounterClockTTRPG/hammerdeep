@@ -8,6 +8,8 @@ carpenter carpenter-4af525
 chair chair-118a78
 chest chest-cd8aa9
 coffin coffin-5a18ba
+cr-goat cr-goat-11380b
+cr-hen cr-hen-54c45c
 craftsdwarf craftsdwarf-16356b
 depot depot-9ad041
 door door-e03638

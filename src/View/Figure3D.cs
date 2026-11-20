@@ -340,3 +340,68 @@ public partial class Figure3D : Node3D
         return box ?? new Aabb(Vector3.Zero, Vector3.One);
     }
 }
+
+/// <summary>
+/// A creature or one of the other peoples as a posed model (assets/models/cr-*.glb, race-*.glb): fitted to
+/// its height and stood on the ground, turned to where it goes, and given a little bob while it walks --
+/// the models have no skeleton, so the game supplies the life.
+/// </summary>
+public partial class Posed3D : Node3D
+{
+    private readonly Node3D _model;
+    private readonly float _height;
+    private float _step;
+
+    /// <summary>How tall each one stands, in metres (a dwarf is 1.3).</summary>
+    public static float HeightOf(string name) => name switch
+    {
+        "cr-hen" => 0.45f, "cr-crawler" => 0.5f, "cr-badger" => 0.7f, "cr-goat" => 0.9f, "cr-fellbuck" => 1.5f,
+        "cr-stalker" => 2.1f, "cr-raider" => 1.2f, "cr-brute" => 2.1f, "cr-trader" => 1.3f, "cr-merchant" => 1.75f,
+        "race-delvling" => 1.1f, "race-rootfolk" => 1.0f, "race-stonekin" => 2.2f, _ => 1.2f,
+    };
+
+    public Posed3D() { }
+
+    public Posed3D(Node3D model, float height)
+    {
+        _height = height;
+        _model = new Node3D();
+        AddChild(_model);
+        _model.AddChild(model);
+        Aabb box = Bounds(model);
+        float s = box.Size.Y > 0.01f ? height / box.Size.Y : 1;
+        model.Scale = Vector3.One * s;
+        Vector3 c = box.GetCenter();
+        model.Position = new Vector3(-c.X * s, -box.Position.Y * s, -c.Z * s);
+    }
+
+    /// <summary>Moved by <paramref name="by"/> (map x, y) this frame: face that way and bob; standing, settle.</summary>
+    public void Step(Vector2 by, float dt, bool selected)
+    {
+        if (_model == null) return;
+        if (by.LengthSquared() > 1e-6f)
+        {
+            Rotation = new Vector3(0, Mathf.LerpAngle(Rotation.Y, Mathf.Atan2(by.X, by.Y), Math.Min(1, dt * 10)), 0);
+            _step += dt * 11;
+        }
+        else _step = Mathf.MoveToward(_step % Mathf.Pi, 0, dt * 6);
+        _model.Position = new Vector3(0, Mathf.Abs(Mathf.Sin(_step)) * 0.05f * _height, 0);
+        _model.Rotation = new Vector3(0, 0, Mathf.Sin(_step) * 0.06f);
+        _model.Scale = Vector3.One * (selected ? 1.12f : 1f);
+    }
+
+    /// <summary>The model's box in its own frame, through every node between it and each mesh.</summary>
+    private static Aabb Bounds(Node3D n)
+    {
+        Aabb? box = null;
+        foreach (MeshInstance3D mi in n.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>())
+        {
+            if (mi.Mesh == null) continue;
+            Transform3D t = Transform3D.Identity;
+            for (Node p = mi; p != null && p != n; p = p.GetParent()) if (p is Node3D p3) t = p3.Transform * t;
+            Aabb a = t * mi.Mesh.GetAabb();
+            box = box == null ? a : box.Value.Merge(a);
+        }
+        return box ?? new Aabb(Vector3.Zero, Vector3.One);
+    }
+}

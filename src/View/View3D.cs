@@ -34,7 +34,9 @@ public partial class View3D : Node3D
     private readonly HashSet<int> _dirty = new();
     private readonly Dictionary<int, Node3D> _buildings = new();
     private readonly Dictionary<int, Node3D> _figures = new();
-    private MultiMeshInstance3D _items;
+    /// <summary>Items by shape: a block for most things, an egg, a log, a rough boulder.</summary>
+    private readonly MultiMeshInstance3D[] _items = new MultiMeshInstance3D[4];
+    private const int ShapeBlock = 0, ShapeEgg = 1, ShapeLog = 2, ShapeBoulder = 3;
     private int _z = -1, _season = -1;
     private bool _painted;
     private double _itemClock;
@@ -81,10 +83,20 @@ public partial class View3D : Node3D
         _im = new ImmediateMesh();
         _overlay = new MeshInstance3D { Mesh = _im, MaterialOverride = _lines, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(_overlay);
-        _items = new MultiMeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-        _items.Multimesh = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = new BoxMesh { Size = new Vector3(0.22f, 0.16f, 0.22f) } };
-        _items.MaterialOverride = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f };
-        AddChild(_items);
+        Mesh[] shapes =
+        {
+            new BoxMesh { Size = new Vector3(0.22f, 0.16f, 0.22f) },
+            new SphereMesh { Radius = 0.065f, Height = 0.17f, RadialSegments = 12, Rings = 6 },
+            new CylinderMesh { TopRadius = 0.075f, BottomRadius = 0.085f, Height = 0.5f, RadialSegments = 8, Rings = 1 },
+            new SphereMesh { Radius = 0.15f, Height = 0.22f, RadialSegments = 6, Rings = 3 },
+        };
+        var itemMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f };
+        for (int k = 0; k < _items.Length; k++)
+        {
+            _items[k] = new MultiMeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, MaterialOverride = itemMat };
+            _items[k].Multimesh = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = shapes[k] };
+            AddChild(_items[k]);
+        }
         Visible = false;
     }
 
@@ -445,6 +457,8 @@ public partial class View3D : Node3D
         foreach (int id in _buildings.Keys.Where(k => !seen.Contains(k)).ToList()) { _buildings[id].QueueFree(); _buildings.Remove(id); }
     }
 
+    private const float MaxBuildingHeight = 1.35f;
+
     private Node3D MakeBuilding(Building b)
     {
         BuildDef d = b.D;
@@ -456,8 +470,13 @@ public partial class View3D : Node3D
             Aabb box = Bounds(model);
             float k = Math.Min(d.W * 0.96f / Math.Max(box.Size.X, 0.01f), d.H * 0.96f / Math.Max(box.Size.Z, 0.01f));
             if (d.Kind == BuildKind.Furniture && b.Def == "door") k = Math.Min(d.W / Math.Max(Math.Max(box.Size.X, box.Size.Z), 0.01f), 1 / Math.Max(box.Size.Y, 0.01f));
-            model.Scale = Vector3.One * k;
-            model.Position = new Vector3(-(box.Position.X + box.Size.X / 2) * k, -box.Position.Y * k, -(box.Position.Z + box.Size.Z / 2) * k);
+            // No taller than a dwarf (a level is a metre, a dwarf 1.3): a depot's awning or a temple's pillars
+            // fitted by footprint alone rose three or four levels through the ones above. Furniture shrinks whole,
+            // so a statue keeps its shape; a workshop only lowers, so it still fills its 3 x 3.
+            float ky = Math.Min(k, MaxBuildingHeight / Math.Max(box.Size.Y, 0.01f));
+            if (d.Kind == BuildKind.Furniture) k = ky;
+            model.Scale = new Vector3(k, ky, k);
+            model.Position = new Vector3(-(box.Position.X + box.Size.X / 2) * k, -box.Position.Y * ky, -(box.Position.Z + box.Size.Z / 2) * k);
             root.AddChild(model);
             if (!b.Built) Ghostly(model);
             return root;
@@ -529,12 +548,16 @@ public partial class View3D : Node3D
             if (!FigureSeen(d.Cell)) continue;
             int key = d.Id;
             seen.Add(key);
-            bool modelled = _painted && Figure3D.Available && (d.Race ?? "dwarf") == "dwarf";
-            Node3D n = Figure(key, () => modelled ? new Figure3D() : MakeFigure(_painted ? Assets.Sprite("fig-" + d.Clan) : null, UITheme.C(Tables.Clan(d.Clan).Color), 1.05f));
+            string race = d.Race ?? "dwarf";
+            bool modelled = _painted && Figure3D.Available && race == "dwarf";
+            Node3D n = Figure(key, () => modelled ? new Figure3D()
+                : Posed("race-" + race) ?? MakeFigure(_painted ? Assets.Sprite("fig-" + d.Clan) : null, UITheme.C(Tables.Clan(d.Clan).Color), 1.05f));
             Vector2 at = Map.DwarfPos(d);
             Vector3 was = n.Position;
             n.Position = new Vector3(at.X / MapView.T, W.Pos(d.Cell).Z, at.Y / MapView.T);
-            if (n is Figure3D fig) Animate(fig, d, new Vector2(n.Position.X - was.X, n.Position.Z - was.Z), _dt);
+            Vector2 moved = new(n.Position.X - was.X, n.Position.Z - was.Z);
+            if (n is Figure3D fig) Animate(fig, d, moved, _dt);
+            else if (n is Posed3D posed) posed.Step(moved, _dt, d.Id == Map.SelDwarf);
             else ((Node3D)n.GetChild(0)).Scale = Vector3.One * (d.Id == Map.SelDwarf ? 1.12f : 1f);
         }
         foreach (Creature c in F.Creatures)
@@ -544,10 +567,12 @@ public partial class View3D : Node3D
             if (!FigureSeen(c.Cell)) continue;
             int key = -1 - c.Id;
             seen.Add(key);
-            Node3D n = Figure(key, () => MakeFigure(_painted ? Assets.Sprite("cr-" + c.Def) : null, Col(c.D.Color), 0.6f + c.D.Size * 0.25f));
-            P3 p = W.Pos(c.Cell);
-            Vector2 at = new((p.X + 0.5f) * MapView.T, (p.Y + 0.5f) * MapView.T);
-            n.Position = new Vector3(at.X / MapView.T, p.Z, at.Y / MapView.T);
+            Node3D n = Figure(key, () => Posed("cr-" + c.Def) ?? MakeFigure(_painted ? Assets.Sprite("cr-" + c.Def) : null, Col(c.D.Color), 0.6f + c.D.Size * 0.25f));
+            // Where the top-down view has it: walking smoothly from cell to cell, not jumping.
+            Vector2 at = Map.CreaturePos(c);
+            Vector3 was = n.Position;
+            n.Position = new Vector3(at.X / MapView.T, W.Pos(c.Cell).Z, at.Y / MapView.T);
+            if (n is Posed3D posed) posed.Step(new Vector2(n.Position.X - was.X, n.Position.Z - was.Z), _dt, c.Id == Map.SelCreature);
         }
         // Out of view (another level), a figure is hidden and paused, not thrown away: building one -- a body,
         // its clothes bound to the skeleton, an animation player -- is what made walking between levels hitch.
@@ -581,8 +606,22 @@ public partial class View3D : Node3D
             fig.Gear = gear;
             Dress(fig, d, k, walking);
         }
+        // Asleep in a bed: on the mattress and along the bed (its head, the bolster, is at -Z), not sunk into
+        // it at the cell's floor and lying whichever way the dwarf last faced.
+        if (k == TaskKind.Sleep && !walking && F.BuildingOn(d.Cell) is Building bed && bed.Def == "bed" && bed.Built)
+        {
+            P3 p = W.Pos(d.Cell);
+            fig.Position = new Vector3(p.X + 0.5f, p.Z + BedTop, p.Y + 0.5f + BedFeet);
+            fig.Rotation = new Vector3(0, BedYaw, 0);
+            return;
+        }
         Face(fig, d, k, walking, moved, dt);
     }
+
+    // Where a sleeper lies on the bed model (see assets/models/bed.glb: mattress top 0.31 m, bolster at -Z).
+    // The lie-down clip lays the body along its facing with the head forward, so a half turn puts the head on
+    // the bolster; the body lies a little ahead of the figure's origin, so the origin moves toward the foot.
+    private const float BedTop = 0.29f, BedFeet = 0.18f, BedYaw = Mathf.Pi;
 
     private void Dress(Figure3D fig, Dwarf d, TaskKind k, bool walking)
     {
@@ -659,6 +698,14 @@ public partial class View3D : Node3D
         return _figures[key] = n;
     }
 
+    /// <summary>A creature's or a people's posed model, when there is one and painted art is on; else null (a sprite then).</summary>
+    private Posed3D Posed(string name)
+    {
+        if (!_painted) return null;
+        Node3D model = Assets.Model(name);
+        return model == null ? null : new Posed3D(model, Posed3D.HeightOf(name));
+    }
+
     private static Node3D MakeFigure(Texture2D sprite, Color tint, float height)
     {
         var root = new Node3D();
@@ -685,7 +732,8 @@ public partial class View3D : Node3D
 
     private void SyncItems()
     {
-        var shown = new List<(Vector3, Color)>();
+        var shown = new List<(Transform3D, Color)>[_items.Length];
+        for (int k = 0; k < shown.Length; k++) shown[k] = new();
         var perCell = new Dictionary<int, int>();
         foreach (Item it in F.Items.Values)
         {
@@ -696,14 +744,38 @@ public partial class View3D : Node3D
             perCell[it.Cell] = k + 1;
             if (k >= 4) continue;
             float ox = (k % 2) * 0.32f - 0.16f, oz = (k / 2) * 0.32f - 0.16f;
-            shown.Add((new Vector3(p.X + 0.5f + ox, p.Z + 0.08f, p.Y + 0.5f + oz), Col(it.M.Color)));
+            Vector3 at = new(p.X + 0.5f + ox, p.Z, p.Y + 0.5f + oz);
+            float turn = Noise.Hash01(it.Id, 0, 0, 5) * Mathf.Tau;
+            Color col = Col(it.M.Color);
+            switch (it.Kind)
+            {
+                case ItemKind.Egg:
+                    // An egg lies on its side, cream or speckled brown whatever the bird.
+                    var egg = new Basis(Vector3.Up, turn) * new Basis(Vector3.Forward, Mathf.Pi / 2);
+                    shown[ShapeEgg].Add((new Transform3D(egg, at + new Vector3(0, 0.065f, 0)), Noise.Hash01(it.Id, 1, 0, 5) < 0.5f ? new Color(0.95f, 0.92f, 0.84f) : new Color(0.8f, 0.64f, 0.46f)));
+                    break;
+                case ItemKind.Log:
+                    var log = new Basis(Vector3.Up, turn) * new Basis(Vector3.Forward, Mathf.Pi / 2);
+                    shown[ShapeLog].Add((new Transform3D(log, at + new Vector3(0, 0.085f, 0)), col));
+                    break;
+                case ItemKind.Boulder:
+                    var rock = new Basis(Vector3.Up, turn).Scaled(new Vector3(1, 0.8f + Noise.Hash01(it.Id, 2, 0, 5) * 0.4f, 1));
+                    shown[ShapeBoulder].Add((new Transform3D(rock, at + new Vector3(0, 0.09f, 0)), col));
+                    break;
+                default:
+                    shown[ShapeBlock].Add((new Transform3D(Basis.Identity, at + new Vector3(0, 0.08f, 0)), col));
+                    break;
+            }
         }
-        MultiMesh mm = _items.Multimesh;
-        mm.InstanceCount = shown.Count;
-        for (int k = 0; k < shown.Count; k++)
+        for (int s = 0; s < _items.Length; s++)
         {
-            mm.SetInstanceTransform(k, new Transform3D(Basis.Identity, shown[k].Item1));
-            mm.SetInstanceColor(k, shown[k].Item2);
+            MultiMesh mm = _items[s].Multimesh;
+            mm.InstanceCount = shown[s].Count;
+            for (int k = 0; k < shown[s].Count; k++)
+            {
+                mm.SetInstanceTransform(k, shown[s][k].Item1);
+                mm.SetInstanceColor(k, shown[s][k].Item2);
+            }
         }
     }
 

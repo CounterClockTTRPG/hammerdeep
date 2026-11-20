@@ -969,7 +969,7 @@ public partial class MapView : Node2D
 
     public int SelCreature = -1;
 
-    private Vector2 CreaturePos(Creature c)
+    public Vector2 CreaturePos(Creature c)
     {
         Vector2 at = CellCenter(c.Cell);
         if (F.CStepping.TryGetValue(c.Id, out var st) && c.Path != null && st.total > 0)

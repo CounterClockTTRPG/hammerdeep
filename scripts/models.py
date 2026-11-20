@@ -63,6 +63,25 @@ MODELS = {
     "mforge": "a dwarven magma forge, a 3 x 3 m stone floor with an obsidian forge glowing with magma, a great anvil and hammers",
 }
 
+# Creatures and the other peoples: "cr-<creature key>" and "race-<race key>", one posed figure each, standing
+# on the ground at the origin and facing forward (Blender -Y, glTF +Z); the game turns them to where they go.
+_POSE = "a single low-poly game figure in a neutral standing pose, flat colours, standing on the ground at the origin and facing forward (-Y)"
+MODELS.update({
+    "cr-goat": f"{_POSE}: a shaggy white mountain goat with curved horns and a short beard, about 0.9 m tall at the head",
+    "cr-hen": f"{_POSE}: a plump cream-white hen with a red comb and wattle and yellow legs, about 0.45 m tall",
+    "cr-fellbuck": f"{_POSE}: a fellbuck, a lean brown deer with a white tail and branching antlers, about 1.5 m tall at the antlers",
+    "cr-badger": f"{_POSE}: a dire badger, a heavy low grey badger with a black-and-white striped face and big claws, about 0.7 m tall, 1.3 m long",
+    "cr-crawler": f"{_POSE}: a cave crawler, a purple many-legged centipede-like cave creature with a raised segmented tail and pincers, about 0.5 m tall, 1.2 m long",
+    "cr-stalker": f"{_POSE}: a deep stalker, a gaunt hunched dark-violet cave beast with long clawed arms, a shaggy mane and pale yellow eyes, about 2.1 m tall",
+    "cr-raider": f"{_POSE}: a grimling raider, a wiry green goblin with big pointed ears, leather scraps and a crude copper axe, about 1.2 m tall",
+    "cr-brute": f"{_POSE}: a grimling brute, a hulking green orc-like warrior with a loincloth, bone trinkets and a huge wooden club, about 2.1 m tall",
+    "cr-trader": f"{_POSE}: a Mountainhome trader, a stout white-bearded dwarf in an ochre travelling coat and wide hat with a pack on his back, about 1.3 m tall",
+    "cr-merchant": f"{_POSE}: a Lowland merchant, a tall human in a long blue coat with a satchel and a ledger, about 1.75 m tall",
+    "race-delvling": f"{_POSE}: a Delvling, a small orange lizard-folk tunneller with huge yellow eyes, a long tail, a hooded tunic and a lantern, about 1.1 m tall",
+    "race-rootfolk": f"{_POSE}: a Rootfolk, a small green-skinned gardener with a broad mushroom cap for a hat, a leafy smock and a watering can, about 1.0 m tall",
+    "race-stonekin": f"{_POSE}: a Stonekin, a hulking half-giant of living grey stone with massive arms and a loincloth, about 2.2 m tall",
+})
+
 
 def call(path, body=None, method=None, raw=False):
     data = json.dumps(body).encode() if body is not None else None
@@ -127,7 +146,7 @@ def fetch(name, ref):
 
 
 def ask(name):
-    tris = 4000 if "3 x 3" in MODELS[name] else 1500
+    tris = 4000 if "3 x 3" in MODELS[name] else 2500 if name.startswith(("cr-", "race-")) else 1500
     r = call(f"/api/projects/{PROJECT}/generate", {"kind": "model3d", "model": "blender", "name": name,
                                                    "prompt": MODELS[name], "params": {"triangles": tris}})
     job = r.get("job") or {}
