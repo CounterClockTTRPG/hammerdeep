@@ -142,8 +142,25 @@
    hammer, sword or shield in the sockets. Clips play from what they do -- walk, run, idle,
    dig, chop, hammer (building and crafting), strike, eat, pray, sleep, pick up (hauling,
    farming), tantrum, death -- retargeted to the body (positions scaled by hip height) and
-   blended; they face the way they walk or what they work on. Other peoples, and every
-   dwarf when there is no body, stay sprites.
+   blended; they face the way they walk or what they work on. The other peoples and the
+   creatures are posed models (`cr-*`, `race-*` in `assets/models`) turned to where they go,
+   with a bob as they walk; anything without a model stays a sprite.
+
+15. **Great beasts** (`Fortress.Beasts`) — the five beasts the world's history names come to
+   the hold: from the second year, at most one a year (12% a season, +5% a year, at most
+   40%), never one the history says was slain, and never while another is about. Each comes
+   where its kind would (the Pale Stalker and the Queen up from the caverns once they are
+   found, the Thing in the Mere to the water nearest the hold, the rest over the edge) with
+   its old tale quoted, and marches on the hold; it never leaves. Their tricks: the Ashwyrm
+   breathes fire every 400 ticks on everyone within 2 cells of the dwarf it looks at (14-22,
+   armour stops half as much) and burns the wood lying there; the Pale Stalker goes for
+   sleepers anywhere it can reach, strikes them 2.5x, and is not seen (no one flees) until
+   within 2 cells; the Thing in the Mere goes back to its water, strikes 1.6x at the water's
+   edge, and while it lives every drink of water is foul (-6); Gnashjaw batters a door down
+   in 40 ticks, not 160, and its first blow after three steps is a charge (2x); the
+   Many-Legged Queen lays crawlers every 250 ticks, up to six. Slain, a beast leaves a
+   masterwork trophy (the Ashwyrm's skull, Gnashjaw's tusks...), a deed in the hold's own
+   legends (the World panel lists them first), and +16 for everyone in place of the dread.
 
 ## The simulation
 

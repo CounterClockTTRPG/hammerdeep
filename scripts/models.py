@@ -80,6 +80,40 @@ MODELS.update({
     "race-delvling": f"{_POSE}: a Delvling, a small orange lizard-folk tunneller with huge yellow eyes, a long tail, a hooded tunic and a lantern, about 1.1 m tall",
     "race-rootfolk": f"{_POSE}: a Rootfolk, a small green-skinned gardener with a broad mushroom cap for a hat, a leafy smock and a watering can, about 1.0 m tall",
     "race-stonekin": f"{_POSE}: a Stonekin, a hulking half-giant of living grey stone with massive arms and a loincloth, about 2.2 m tall",
+    # The great beasts of the legends (Tables: ashwyrm, palestalker, merething, gnashjaw, queen)
+    "cr-ashwyrm": f"{_POSE}: the Ashwyrm, a great wingless fire drake with charcoal-black scales cracked with glowing orange, a horned head and smoking jaws, about 2.6 m tall, 5 m long",
+    "cr-palestalker": f"{_POSE}: the Pale Stalker, a tall emaciated cave horror with bone-white skin, no eyes, very long fingers and a stooped back, about 2.5 m tall",
+    "cr-merething": f"{_POSE}: the Thing in the Mere, a bloated swamp monster of green-black hide, weed and tentacles with a wide toothy mouth and small glowing eyes, about 2.2 m tall",
+    "cr-gnashjaw": f"{_POSE}: Gnashjaw, a colossal armoured boar-beast with iron-grey bristles, four tusks and a scarred hide, about 2.2 m tall at the shoulder",
+    "cr-queen": f"{_POSE}: the Many-Legged Queen, a giant purple centipede queen with a raised armoured front, a crown of spines, many legs and a swollen egg-sac, about 2 m tall, 4 m long",
+})
+
+# Small items, lying where they were dropped: "it-<kind>". One sits in a quarter of a cell (about 0.4 m across);
+# the game tints those made of a material (bars, blocks, gems) by it. Furniture, tools and shields reuse the
+# building models and the dwarves' held things.
+_ITEM = "a single small low-poly game prop lying on the ground at the origin, flat colours, no base or plinth"
+MODELS.update({
+    "it-boulder": f"{_ITEM}: a rough grey boulder of raw stone, irregular and chipped, about 0.35 m across",
+    "it-log": f"{_ITEM}: a felled tree log lying on its side, bark and a pale cut end with rings, 0.5 m long, 0.15 m thick",
+    "it-block": f"{_ITEM}: a neatly cut square stone building block with chisel marks, 0.3 m cube, light grey",
+    "it-bar": f"{_ITEM}: a small stack of three trapezoid metal ingots, 0.3 m long, light grey metal",
+    "it-roughgem": f"{_ITEM}: a rough uncut gemstone in a lump of rock, crystal points poking out, 0.15 m",
+    "it-cutgem": f"{_ITEM}: a single brilliant-cut gemstone with facets, 0.1 m, lying on its side, pale",
+    "it-seed": f"{_ITEM}: a small tied cloth sack of seeds, a few seeds spilling out, 0.2 m tall",
+    "it-plant": f"{_ITEM}: a bundle of harvested plants, stalks with leaves and a few berries tied with twine, 0.35 m long",
+    "it-meal": f"{_ITEM}: a wooden bowl of hearty stew with a chunk of bread beside it, 0.25 m across",
+    "it-drink": f"{_ITEM}: a small oak keg of dwarven ale with bronze hoops and a tap, lying on a cradle, 0.35 m long",
+    "it-charcoal": f"{_ITEM}: a small heap of black charcoal lumps, 0.3 m across",
+    "it-armor": f"{_ITEM}: a dwarven metal breastplate lying on its back, broad and riveted, 0.4 m",
+    "it-helm": f"{_ITEM}: a dwarven metal helmet with a nose guard and cheek plates, lying on its side, 0.25 m",
+    "it-barrel": f"{_ITEM}: an upright oak barrel with iron hoops, 0.4 m tall",
+    "it-craft": f"{_ITEM}: a small carved stone figurine of a seated dwarf beside a little goblet, 0.2 m tall",
+    "it-mechanism": f"{_ITEM}: a dwarven clockwork mechanism of interlocking bronze gears and a lever on a small frame, 0.25 m",
+    "it-carcass": f"{_ITEM}: the carcass of a hunted goat lying on its side, legs bound, 0.6 m long",
+    "it-meat": f"{_ITEM}: a joint of raw red meat with a white bone end, 0.25 m long",
+    "it-hide": f"{_ITEM}: a folded raw animal hide, shaggy brown fur on one side, 0.4 m",
+    "it-leather": f"{_ITEM}: a rolled sheet of tanned brown leather tied with a cord, 0.35 m long",
+    "it-bone": f"{_ITEM}: a small pile of animal bones, a skull and long bones, 0.35 m across",
 })
 
 
@@ -146,7 +180,7 @@ def fetch(name, ref):
 
 
 def ask(name):
-    tris = 4000 if "3 x 3" in MODELS[name] else 2500 if name.startswith(("cr-", "race-")) else 1500
+    tris = 4000 if "3 x 3" in MODELS[name] else 2500 if name.startswith(("cr-", "race-")) else 500 if name.startswith("it-") else 1500
     r = call(f"/api/projects/{PROJECT}/generate", {"kind": "model3d", "model": "blender", "name": name,
                                                    "prompt": MODELS[name], "params": {"triangles": tris}})
     job = r.get("job") or {}

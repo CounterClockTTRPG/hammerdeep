@@ -989,7 +989,7 @@ public sealed partial class Fortress
         else
         {
             if (!BesideWater(d.Cell)) return false;
-            AddThought(d, BesideWell(d.Cell) ? "drank_well" : "drank_water");
+            AddThought(d, WaterFouled ? "foul_water" : BesideWell(d.Cell) ? "drank_well" : "drank_water");
         }
         d.Thirst = 0;
         d.Thoughts.RemoveAll(x => x.Id == "thirsty");

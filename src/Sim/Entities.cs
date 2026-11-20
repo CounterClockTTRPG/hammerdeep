@@ -239,6 +239,11 @@ public sealed class Creature
     public long NextThink;
     /// <summary>Ticks spent battering a door.</summary>
     public int Bash;
+    /// <summary>A great beast of the legends; where it lairs; when its trick is ready; steps since its last blow
+    /// (Gnashjaw's charge); for the Many-Legged Queen how many she has laid, for her young whose they are.</summary>
+    public bool Legend;
+    public int Lair = -1, Run, Brood = -1;
+    public long NextTrick;
     /// <summary>The beast has been provoked (wild animals turn on whoever came too close).</summary>
     public bool Angry;
     /// <summary>Husbandry: tame, sex, birth, hunger (grazers), trained for war; what the player has asked for.</summary>

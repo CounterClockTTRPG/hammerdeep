@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Beasts, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -684,7 +684,9 @@ public partial class SmokeTest : Node
         foreach (LogEntry e in f.Log.Where(l => l.Text.Contains("demands") || l.Text.Contains("needs a") || l.Text.Contains("mood") || l.Text.Contains("possessed") || l.Text.Contains("melancholy") || l.Text.Contains("berserk") || l.Text.Contains("mad"))) GD.Print($"    mood log {Fortress.ShortDate(e.Tick)} y{e.Tick / Tables.TicksPerYear + 1}: {e.Text}");
         foreach (int id in f.Artifacts.Where(f.Items.ContainsKey)) GD.Print($"    artifact: {f.Items[id].Label}. {f.Items[id].Description}");
         GD.Print($"    larder: {f.Items.Values.Count(i => i.Kind == ItemKind.Meat)} meat, {f.Items.Values.Count(i => i.Kind == ItemKind.Egg)} eggs, {f.Items.Values.Count(i => i.Kind == ItemKind.Leather)} leather, {f.Living.Count(d => d.Armor >= 0 && f.Items[d.Armor].M.Key == "leather")} in leather armour");
-        foreach (LogEntry e in f.Log.Where(l => l.Kind == LogKind.Alert).TakeLast(12)) GD.Print($"    alert {Fortress.ShortDate(e.Tick)}: {e.Text}");
+        GD.Print($"    deaths by cause: {string.Join(", ", f.Dwarves.Where(d => d.Dead).GroupBy(d => d.DeathCause ?? "?").OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}"))}");
+        GD.Print($"    great beasts: came {string.Join(",", f.BeastsCome)}; slain {string.Join(",", f.BeastsSlain)}; {string.Join(" / ", f.Deeds)}");
+        foreach (LogEntry e in f.Log.Where(l => l.Kind == LogKind.Alert).TakeLast(12)) GD.Print($"    alert {Fortress.ShortDate(e.Tick)} y{e.Tick / Tables.TicksPerYear + 1}: {e.Text}");
         Check(!f.Fallen, "the hold stands after three years");
     }
 

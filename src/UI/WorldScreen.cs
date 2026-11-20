@@ -398,6 +398,11 @@ public partial class WorldPanel : Overlay
         side.AddChild(UITheme.L("Neighbours", 15, UITheme.Bronze, UITheme.Title));
         foreach (var (s, days) in m.Neighbours(F.WorldX, F.WorldY).Take(10))
             side.AddChild(UITheme.L($"● {s.Name}, {WorldMap.KindName(s.Kind)}: {days} days", 13, WorldView.SiteColor(s.Kind)));
+        if (F.Deeds.Count > 0)
+        {
+            side.AddChild(UITheme.L($"Deeds of {F.Name}", 15, UITheme.Gold, UITheme.Title));
+            foreach (string deed in Enumerable.Reverse(F.Deeds)) side.AddChild(UITheme.Wrap(deed, 13, UITheme.Text, 390));
+        }
         side.AddChild(UITheme.L("Legends", 15, UITheme.Bronze, UITheme.Title));
         foreach (HistoryEvent e in m.History.TakeLast(30).Reverse())
             side.AddChild(UITheme.Wrap($"{-e.Year} years ago: {e.Text}", 12, UITheme.Dim, 390));

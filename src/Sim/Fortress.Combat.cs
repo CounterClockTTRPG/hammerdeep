@@ -38,7 +38,8 @@ public sealed partial class Fortress
 
     private Func<int, bool> Blocker(Creature c) => c.D.Bashes ? null : DoorAt;
 
-    private static string A(string name) => "aeiou".Contains(name[0]) ? "an " + name : "a " + name;
+    // A name of the legends ("the Ashwyrm", "Gnashjaw") goes as it is.
+    private static string A(string name) => name.StartsWith("the ") || (char.IsUpper(name[0]) && !name.Contains(' ')) ? name : "aeiou".Contains(name[0]) ? "an " + name : "a " + name;
 
     // ---- creatures ----------------------------------------------------------------------
 
@@ -79,7 +80,7 @@ public sealed partial class Fortress
             if (!c.D.Bashes) { c.Path = null; CStepping.Remove(c.Id); return; }
             // Batter the door down.
             c.MoveWait = 1;
-            if (++c.Bash < 160) return;
+            if (++c.Bash < (c.Def == "gnashjaw" ? 40 : 160)) return;
             c.Bash = 0;
             Building door = BuildingOn(next);
             Say($"{A(c.D.Name).ToUpperFirst()} has smashed down a door!", LogKind.Bad, next);
@@ -89,6 +90,7 @@ public sealed partial class Fortress
         int from = c.Cell;
         c.Cell = next;
         c.PathAt++;
+        c.Run++;
         CheckTrap(c);
         if (c.Dead) return;
         if (c.PathAt >= c.Path.Count - 1) { c.Path = null; CStepping.Remove(c.Id); return; }
@@ -167,6 +169,7 @@ public sealed partial class Fortress
             if (Rng.Chance(0.15)) CreatureWalk(c, FindStandable(World.Pos(c.Cell), 6), 2000);
             return;
         }
+        if (c.Legend && BeastTurn(c)) return;
         // Raiders past their time head for the edge, and leave by it.
         if (c.Raider && Tick > c.Leave)
         {
@@ -179,6 +182,7 @@ public sealed partial class Fortress
         }
         Dwarf target = c.Target >= 0 ? DwarfById(c.Target) : null;
         if (target == null || target.Dead || World.Pos(target.Cell).Dist(World.Pos(c.Cell)) > Tables.SightRange + 6) target = NearestDwarf(c.Cell, Tables.SightRange);
+        if (c.Def == "palestalker") target = Sleeper(c) ?? target;
         c.Target = target?.Id ?? -1;
         // A war beast in the way, or (for raiders) livestock to kill, may come first.
         Creature beast = BeastTarget(c, target != null ? World.Pos(target.Cell).Dist(World.Pos(c.Cell)) : Tables.SightRange + 1);
@@ -200,8 +204,8 @@ public sealed partial class Fortress
             if (c.Path == null) { c.Target = -1; c.NextThink = Tick + 60; }
             return;
         }
-        // Raiders march on the hold; beasts roam their haunts.
-        if (c.Raider && World.Pos(c.Cell).Dist(Embark) > 6) { March(c); if (c.Path != null) return; c.NextThink = Tick + 50; }
+        // Raiders and the great beasts march on the hold (the Mere's thing waits by its water); beasts roam their haunts.
+        if ((c.Raider || (c.Legend && c.Def != "merething")) && World.Pos(c.Cell).Dist(Embark) > 6) { March(c); if (c.Path != null) return; c.NextThink = Tick + 50; }
         if (Rng.Chance(0.3)) CreatureWalk(c, FindStandable(World.Pos(c.Cell), 8), 3000);
     }
 
@@ -252,7 +256,8 @@ public sealed partial class Fortress
         if (!Rng.Chance(hit)) { Gain(d, Labor.Fighting, 2); return; }
         if (Worn(d.Shield) is Item sh && Rng.Chance(sh.Rune == "warding" ? 0.4 : 0.25)) { Gain(d, Labor.Fighting, 3); return; }
         float stop = Tables.ArmorStop(Worn(d.Armor), Worn(d.Helm));
-        int dmg = Math.Max(1, (int)(c.D.Damage * (0.7 + Rng.Float() * 0.6) * (1 - stop)));
+        int dmg = Math.Max(1, (int)(c.D.Damage * (0.7 + Rng.Float() * 0.6) * (1 - stop) * (c.Legend ? BeastBlow(c, d) : 1)));
+        c.Run = 0;
         bool wasWell = !d.Wounded;
         d.Hp -= dmg;
         d.LastHurt = Tick;
@@ -289,6 +294,7 @@ public sealed partial class Fortress
         else Spawn(ItemKind.Carcass, Tables.Mi("flesh"), c.Cell).Source = c.Def;
         if (c.Claim >= 0) { Dwarf w = DwarfById(c.Claim); if (w != null && w.Task?.Item == c.Id) { Release(w); w.Task = null; } }
         if (c.D.Loot != null && Rng.Chance(c.D.LootChance)) Spawn(c.D.Loot.Value, Tables.Mi(c.D.LootMat), c.Cell);
+        if (c.Legend) BeastSlain(c, by);
         Count("kills");
         string how = by == null ? "" : weapon == null ? " with bare hands" : $" with {(weapon.Kind == ItemKind.Weapon ? "a" : "their")} {weapon.Name}";
         if (by != null)
@@ -365,6 +371,7 @@ public sealed partial class Fortress
 
     private void SeasonalDangers()
     {
+        MaybeGreatBeast();
         if (CavernFound)
         {
             int n = Rng.Range(1, 3) + Year / 2;
@@ -411,6 +418,8 @@ public sealed partial class Fortress
             P3 p = World.Pos(c.Cell);
             if (Math.Abs(p.Z - at.Z) > 1) continue;
             int dist = p.Dist(at);
+            // The Pale Stalker is not seen until it is close.
+            if (c.Def == "palestalker" && dist > 2) continue;
             if (dist < bestD) { bestD = dist; best = c; }
         }
         return best;

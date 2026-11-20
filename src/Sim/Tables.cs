@@ -102,7 +102,7 @@ public sealed class TraitDef
     public string Id, Name, Text;
 }
 
-public enum Habitat : byte { Cavern, Surface, Raider, Visitor }
+public enum Habitat : byte { Cavern, Surface, Raider, Visitor, Legend }
 
 public sealed class CreatureDef
 {
@@ -413,6 +413,9 @@ public static class Tables
         T("killed_brave", "slew a foe and loved it", 12, 4);
         T("saw_corpse", "saw a rotting corpse", -4, 1);
         T("raid_won", "saw the raiders driven off", 10, 4);
+        T("beast_dread", "dreads the great beast at the gates", -6, 3);
+        T("beast_slain", "saw a beast of legend slain", 16, 6);
+        T("foul_water", "drank water fouled by the Thing in the Mere", -6, 2);
         T("alarm", "is hiding from danger", -3, 1);
         T("laid_to_rest", "saw a friend laid to rest", 4, 3);
         T("petted", "petted an animal", 3, 1);
@@ -465,6 +468,12 @@ public static class Tables
         Cr("trader", "Mountainhome trader", Habitat.Visitor, 90, 10, 5, 1.1f, 0xb07a3a, false, "punches");
         Cr("merchant", "Lowland merchant", Habitat.Visitor, 70, 8, 3, 1f, 0x4f7fa8, false, "slaps", 1.15f);
         Cr("raider", "grimling raider", Habitat.Raider, 70, 14, 5, 1f, 0x6f8a52, true, "hacks", 1f, c => { c.Loot = ItemKind.Weapon; c.LootMat = "copper"; c.LootChance = 0.4f; });
+        // The great beasts of the legends (Fortress.Beasts): named, and each with its trick.
+        Cr("ashwyrm", "the Ashwyrm", Habitat.Legend, 700, 34, 9, 1.1f, 0x3a2a26, true, "rends", 2.4f, c => { c.Bashes = true; c.Meat = 12; c.Bones = 6; c.HasHide = true; });
+        Cr("palestalker", "the Pale Stalker", Habitat.Legend, 420, 40, 11, 0.7f, 0xd8d4cc, true, "claws", 2f, c => { c.Meat = 4; c.Bones = 4; });
+        Cr("merething", "the Thing in the Mere", Habitat.Legend, 600, 30, 8, 1.3f, 0x3c4a32, true, "drags", 2f, c => { c.Meat = 8; c.Bones = 2; c.HasHide = true; });
+        Cr("gnashjaw", "Gnashjaw", Habitat.Legend, 900, 36, 8, 0.8f, 0x6a6660, true, "gores", 2.3f, c => { c.Bashes = true; c.Meat = 14; c.Bones = 6; c.HasHide = true; });
+        Cr("queen", "the Many-Legged Queen", Habitat.Legend, 650, 26, 7, 1.2f, 0x6a3f8a, true, "stings", 2.2f, c => { c.Meat = 6; c.Bones = 0; });
         Cr("brute", "grimling brute", Habitat.Raider, 140, 24, 6, 1.15f, 0x56703f, true, "clubs", 1.35f, c => { c.Bashes = true; c.Loot = ItemKind.Armor; c.LootMat = "iron"; c.LootChance = 0.5f; });
 
         C("ironhand", "Ironhand", 0xb8513a, "Strike while it glows.", "mossbeard", Labor.Mining, Labor.Smithing, Labor.Smelting);

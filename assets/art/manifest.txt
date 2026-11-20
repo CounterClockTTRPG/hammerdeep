@@ -26,6 +26,11 @@ cr-trader    | 192 | a dwarf merchant from the Mountainhome, ochre travelling co
 cr-merchant  | 192 | a tall human merchant from the lowland towns, blue travelling coat, a feathered cap, a ledger under the arm, clean-shaven
 cr-raider    | 192 | a grimling raider: a wiry green-skinned goblin warrior in scraps of leather, a notched sword, yellow eyes, menacing
 cr-brute     | 192 | a grimling brute: a hulking dark-green goblin ogre with a spiked wooden club, crude armour plates, menacing
+cr-ashwyrm   | 224 | the Ashwyrm: a great wingless fire drake, charcoal-black scales cracked with glowing orange, horned head and smoking jaws, menacing
+cr-palestalker | 224 | the Pale Stalker: a tall emaciated eyeless cave horror with bone-white skin, very long fingers and a stooped back, menacing
+cr-merething | 224 | the Thing in the Mere: a bloated swamp monster of green-black hide, weed and tentacles, a wide toothy mouth and small glowing eyes, menacing
+cr-gnashjaw  | 224 | Gnashjaw: a colossal armoured boar-beast with iron-grey bristles, four tusks and a scarred hide, side view standing, menacing
+cr-queen     | 224 green | the Many-Legged Queen: a giant purple centipede queen with a raised armoured front, a crown of spines and a swollen egg-sac, menacing
 
 # ---- furniture (upright, one cell) ----
 furn-bed       | 128 | an empty sturdy wooden dwarven bed with a straw mattress, a wool blanket and a pillow, furniture only, no people

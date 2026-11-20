@@ -145,7 +145,7 @@ public sealed class WorldMap
     private Site Near(Site from, Func<Site, bool> pred) => Sites.Where(s => s != from && !s.Fallen && pred(s)).OrderBy(s => Math.Abs(s.X - from.X) + Math.Abs(s.Y - from.Y)).FirstOrDefault();
 
     private static readonly string[] Heroes = { "Ulfrida Stonefist", "Brannoc the Tall", "Old Mabur", "Kesk Ironjaw", "Thelda Brightaxe", "Gorm the Unlucky", "Vessa of the Wells", "Durrik Halfbeard" };
-    private static readonly string[] Beasts = { "the Ashwyrm", "the Pale Stalker", "the Thing in the Mere", "Gnashjaw", "the Many-Legged Queen" };
+    public static readonly string[] Beasts = { "the Ashwyrm", "the Pale Stalker", "the Thing in the Mere", "Gnashjaw", "the Many-Legged Queen" };
 
     private void RunHistory()
     {
