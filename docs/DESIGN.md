@@ -161,6 +161,16 @@
    Many-Legged Queen lays crawlers every 250 ticks, up to six. Slain, a beast leaves a
    masterwork trophy (the Ashwyrm's skull, Gnashjaw's tusks...), a deed in the hold's own
    legends (the World panel lists them first), and +16 for everyone in place of the dread.
+   A hold with no world around it (an old save, a hand-built map) has no tales and no beasts.
+
+16. **Weather** (`Fortress.Weather`) — each season's weather is chosen as it begins (the
+   founding Thaw is fair) and shown beside the date. Thaw: floods 25% -- every pond and
+   stream under the sky rises 2 and runs (an alert: mind the low ground). Highsun: drought
+   20% -- crops under the sky ripen at half speed and grazers get 2 a mouthful, not 7; or a
+   heatwave 15% -- each day 4% of the ale not in hand spoils. Deepfrost: a hard winter 30% --
+   water under the sky is frozen solid (no drinking there) and the grass gives nothing.
+   Leaffall is always fair. Underground, a hold hardly notices. `Peaceful` (tests) keeps
+   raids, beasts and cavern spawns from the seasons.
 
 ## The simulation
 

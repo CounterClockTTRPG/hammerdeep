@@ -369,8 +369,12 @@ public sealed partial class Fortress
         return -1;
     }
 
+    /// <summary>No raids, beasts or cavern spawns come with the seasons (tests that are about something else).</summary>
+    public bool Peaceful;
+
     private void SeasonalDangers()
     {
+        if (Peaceful) return;
         MaybeGreatBeast();
         if (CavernFound)
         {

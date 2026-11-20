@@ -439,11 +439,11 @@ public sealed partial class Fortress
         if (Tick % FluidEvery == 0) Fluids();
         long t3 = System.Diagnostics.Stopwatch.GetTimestamp();
         Timing[0] += t1 - t0; Timing[1] += t2 - t1; Timing[2] += t3 - t2;
-        if (Tick % 50 == 0) Growth();
+        if (Tick % 50 == 0) { Growth(); WeatherOnCrops(); }
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
         if (Tick % 500 == 250) { StockWarning(); SupplyWarning(); }
         if (Tick % 500 == 300) BuildWarning();
-        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); }
+        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); DailyWeather(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         else if (Tick % Tables.TicksPerSeason == Tables.TicksPerSeason - Tables.TicksPerDay * 4) CaravanWord();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
@@ -465,6 +465,7 @@ public sealed partial class Fortress
     private void NewSeason()
     {
         Say($"{Tables.Seasons[Season]} has arrived (year {Year}).", LogKind.Info);
+        NewWeather();
         SeasonalDangers();
         if (Season == 0) NewYearRites();
         if (Season is 0 or 1) Breed();

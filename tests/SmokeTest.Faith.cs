@@ -46,11 +46,12 @@ public partial class SmokeTest
     {
         Fortress f = Tiny(new[] { "############", "#@.........#", "#.@........#", "#..........#", "#..........#", "############" });
         Building temple = f.Place("temple", 7, 2, 1); temple.Built = true;
+        f.Peaceful = true;
         f.Tick = Tables.TicksPerYear - 1;
         f.Step();
         Check(f.Log.Any(l => l.Text.Contains("Feast of the Founding")), "the first Thaw of a new year brings the Feast of the Founding");
         Run(f, () => f.Dwarves.All(d => d.Thoughts.Any(t => t.Id == "feast")), 800);
-        Check(f.Dwarves.All(d => d.Thoughts.Any(t => t.Id == "feast")), "and everyone goes, and enjoys it");
+        Check(f.Dwarves.All(d => d.Thoughts.Any(t => t.Id == "feast")), $"and everyone goes, and enjoys it ({string.Join("; ", f.Dwarves.Where(d => !d.Thoughts.Any(t => t.Id == "feast")).Select(d => $"{d.FirstName}: {d.Activity}"))}; sky {f.Sky})");
     }
 
     private void Runecraft()

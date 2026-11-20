@@ -465,7 +465,7 @@ public partial class FortressScreen : Control
 
     private void RefreshHud()
     {
-        _date.Text = $"{F.Date}, {TimeOfDay()}";
+        _date.Text = $"{F.Date}, {TimeOfDay()}{(F.Sky != Weather.Fair ? $", {Fortress.WeatherName(F.Sky)}" : "")}";
         for (int k = 0; k < 4; k++) _speedButtons[k].SetPressedNoSignal(Speed == k);
         int idle = F.Living.Count(d => d.Activity == "Idle");
         bool mixed = F.Living.Any(d => d.Race is not (null or "dwarf"));

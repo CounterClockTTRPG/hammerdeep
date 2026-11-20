@@ -75,7 +75,7 @@ public sealed partial class Fortress
     private void Graze(Creature c)
     {
         c.Hunger++;
-        if (World.Has(c.Cell, CellFlag.Grass) && World.IsOutside(c.Cell)) c.Hunger = Math.Max(0, c.Hunger - (Season == 3 ? 2 : 7));
+        if (World.Has(c.Cell, CellFlag.Grass) && World.IsOutside(c.Cell)) c.Hunger = Math.Max(0, c.Hunger - GrazeGain);
         if (c.Hunger <= GrazerStarve) return;
         c.Dead = true;
         Spawn(ItemKind.Carcass, Tables.Mi("flesh"), c.Cell).Source = c.Def;

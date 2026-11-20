@@ -1005,8 +1005,8 @@ public sealed partial class Fortress
             {
                 if (!World.In(p.X + dx, p.Y + dy, p.Z)) continue;
                 int j = World.Idx(p.X + dx, p.Y + dy, p.Z);
-                if (World.WaterAt(j)) return true;
-                if (World.Shapes[j] == Shape.Empty && p.Z > 0 && World.WaterAt(j - World.W * World.H)) return true;
+                if (World.WaterAt(j) && !Frozen(j)) return true;
+                if (World.Shapes[j] == Shape.Empty && p.Z > 0 && World.WaterAt(j - World.W * World.H) && !Frozen(j - World.W * World.H)) return true;
             }
         return _anyWell && BesideWell(c);
     }
