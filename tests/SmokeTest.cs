@@ -552,7 +552,7 @@ public partial class SmokeTest : Node
             Check(dead.Count == 0, $"every clip plays on the body (not: {string.Join(", ", dead)}{(Kit.ClipTrouble.Count > 0 ? "; " + string.Join("; ", Kit.ClipTrouble) : "")})");
             Check(clips.HasAnimation("walk") && clips.HasAnimation("idle"), "at least walk and idle");
             var unskinned = new List<string>();
-            foreach (string n in names.Where(n => !n.StartsWith("clip-") && !n.StartsWith("held-") && n != "body"))
+            foreach (string n in names.Where(n => !n.StartsWith("clip-") && !n.StartsWith("held-") && !n.StartsWith("body")))
             {
                 Node3D piece = Kit.Part(n);
                 // Skinned to the skeleton, or riding a bone: either way it follows the body.
@@ -560,6 +560,17 @@ public partial class SmokeTest : Node
                 piece?.Free();
             }
             Check(unskinned.Count == 0, $"every outfit piece follows the template skeleton (not: {string.Join(", ", unskinned)})");
+            // The other peoples' and the creatures' bodies: on the template skeleton, and the clips play on them.
+            var badBodies = new List<string>();
+            foreach (string n in names.Where(n => n.StartsWith("body-")))
+            {
+                Node3D other = Kit.Part(n);
+                Skeleton3D os = other == null ? null : Kit.Find<Skeleton3D>(other);
+                AnimationLibrary oc = os == null ? null : Kit.Clips(n, os, other.GetPathTo(os).ToString());
+                if (os == null || os.FindBone("hips") < 0 || oc == null || !oc.HasAnimation("walk") || !oc.HasAnimation("strike")) badBodies.Add(n);
+                other?.Free();
+            }
+            Check(badBodies.Count == 0, $"every creature body is on the template skeleton and walks and strikes (not: {string.Join(", ", badBodies)})");
             body.Free();
             Kit.Forget();
         }

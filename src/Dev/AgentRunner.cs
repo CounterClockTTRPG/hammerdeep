@@ -61,6 +61,7 @@ public partial class AgentRunner : Node
   mood [NAME]           (debug) a strange mood for a dwarf
   happen KEY            (debug) something at the gate: bard, refugee, envoy, wanderer, rats
   beast KEY             (debug) a great beast: ashwyrm, palestalker, merething, gnashjaw, queen
+  creatures [DEF]       the creatures about (or only of one kind): where, and what they are up to
   weather KIND          (debug) the season's weather: fair, floods, drought, heat, hard
   ruin                  (debug) uncover the ancient vault and look at it
   time HOUR             (debug) set the hour of the day, 0..23 (the 3D light follows it)
@@ -284,6 +285,13 @@ public partial class AgentRunner : Node
                 if (Root.Map != null) Root.Map.Cam.Zoom = Vector2.One * Math.Clamp(float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), 0.5f, 6f);
                 await Frames(2);
                 return null;
+            case "creatures":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                var list = f.Creatures.Where(c => !c.Dead && (a.Length < 2 || c.Def == a[1])).Take(40)
+                    .Select(c => $"  {c.Def,-12} at {f.World.Pos(c.Cell)}{(c.Tame ? " tame" : "")}{(c.Raider ? " raider" : "")}{(c.Target >= 0 ? " hunting" : "")}");
+                return string.Join("\n", list);
+            }
             case "weather":
             {
                 Fortress f = Root.Fortress ?? throw new Exception("no fortress");

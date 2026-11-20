@@ -4,6 +4,7 @@ beard-1 beard-1-7f1dcf
 beard-2 beard-2-53490f
 beard-3 beard-3-630a5d
 body dwarf-base-36aca7
+body-raider body-raider-bac261
 clip-chop clip-chop-083981
 clip-death humanoid-death-8f84e5
 clip-dig dig-f1c947
@@ -24,6 +25,7 @@ cloth-legs cloth-legs-aaa1cc
 cloth-torso cloth-torso-c41657
 cloth-waist cloth-waist-56d018
 held-axe held-axe-9373c3
+held-club held-club-de0860
 held-hammer held-hammer-773d94
 held-pick held-pick-a93b97
 held-shield shield-d9f244
