@@ -60,6 +60,7 @@ public partial class Fortress
         c.NextTrick = Tick + 200;
         BeastsCome.Add(key);
         LastBeastYear = Year;
+        Cue("roar");
         Count("beasts_come");
         CreatureDef d = c.D;
         HistoryEvent old = LegendOf(key);
@@ -194,6 +195,7 @@ public partial class Fortress
     {
         BeastsSlain.Add(c.Def);
         Count("beasts_slain");
+        Cue("triumph");
         string name = c.D.Name.ToUpperFirst();
         string who = by != null ? by.Name : "the hold";
         string part = c.Def switch { "ashwyrm" => "skull", "palestalker" => "long fingers", "merething" => "eye", "gnashjaw" => "tusks", "warden" => "heartstone", _ => "crown of spines" };

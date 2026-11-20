@@ -60,6 +60,7 @@ public partial class Fortress
             {
                 AmbitionsMet.Add(clan);
                 Count("ambitions_met");
+                Cue("triumph");
                 Say($"The {Plural(c)} have what they wanted of {Name}: {AmbitionOf(clan)}. They are insufferably proud.", LogKind.Good);
                 foreach (Dwarf d in Living.Where(x => x.Clan == clan)) AddThought(d, "clan_pride");
             }
@@ -85,6 +86,7 @@ public partial class Fortress
         b.Opinion[a.Id] = Math.Max(-100, b.Opinion.GetValueOrDefault(a.Id) - 10);
         a.Activity = b.Activity = "Brawling";
         Count("brawls");
+        Cue("brawl");
         Say($"{a.Name} and {b.Name} come to blows over the old grudge between {Plural(Tables.Clan(a.Clan))} and {Plural(Tables.Clan(b.Clan))}!", LogKind.Bad, a.Cell);
     }
 

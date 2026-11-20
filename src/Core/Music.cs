@@ -17,6 +17,9 @@ public partial class Music : Node
     public const int Rate = 22050;
     public static Music Instance { get; private set; }
 
+    /// <summary>A bard wintering in the hold: the hall's lute plays twice as often, a little quicker.</summary>
+    public bool Bard;
+
     private AudioStreamPlayer _player;
     private AudioStreamGeneratorPlayback _playback;
     private MusicMood _mood = MusicMood.Title, _target = MusicMood.Title;
@@ -110,7 +113,7 @@ public partial class Music : Node
     private void OnBeat(int beat)
     {
         Spec s = _spec;
-        if (_rng.NextDouble() < s.PluckRate)
+        if (_rng.NextDouble() < s.PluckRate * (Bard && _target == MusicMood.Hall ? 1.8 : 1))
         {
             _phraseNote += _rng.Next(5) - 2;
             _phraseNote = Math.Clamp(_phraseNote, -2, 9);

@@ -384,6 +384,8 @@ public partial class SmokeTest : Node
 
     private void Musick()
     {
+        // Every cue the game raises has a sound.
+        Check(Sfx.Cues.All(Sfx.Defines), $"every cue has a sound (not: {string.Join(", ", Sfx.Cues.Where(c => !Sfx.Defines(c)))})");
         var m = new Music();
         foreach (MusicMood mood in Enum.GetValues<MusicMood>())
         {

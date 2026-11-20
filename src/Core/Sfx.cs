@@ -21,6 +21,14 @@ public partial class Sfx : Node
     {
         Instance = this;
         if (DisplayServer.GetName() == "headless") return;
+        foreach (var (k, v) in Build()) _sounds[k] = v;
+        for (int k = 0; k < 8; k++) { var p = new AudioStreamPlayer(); AddChild(p); _pool.Add(p); }
+    }
+
+    /// <summary>Every sound, synthesised (cheap: a few milliseconds).</summary>
+    private static Dictionary<string, AudioStreamWav> Build()
+    {
+        var _sounds = new Dictionary<string, AudioStreamWav>();
         _sounds["click"] = Make(0.04f, (t, i) => Env(t, 0.04f, 0.002f) * Sq(t * 1800) * 0.25f);
         _sounds["place"] = Make(0.12f, (t, i) => Env(t, 0.12f, 0.004f) * (MathF.Sin(t * MathF.Tau * 120 * (1 - t * 3)) * 0.6f + Rnd(i) * 0.15f));
         _sounds["deny"] = Make(0.18f, (t, i) => Env(t, 0.18f, 0.005f) * Sq(t * (t < 0.08f ? 220 : 165)) * 0.18f);
@@ -28,7 +36,21 @@ public partial class Sfx : Node
         _sounds["chop"] = Make(0.2f, (t, i) => Env(t, 0.2f, 0.002f) * (MathF.Sin(t * MathF.Tau * 180) * 0.5f + Rnd(i) * 0.35f * MathF.Exp(-t * 30)));
         _sounds["alert"] = Make(1.4f, (t, i) => Env(t, 1.4f, 0.005f) * (MathF.Sin(t * MathF.Tau * 523) * 0.35f + MathF.Sin(t * MathF.Tau * 784) * 0.2f + MathF.Sin(t * MathF.Tau * 1046) * 0.1f));
         _sounds["good"] = Make(0.6f, (t, i) => Env(t, 0.6f, 0.005f) * MathF.Sin(t * MathF.Tau * (t < 0.15f ? 660 : 880)) * 0.3f);
-        for (int k = 0; k < 8; k++) { var p = new AudioStreamPlayer(); AddChild(p); _pool.Add(p); }
+        // A great beast: a low growl sliding down, with breath in it.
+        _sounds["roar"] = Make(1.8f, (t, i) => Env(t, 1.8f, 0.15f) * (MathF.Sin(t * MathF.Tau * (95 - t * 30)) * 0.45f + MathF.Sin(t * MathF.Tau * (142 - t * 40)) * 0.25f * (1 + MathF.Sin(t * 40) * 0.5f) + Rnd(i) * 0.25f));
+        // Floodwater: a rushing swell of noise.
+        _sounds["flood"] = Make(2.4f, (t, i) => MathF.Sin(MathF.Min(1, t / 2.4f) * MathF.PI) * Rnd(i) * (0.3f + 0.15f * MathF.Sin(t * 9)));
+        // A noble's rage: three stamped buzzes, falling.
+        _sounds["rage"] = Make(0.9f, (t, i) => { float k = t % 0.3f; return Env(k, 0.3f, 0.005f) * Sq(t * (300 - t * 160)) * 0.16f; });
+        // A knock at the gate: two knocks on wood.
+        _sounds["gate"] = Make(0.6f, (t, i) => { float k = t < 0.25f ? t : t - 0.25f; return Env(k, 0.18f, 0.002f) * (MathF.Sin(k * MathF.Tau * 140) * 0.6f + Rnd(i) * 0.25f * MathF.Exp(-k * 40)); });
+        // A brawl: thumps.
+        _sounds["brawl"] = Make(0.5f, (t, i) => { float k = t % 0.17f; return Env(k, 0.12f, 0.002f) * (MathF.Sin(k * MathF.Tau * 90) * 0.55f + Rnd(i) * 0.3f); });
+        // A new layer broken into: one deep bell, long.
+        _sounds["deepbell"] = Make(3f, (t, i) => Env(t, 3f, 0.004f) * (MathF.Sin(t * MathF.Tau * 110) * 0.35f + MathF.Sin(t * MathF.Tau * 276) * 0.18f + MathF.Sin(t * MathF.Tau * 412) * 0.08f));
+        // A triumph: a rising triad and its octave.
+        _sounds["triumph"] = Make(1.3f, (t, i) => Env(t, 1.3f, 0.01f) * MathF.Sin(t * MathF.Tau * (t < 0.2f ? 392 : t < 0.4f ? 494 : t < 0.6f ? 587 : 784)) * 0.28f);
+        return _sounds;
     }
 
     private static float Env(float t, float len, float attack) => t < attack ? t / attack : MathF.Exp(-(t - attack) / (len * 0.3f));
@@ -47,6 +69,15 @@ public partial class Sfx : Node
         }
         return new AudioStreamWav { Data = data, Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = Rate, Stereo = false };
     }
+
+    /// <summary>Whether there is a sound by this name (the self-check: built fresh, no node needed).</summary>
+    public static bool Defines(string name) => Build().ContainsKey(name);
+
+    /// <summary>Write a sound to a .wav file (--shots music, for listening).</summary>
+    public static void Save(string name, string path) { if (Build().TryGetValue(name, out AudioStreamWav w)) w.SaveToWav(path); }
+
+    /// <summary>Every cue the game raises (Fortress.Cue), for the self-check.</summary>
+    public static readonly string[] Cues = { "roar", "flood", "rage", "gate", "brawl", "deepbell", "triumph" };
 
     public void Play(string name, float volume = 1, float pitch = 1, int minGapMs = 0)
     {
@@ -69,6 +100,8 @@ public partial class Sfx : Node
     public static void Place() => Instance?.Play("place", 0.7f);
     public static void Deny() => Instance?.Play("deny", 0.6f);
     public static void Alert() => Instance?.Play("alert", 0.6f);
+    /// <summary>A cue the game asked for (see Fortress.Cues).</summary>
+    public static void Cue(string name) => Instance?.Play(name, name is "flood" or "deepbell" ? 0.6f : 0.7f, 1, 800);
     public static void Good() => Instance?.Play("good", 0.5f, 1, 400);
     public static void Pick(float v = 0.3f) => Instance?.Play("pick", v, 0.9f + (float)GD.RandRange(0, 0.25), 90);
     public static void Chop(float v = 0.4f) => Instance?.Play("chop", v, 0.9f + (float)GD.RandRange(0, 0.2), 150);

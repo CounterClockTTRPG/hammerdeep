@@ -30,6 +30,11 @@ public partial class Fortress
 
     public static readonly string[] HappeningKeys = { "bard", "refugee", "envoy", "wanderer", "rats" };
 
+    /// <summary>Sounds the game wants played (a beast's roar, a flood, a knock at the gate...): the screen takes them.</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public readonly List<string> Cues = new();
+
+    internal void Cue(string name) { if (Cues.Count < 16) Cues.Add(name); }
+
     /// <summary>Each season from the first Highsun: perhaps something comes to the gate.</summary>
     private void MaybeHappening()
     {
@@ -91,6 +96,7 @@ public partial class Fortress
         }
         Pending = h;
         Count("happenings");
+        Cue("gate");
         Say($"{h.Title}: {h.Text}", LogKind.Alert);
         return h;
     }

@@ -439,6 +439,10 @@ public partial class FortressScreen : Control
         // The music follows the hold: battle when foes are close, the deep below the caverns, the hall otherwise.
         bool fighting = F.Creatures.Any(c => !c.Dead && (c.D.Hostile || c.Angry) && !c.Tame && F.World.Pos(c.Cell).Dist(F.Embark) < 40) && F.Living.Any(d => d.Task?.Kind is TaskKind.Fight or TaskKind.Flee);
         Music.Instance?.Play(fighting ? MusicMood.Battle : Map.Z <= F.CavernZ + 2 ? MusicMood.Deep : MusicMood.Hall);
+        if (Music.Instance != null) Music.Instance.Bard = F.BardUntil > F.Tick;
+        // The game's own cues: a beast's roar, a flood, a knock at the gate...
+        foreach (string cue in F.Cues) Sfx.Cue(cue);
+        F.Cues.Clear();
         if (F.Fallen && Overlay is not FallenPanel) Open(new FallenPanel(this));
         if (Follow != null && !Follow.Dead)
         {

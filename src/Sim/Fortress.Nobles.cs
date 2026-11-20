@@ -122,6 +122,7 @@ public partial class Fortress
             return;
         }
         Count("demands_failed");
+        Cue("rage");
         Standing["mountainhome"] = Standing.GetValueOrDefault("mountainhome") - 10;
         Say($"{TitleOf(n)} {n.FirstName} is furious: {m.Text} -- and it was not done! Everyone hears about it, and so will the Mountainhome.", LogKind.Bad, n.Cell);
         foreach (Dwarf d in Living) AddThought(d, "noble_angry");

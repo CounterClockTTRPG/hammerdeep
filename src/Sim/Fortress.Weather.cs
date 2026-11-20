@@ -43,6 +43,7 @@ public partial class Fortress
             case Weather.Floods:
                 Say("The thaw comes all at once: the streams and ponds burst their banks! Mind the low ground.", LogKind.Alert);
                 Count("floods");
+                Cue("flood");
                 Flood();
                 break;
             case Weather.Drought:

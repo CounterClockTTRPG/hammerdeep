@@ -57,6 +57,12 @@ def held(weapon, prompt):
     return {"kind": "model3d", "model": "blender", "params": {"weapon": weapon, "triangles": 600}, "prompt": prompt}
 
 
+def body(prompt):
+    """A whole figure on the skeleton template (as the dwarf base body was made), dressed as it is."""
+    return {"kind": "model3d", "model": "blender", "params": {"triangles": 4000, "rounds": 4, "role": "base"},
+            "prompt": f"{prompt}, standing in the skeleton template's rest pose"}
+
+
 # Made for this project: name -> the request (name on the server is the same).
 MAKE = {
     "body": None,  # made already: BODY
@@ -90,6 +96,17 @@ MAKE = {
     "held-pick": held("two_handed", "a dwarven mining pick: a heavy iron pick head on a stout oak haft, 1 m long"),
     "held-axe": held("two_handed", "a dwarven woodcutter's axe: a broad iron blade on a long oak haft"),
     "held-hammer": held("one_handed", "a dwarven war hammer: a squared iron head with a spike on the back, on a bronze-bound oak haft"),
+    "held-club": held("one_handed", "a grimling brute's club: a gnarled wooden log studded with stones and iron nails, crude and heavy"),
+    # Bodies for the other peoples and the humanoid creatures, on the same skeleton template, so every clip
+    # plays on them; they come dressed as they are (only dwarves wear separate outfit pieces).
+    "body-raider": body("a grimling raider: a wiry green goblin, about 1.2 m tall, big pointed ears, sharp teeth, ragged leather scraps and a belt of trophies"),
+    "body-brute": body("a grimling brute: a hulking green orc-like warrior, about 2.1 m tall, massive shoulders and arms, small head, loincloth, bone trinkets on cords"),
+    "body-merchant": body("a Lowland merchant: a tall slender human, about 1.75 m tall, long blue travelling coat, satchel across the chest, soft hat, trimmed beard"),
+    "body-delvling": body("a Delvling: a small orange lizard-folk tunneller, about 1.1 m tall, huge round yellow eyes, scaly skin, hooded tunic, a stubby tail behind"),
+    "body-rootfolk": body("a Rootfolk: a small green-skinned gardener, about 1.0 m tall, a broad mushroom cap on the head like a hat, leafy smock, bare root-like feet"),
+    "body-stonekin": body("a Stonekin: a hulking half-giant of living grey stone, about 2.2 m tall, massive arms and fists, cracked rocky skin, a hide loincloth"),
+    "body-palestalker": body("the Pale Stalker: a tall emaciated cave horror, about 2.5 m tall, bone-white skin, no eyes, very long arms and fingers, stooped"),
+    "body-warden": body("the Warden: a towering ancient guardian of carved grey marble, about 2.6 m tall, runes on its chest, massive stone fists, a blank carved face"),
 }
 # made first, by hand: name -> asset id
 MADE = {"body": BODY, "plate-head": "plate-head-7e62cf", "plate-torso": "plate-torso-6090b5", "clip-dig": "dig-f1c947"}

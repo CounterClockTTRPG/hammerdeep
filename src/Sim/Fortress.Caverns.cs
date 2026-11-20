@@ -35,6 +35,7 @@ public partial class Fortress
     {
         CavernsFound |= 1 << layer;
         if (layer == 0) CavernFound = true;
+        Cue("deepbell");
         Count("layers_found");
         switch (layer)
         {
@@ -87,6 +88,7 @@ public partial class Fortress
     private void Wakes(Creature c, Dwarf by)
     {
         c.Angry = true;
+        Cue("roar");
         Say($"The Warden wakes! Stone grinds on stone as it rises to guard the vault against {by.FirstName}.", LogKind.Alert, c.Cell);
     }
 }
