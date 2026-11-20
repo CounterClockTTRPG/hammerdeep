@@ -174,7 +174,9 @@
   x1.15; +8% a quality level) x (1 + 4% per Fighting level). Armour stops 35% (breastplate)
   and 10% (helm), shields block a quarter of blows. Health 100; regain 1 per 30 ticks, per 6
   asleep. Soldiers on duty drill (+1 xp every 40 ticks). Raids: 30% + wealth/20000 + 10% a
-  year (at most 85%) each season from the first autumn; 2-4 + wealth/4000 + 2 a year strong,
-  a brute in every four; they leave after two and a half days.
+  year (at most 90%, times the raid pressure of warrens nearby) each season from the first
+  autumn; 2-4 + wealth/5000 + 2 a year strong, but never more than 2 + half the living dwarves
+  (a hold bled thin is picked over, not wiped out); a brute in every four; they leave after
+  two and a half days.
 - **Migrants.** Each new season: 1-3, plus one per 4000 wealth (up to 12), plus 2 while the
   hold is under ten; they walk in from the map edge.

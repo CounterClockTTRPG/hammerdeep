@@ -400,7 +400,9 @@ public sealed class Overseer
                 _refuse = true;
             }
         }
-        int want = F.Alive >= 8 ? Math.Min(10, Math.Max(3, F.Alive / 5)) : 0;
+        // About a quarter of the hold under arms: raids grow with the years, and a squad of three that never
+        // grew was what lost the overseer's holds in their third year.
+        int want = F.Alive >= 8 ? Math.Min(12, Math.Max(3, F.Alive / 4)) : 0;
         if (want > 0)
         {
             Squad s = F.Squads.FirstOrDefault();
