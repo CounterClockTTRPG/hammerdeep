@@ -543,10 +543,11 @@ public partial class SmokeTest : Node
             foreach (string n in names.Where(n => !n.StartsWith("clip-") && !n.StartsWith("held-") && n != "body"))
             {
                 Node3D piece = Kit.Part(n);
-                if (piece == null || !piece.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>().Any(m => m.Skin != null)) unskinned.Add(n);
+                // Skinned to the skeleton, or riding a bone: either way it follows the body.
+                if (piece == null || !piece.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>().Any(m => m.Skin != null || m.GetParent() is BoneAttachment3D || m.GetParent()?.GetParent() is BoneAttachment3D)) unskinned.Add(n);
                 piece?.Free();
             }
-            Check(unskinned.Count == 0, $"every outfit piece is skinned to the template (not: {string.Join(", ", unskinned)})");
+            Check(unskinned.Count == 0, $"every outfit piece follows the template skeleton (not: {string.Join(", ", unskinned)})");
             body.Free();
             Kit.Forget();
         }

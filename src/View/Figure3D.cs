@@ -204,7 +204,23 @@ public partial class Figure3D : Node3D
         Skeleton3D theirs = Kit.Find<Skeleton3D>(part);
         foreach (MeshInstance3D mi in part.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>().ToList())
         {
-            if (mi.Skin == null || theirs == null) continue;
+            if (mi.Skin == null)
+            {
+                // A rigid part riding a bone (beard rings, a moustache, a helm's crest): on our bone, where it sat on theirs.
+                BoneAttachment3D on = Ancestor<BoneAttachment3D>(mi);
+                if (on == null || _skel.FindBone(on.BoneName) < 0) continue;
+                Transform3D rel = Transform3D.Identity;
+                for (Node n = mi; n != on; n = n.GetParent()) if (n is Node3D n3) rel = n3.Transform * rel;
+                var at = new BoneAttachment3D { BoneName = on.BoneName };
+                _skel.AddChild(at);
+                mi.GetParent().RemoveChild(mi);
+                at.AddChild(mi);
+                mi.Transform = rel;
+                Tint(mi, tint);
+                _worn.Add(at);
+                continue;
+            }
+            if (theirs == null) continue;
             var skin = (Skin)mi.Skin.Duplicate();
             for (int b = 0; b < skin.GetBindCount(); b++)
             {
@@ -222,6 +238,12 @@ public partial class Figure3D : Node3D
             _worn.Add(mi);
         }
         part.Free();
+    }
+
+    private static T Ancestor<T>(Node n) where T : Node
+    {
+        for (Node p = n.GetParent(); p != null; p = p.GetParent()) if (p is T t) return t;
+        return null;
     }
 
     private void Hold(string what, string socket, Color tint)
