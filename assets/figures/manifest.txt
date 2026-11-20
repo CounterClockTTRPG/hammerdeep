@@ -7,8 +7,10 @@ body dwarf-base-36aca7
 body-brute body-brute-3c9f31
 body-delvling body-delvling-644b01
 body-merchant body-merchant-933b30
+body-palestalker body-palestalker-849b44
 body-raider body-raider-bac261
 body-rootfolk body-rootfolk-3c14bf
+body-stonekin body-stonekin-480c2f
 clip-chop clip-chop-083981
 clip-death humanoid-death-8f84e5
 clip-dig dig-f1c947
