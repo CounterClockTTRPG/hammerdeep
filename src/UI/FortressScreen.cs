@@ -724,9 +724,12 @@ public partial class FortressScreen : Control
         {
             Tool.Farm => i => F.Farmable(i, F.World.IsOutside(i) ? sky : dark),
             Tool.Pasture => i => F.World.Has(i, CellFlag.Grass) && F.World.IsOutside(i),
+            // Felling and gathering show which trees and plants the box will take.
+            Tool.Chop => i => F.World.CanDesignate(i, Desig.Chop) && F.World.Desigs[i] != Desig.Chop,
+            Tool.Gather => i => F.World.CanDesignate(i, Desig.Gather) && F.World.Desigs[i] != Desig.Gather,
             _ => null,
         };
-        Map.BoxUsableName = Tool == Tool.Farm ? "soil" : "grass";
+        Map.BoxUsableName = Tool switch { Tool.Farm => "soil", Tool.Chop => "trees", Tool.Gather => "plants", _ => "grass" };
     }
 
     private void Click(InputEventMouseButton mb)

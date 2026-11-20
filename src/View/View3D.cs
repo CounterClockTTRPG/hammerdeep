@@ -351,7 +351,19 @@ public partial class View3D : Node3D
                 Ramp(g, x, y, z, fc);
                 break;
             case Shape.StairUp or Shape.StairDown or Shape.StairUD:
-                g.Quad(new(x, fy, y), new(x + 1, fy, y), new(x + 1, fy, y + 1), new(x, fy, y + 1), Vector3.Up, s == Shape.StairUp ? fc : fc * 0.45f);
+                // A stair that goes down is a hole: no floor over it, only a dark lip round its edge, so the
+                // steps of the stair beneath show through (a darkened floor hid them -- it looked like a stain).
+                bool down = s != Shape.StairUp && z > 0 && !Solid(x, y, z - 1);
+                if (!down) g.Quad(new(x, fy, y), new(x + 1, fy, y), new(x + 1, fy, y + 1), new(x, fy, y + 1), Vector3.Up, fc);
+                else
+                {
+                    Color lip = fc * 0.5f;
+                    const float w = 0.09f;
+                    g.Quad(new(x, fy, y), new(x + 1, fy, y), new(x + 1, fy, y + w), new(x, fy, y + w), Vector3.Up, lip);
+                    g.Quad(new(x, fy, y + 1 - w), new(x + 1, fy, y + 1 - w), new(x + 1, fy, y + 1), new(x, fy, y + 1), Vector3.Up, lip);
+                    g.Quad(new(x, fy, y + w), new(x + w, fy, y + w), new(x + w, fy, y + 1 - w), new(x, fy, y + 1 - w), Vector3.Up, lip);
+                    g.Quad(new(x + 1 - w, fy, y + w), new(x + 1, fy, y + w), new(x + 1, fy, y + 1 - w), new(x + 1 - w, fy, y + 1 - w), Vector3.Up, lip);
+                }
                 Color st = Col(m.Color, 0.9f * dim);
                 if (s != Shape.StairDown)
                     for (int k = 0; k < 3; k++) g.Box(new(x + 0.15f, z, y + 0.15f + k * 0.23f), new(x + 0.85f, z + 0.2f + k * 0.2f, y + 0.38f + k * 0.23f), st, st * 0.8f);
@@ -744,7 +756,14 @@ public partial class View3D : Node3D
             if (Map.BoxUsable != null && W.In(a))
                 for (int yy = Math.Min(a.Y, b.Y); yy <= Math.Max(a.Y, b.Y); yy++)
                     for (int xx = Math.Min(a.X, b.X); xx <= Math.Max(a.X, b.X); xx++)
-                        if (W.In(xx, yy, a.Z) && Map.BoxUsable(W.Idx(xx, yy, a.Z))) Flat(xx + 0.3f, yy + 0.3f, xx + 0.7f, yy + 0.7f, y + 0.01f, new Color(0.45f, 0.9f, 0.4f, 0.8f));
+                    {
+                        if (!W.In(xx, yy, a.Z) || !Map.BoxUsable(W.Idx(xx, yy, a.Z))) continue;
+                        int ci = W.Idx(xx, yy, a.Z);
+                        // A tree's mark above its crown, a plant's at its top: under them it would not be seen.
+                        float my = W.Shapes[ci] == Shape.Tree ? a.Z + TreeHeight(xx, yy, a.Z) * 1.25f + 0.05f
+                            : W.Has(ci, CellFlag.Shrub) ? a.Z + 0.43f : y + 0.01f;
+                        Flat(xx + 0.3f, yy + 0.3f, xx + 0.7f, yy + 0.7f, my, new Color(0.45f, 0.9f, 0.4f, 0.85f));
+                    }
         }
         if (Map.Hover is P3 h && W.In(h))
         {
