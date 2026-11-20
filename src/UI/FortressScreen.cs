@@ -30,6 +30,7 @@ public partial class FortressScreen : Control
     private int _shownZ = -1;
     public string BuildDef;
     private P3? _dragFrom;
+    private P3 _dragTo;
     private bool _panning, _orbiting;
     private Vector2? _rightFrom;
     private readonly HashSet<Key> _held = new();
@@ -396,6 +397,14 @@ public partial class FortressScreen : Control
     {
         if (F == null) return;
         Pan(delta);
+        // A box whose release never reached the map (let go over a panel or the toolbar, or outside the
+        // window) would otherwise hang on the cursor: finish it where it was last aimed, as a release would.
+        if (_dragFrom is P3 from && !Input.IsMouseButtonPressed(MouseButton.Left))
+        {
+            _dragFrom = null;
+            Map.Box = null;
+            if (BoxTool) ApplyBox(from, _dragTo);
+        }
         if (AgentRunner.Running && !Paused && !F.Fallen)
         {
             _acc += delta * BaseTps * Speeds[Speed];
@@ -707,6 +716,7 @@ public partial class FortressScreen : Control
     private void UpdateDrag(Vector2 screen)
     {
         P3 c = Aim(screen);
+        _dragTo = c;
         Map.Box = (_dragFrom.Value, c);
         // Farms and pastures show, as the box is drawn, which cells will take them.
         Mat sky = Tool == Tool.Farm ? Tables.M(F.DefaultCrop(true)) : null, dark = Tool == Tool.Farm ? Tables.M(F.DefaultCrop(false)) : null;
@@ -725,7 +735,13 @@ public partial class FortressScreen : Control
         if (BoxTool)
         {
             if (mb.Pressed) { _dragFrom = c; UpdateDrag(mb.Position); }
-            else if (_dragFrom != null) { ApplyBox(_dragFrom.Value, c); _dragFrom = null; Map.Box = null; }
+            else if (_dragFrom is P3 from)
+            {
+                // Close the box first: whatever applying it does, it must not stay hanging on the cursor.
+                _dragFrom = null;
+                Map.Box = null;
+                ApplyBox(from, c);
+            }
             return;
         }
         if (!mb.Pressed) return;
@@ -755,6 +771,11 @@ public partial class FortressScreen : Control
 
     private void ApplyBox(P3 a, P3 b)
     {
+        // A box let go past the map's edge (or over the sky in 3D) ends at the edge.
+        World w = F.World;
+        P3 Clamp(P3 p) => new(Math.Clamp(p.X, 0, w.W - 1), Math.Clamp(p.Y, 0, w.H - 1), Math.Clamp(p.Z, 0, w.D - 1));
+        a = Clamp(a);
+        b = Clamp(b);
         Desig? g = Tool switch
         {
             Tool.Dig => Desig.Dig, Tool.Channel => Desig.Channel, Tool.StairUD => Desig.StairUD, Tool.StairDown => Desig.StairDown,
