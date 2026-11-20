@@ -17,6 +17,9 @@ furnace furnace-eafdf0
 kitchen kitchen-a84c2a
 leatherworks leatherworks-039c94
 mason mason-3e2437
+mforge mforge-8cc6ea
+msmelter msmelter-5f2c0b
+runeforge runeforge-01049e
 shrine shrine-58a982
 smelter smelter-df3ddf
 statue statue-a0d418
