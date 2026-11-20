@@ -1,15 +1,36 @@
 # Hammerdeep 3D figure parts: name, assetgen asset id (see scripts/figures.py).
 # All on the humanoid skeleton template; the .glb beside each is that asset's current version.
+beard-1 beard-1-7f1dcf
+beard-2 beard-2-53490f
+beard-3 beard-3-630a5d
 body dwarf-base-36aca7
+clip-chop clip-chop-083981
 clip-death humanoid-death-8f84e5
 clip-dig dig-f1c947
+clip-eat clip-eat-1f1c29
+clip-hammer clip-hammer-46b28e
 clip-idle humanoid-idle-67068c
 clip-pickup humanoid-pick-up-909547
+clip-pray clip-pray-6ccf46
 clip-run humanoid-run-3c127a
 clip-sleep humanoid-lie-down-c76ed7
 clip-strike humanoid-1h-slash-ed1940
+clip-tantrum clip-tantrum-12616e
 clip-walk humanoid-walk-0fe012
+cloth-arms cloth-arms-7afa6f
+cloth-back cloth-back-62493b
+cloth-feet cloth-feet-c5d6f9
+cloth-legs cloth-legs-aaa1cc
+cloth-torso cloth-torso-c41657
+cloth-waist cloth-waist-56d018
+held-axe held-axe-9373c3
+held-hammer held-hammer-773d94
+held-pick held-pick-a93b97
 held-shield shield-d9f244
 held-sword sword-26d5a9
+leather-arms leather-arms-b57527
+leather-head leather-head-ca411a
+leather-torso leather-torso-4c0569
+plate-arms plate-arms-48b46c
 plate-head plate-head-7e62cf
 plate-torso plate-torso-6090b5
