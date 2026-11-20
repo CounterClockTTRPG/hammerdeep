@@ -1,74 +1,162 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
 namespace Hammerdeep;
 
 /// <summary>
-/// The title: a mountain in cross-section by night, its halls lit within,
-/// and the three fortress slots -- continue one, or found a new hold.
+/// The title: one mountain by night, cut open. The three fortress slots are three halls at
+/// three depths on its stair shaft -- a hold you are playing is dug out and lit, its own clans
+/// at work in it; an empty slot is still rock with a surveyor's chalk outline; a fallen hold is
+/// a cold hall of coffins. Strata, ore, a cavern and a magma seam fill the rest of the cut.
 /// </summary>
 public partial class TitleScreen : Control
 {
     public Root Root;
-    private VBoxContainer _slots;
     private Control _dialog;
     private float _t;
     private readonly Rng _rng = new((ulong)DateTime.Now.Ticks);
+    private UITheme.Drawn _bg;
+    private VBoxContainer _halls;
+    private readonly List<Hall> _hallInfo = new();
+    private int _hover = -1;
+
+    // The cut-away's colours: night, the strata, firelight; the text keeps the game's own palette.
+    private static readonly Color SkyTop = new(0.043f, 0.063f, 0.125f), SkyLow = new(0.10f, 0.094f, 0.19f);
+    private static readonly Color Soil = new(0.23f, 0.17f, 0.13f), RockA = new(0.165f, 0.145f, 0.14f), RockB = new(0.19f, 0.165f, 0.153f);
+    private static readonly Color Bedrock = new(0.085f, 0.075f, 0.075f);
+    private static readonly Color Fire = new(0.91f, 0.54f, 0.23f), Chalk = new(0.73f, 0.70f, 0.65f);
+
+    private const float HallX = 90, HallW = 780, HallH = 132, HallGap = 22, HallTop = 296;
+
+    /// <summary>What a slot holds, for drawing its hall.</summary>
+    private sealed class Hall
+    {
+        public Control Box;
+        public bool Dug, Fallen;
+        public string[] Clans = Array.Empty<string>();
+        public int Folk;
+    }
 
     public override void _Ready()
     {
         FortressScreen.Anchor(this, 0, 0, 1, 1, 0, 0, 0, 0);
         Theme = UITheme.Theme;
-        var bg = new UITheme.Drawn { OnDraw = DrawBackdrop, MouseFilter = MouseFilterEnum.Ignore };
-        AddChild(bg);
-        FortressScreen.Anchor(bg, 0, 0, 1, 1, 0, 0, 0, 0);
-        var col = UITheme.V(10);
-        col.CustomMinimumSize = new Vector2(560, 0);
-        AddChild(col);
-        FortressScreen.Anchor(col, 0, 0.5f, 0, 0.5f, 90, -300, 650, 300);
-        col.AddChild(UITheme.L("HAMMERDEEP", 72, UITheme.Gold, UITheme.Title));
-        col.AddChild(UITheme.L("Dig. Build. Brew. Endure the deep.", 20, UITheme.Text, UITheme.Body));
-        col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 18) });
-        _slots = UITheme.V(8);
-        col.AddChild(_slots);
-        col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
-        HBoxContainer row = UITheme.H(8);
-        var sound = new CheckBox { Text = "Sound", ButtonPressed = Profile.Current.Sound, FocusMode = FocusModeEnum.None };
-        sound.Toggled += on => { Profile.Current.Sound = on; Profile.Current.Apply(); Profile.Current.Save(); };
-        row.AddChild(sound);
-        var music = new CheckBox { Text = "Music", ButtonPressed = Profile.Current.MusicOn, FocusMode = FocusModeEnum.None };
-        music.Toggled += on => { Profile.Current.MusicOn = on; Music.Instance?.SetVolume(Profile.Current.MusicVolume, on); Profile.Current.Save(); };
-        row.AddChild(music);
-        var art = new CheckBox { Text = "Painted art", ButtonPressed = Profile.Current.PaintedArt, FocusMode = FocusModeEnum.None, TooltipText = "Painted figures, creatures and buildings. Off: the original look, drawn by the game itself." };
-        art.Toggled += on => { Profile.Current.PaintedArt = on; Profile.Current.Save(); };
-        row.AddChild(art);
-        var full = new CheckBox { Text = "Full screen (F11)", ButtonPressed = Profile.Current.Fullscreen, FocusMode = FocusModeEnum.None };
-        full.Toggled += on => { Profile.Current.Fullscreen = on; Profile.Current.Apply(); Profile.Current.Save(); };
-        row.AddChild(full);
+        _bg = new UITheme.Drawn { OnDraw = DrawBackdrop, MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(_bg);
+        FortressScreen.Anchor(_bg, 0, 0, 1, 1, 0, 0, 0, 0);
+
+        Label title = UITheme.L("HAMMERDEEP", 92, UITheme.Gold, UITheme.Title);
+        // Cut into the night: a dark lower lip under the gilt.
+        title.AddThemeColorOverride("font_shadow_color", new Color(0.02f, 0.015f, 0.01f, 0.85f));
+        title.AddThemeConstantOverride("shadow_offset_x", 0);
+        title.AddThemeConstantOverride("shadow_offset_y", 4);
+        AddChild(title);
+        FortressScreen.Anchor(title, 0, 0, 0, 0, HallX - 6, 58, HallX + 900, 170);
+        Label tag = UITheme.L("Seven dwarves, one wagon, and a mountain nobody asked.", 20, UITheme.Text, UITheme.Body);
+        AddChild(tag);
+        FortressScreen.Anchor(tag, 0, 0, 0, 0, HallX, 168, HallX + 900, 200);
+
+        _halls = UITheme.V((int)HallGap);
+        AddChild(_halls);
+        FortressScreen.Anchor(_halls, 0, 0, 0, 0, HallX, HallTop, HallX + HallW, HallTop + 3 * HallH + 2 * HallGap);
+
+        // The settings lie quietly on the bedrock.
+        HBoxContainer row = UITheme.H(18);
+        row.AddChild(Toggle("Sound", Profile.Current.Sound, on => { Profile.Current.Sound = on; Profile.Current.Apply(); Profile.Current.Save(); }));
+        row.AddChild(Toggle("Music", Profile.Current.MusicOn, on => { Profile.Current.MusicOn = on; Music.Instance?.SetVolume(Profile.Current.MusicVolume, on); Profile.Current.Save(); }));
+        row.AddChild(Toggle("Painted art", Profile.Current.PaintedArt, on => { Profile.Current.PaintedArt = on; Profile.Current.Save(); }, "Painted figures, creatures and buildings. Off: the original look, drawn by the game itself."));
+        row.AddChild(Toggle("Full screen (F11)", Profile.Current.Fullscreen, on => { Profile.Current.Fullscreen = on; Profile.Current.Apply(); Profile.Current.Save(); }));
+        row.AddChild(new Control { CustomMinimumSize = new Vector2(12, 0) });
         row.AddChild(UITheme.B("Quit", () => GetTree().Quit(), 15));
-        col.AddChild(row);
+        AddChild(row);
+        FortressScreen.Anchor(row, 0, 1, 0, 1, HallX, -62, HallX + 760, -26);
         FillSlots();
+    }
+
+    private static CheckBox Toggle(string text, bool on, Action<bool> set, string tip = null)
+    {
+        var c = new CheckBox { Text = text, ButtonPressed = on, FocusMode = FocusModeEnum.None, TooltipText = tip ?? "" };
+        c.AddThemeColorOverride("font_color", UITheme.Dim);
+        c.AddThemeColorOverride("font_pressed_color", UITheme.Dim);
+        c.Toggled += v => set(v);
+        return c;
     }
 
     private void FillSlots()
     {
-        foreach (Node n in _slots.GetChildren()) n.QueueFree();
+        foreach (Node n in _halls.GetChildren()) n.QueueFree();
+        _hallInfo.Clear();
         for (int slot = 1; slot <= 3; slot++)
         {
             int s = slot;
-            string peek = Profile.Peek(slot, out bool fallen);
-            var v = UITheme.V(4);
-            var panel = UITheme.Panel(v);
-            v.AddChild(UITheme.L($"Slot {slot}", 13, UITheme.Bronze, UITheme.Title));
-            v.AddChild(UITheme.L(peek ?? "An unclaimed mountain.", 17, peek == null ? UITheme.Faint : fallen ? UITheme.Ember : UITheme.Text));
-            HBoxContainer h = UITheme.H(6);
-            if (peek != null && !fallen) h.AddChild(UITheme.B("Continue", () => Root.Continue(s), 16));
-            h.AddChild(UITheme.B(peek == null ? "Found a fortress" : "Found anew (overwrites)", () => Root.ShowWorld(s), 16));
-            if (peek != null) h.AddChild(UITheme.B("Abandon", () => { Profile.DeleteSlot(s); FillSlots(); }, 14));
+            Fortress f = Profile.LoadFortress(slot);
+            var hall = new Hall
+            {
+                Dug = f != null,
+                Fallen = f?.Fallen ?? false,
+                Folk = f?.Alive ?? 0,
+                Clans = f == null ? Array.Empty<string>() : f.Dwarves.Where(d => !d.Dead).Select(d => d.Clan).Distinct().Take(4).ToArray(),
+            };
+            var box = new Control { CustomMinimumSize = new Vector2(HallW, HallH), MouseFilter = MouseFilterEnum.Pass };
+            int idx = slot - 1;
+            box.MouseEntered += () => _hover = idx;
+            box.MouseExited += () => { if (_hover == idx) _hover = -1; };
+            hall.Box = box;
+            var v = UITheme.V(2);
+            box.AddChild(v);
+            FortressScreen.Anchor(v, 0, 0, 0, 1, 26, 16, 520, -14);
+
+            if (f == null)
+            {
+                v.AddChild(UITheme.L("Unbroken rock", 28, Chalk.Darkened(0.15f), UITheme.Title));
+                v.AddChild(UITheme.L("Nothing is dug here yet.", 16, UITheme.Dim));
+            }
+            else if (hall.Fallen)
+            {
+                v.AddChild(UITheme.L(f.Name, 28, UITheme.Ember, UITheme.Title));
+                int lie = f.Dwarves.Count;
+                v.AddChild(UITheme.L($"Fallen by {f.Date}. {lie} {(lie == 1 ? "dwarf lies" : "dwarves lie")} here.", 16, UITheme.Dim));
+            }
+            else
+            {
+                v.AddChild(UITheme.L(f.Name, 28, UITheme.Gold, UITheme.Title));
+                v.AddChild(UITheme.L($"{f.Alive} {(f.Alive == 1 ? "dwarf" : "dwarves")}. {f.Date}.", 16, UITheme.Text));
+            }
+            v.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+
+            HBoxContainer h = UITheme.H(8);
+            if (f != null && !hall.Fallen) h.AddChild(Primary(UITheme.B("Continue", () => Root.Continue(s), 16)));
+            if (f == null) h.AddChild(Primary(UITheme.B("Found a fortress", () => Root.ShowWorld(s), 16)));
+            else h.AddChild(UITheme.B("Found anew", () => Root.ShowWorld(s), 15, "Founds a new fortress in this slot. The one here is lost for good."));
+            if (f != null)
+            {
+                Button ab = null;
+                ab = UITheme.B("Abandon", () =>
+                {
+                    // Ironman: one click to ask, a second to do it.
+                    if (ab.Text == "Abandon") { ab.Text = "Abandon for good?"; ab.AddThemeColorOverride("font_color", UITheme.Ember); return; }
+                    Profile.DeleteSlot(s);
+                    FillSlots();
+                }, 14);
+                ab.MouseExited += () => { ab.Text = "Abandon"; ab.RemoveThemeColorOverride("font_color"); };
+                h.AddChild(ab);
+            }
             v.AddChild(h);
-            _slots.AddChild(panel);
+            _halls.AddChild(box);
+            _hallInfo.Add(hall);
         }
+    }
+
+    /// <summary>The slot's main action: lit like a brazier.</summary>
+    private static Button Primary(Button b)
+    {
+        b.AddThemeStyleboxOverride("normal", UITheme.Box(new Color(0.30f, 0.17f, 0.07f), UITheme.Bronze, 1, 3, 12));
+        b.AddThemeStyleboxOverride("hover", UITheme.Box(new Color(0.42f, 0.24f, 0.09f), UITheme.Gold, 1, 3, 12));
+        b.AddThemeStyleboxOverride("pressed", UITheme.Box(new Color(0.52f, 0.30f, 0.11f), UITheme.Gold, 1, 3, 12));
+        b.AddThemeColorOverride("font_color", UITheme.Gold);
+        return b;
     }
 
     private void AskName(int slot)
@@ -109,79 +197,239 @@ public partial class TitleScreen : Control
     public override void _Process(double delta)
     {
         _t += (float)delta;
-        foreach (Node n in GetChildren()) if (n is UITheme.Drawn d) d.QueueRedraw();
+        _bg.QueueRedraw();
     }
 
-    /// <summary>Night sky, a mountain cut open: strata, a stair shaft, halls by firelight.</summary>
+    // ---- the cut-away -------------------------------------------------------------------
+
+    /// <summary>The mountain's skyline: a low shoulder under the title and the halls, then a peak on the right.</summary>
+    private static float Ridge(float x, Vector2 size)
+    {
+        float rise = HallX + HallW + 130, peak = MathF.Max(rise + 280, size.X * 0.8f);
+        float y;
+        if (x <= rise) y = 240 - 14 * (x / rise);
+        else if (x <= peak) y = 226 - 156 * Mathf.SmoothStep(0, 1, (x - rise) / (peak - rise));
+        else y = 70 + 110 * Mathf.SmoothStep(0, 1, (x - peak) / MathF.Max(1, size.X - peak));
+        return y + Noise.Fbm2(x / 70f, 0, 77) * 22 - 11;
+    }
+
     private void DrawBackdrop(UITheme.Drawn c)
     {
         Vector2 size = c.Size;
-        int bands = 40;
-        for (int i = 0; i < bands; i++)
+        // Sky.
+        for (int i = 0; i < 30; i++)
         {
-            float t = i / (float)bands;
-            c.DrawRect(new Rect2(0, size.Y * t, size.X, size.Y / bands + 1), new Color(0.05f, 0.06f, 0.11f).Lerp(new Color(0.16f, 0.11f, 0.12f), t));
+            float t = i / 30f;
+            c.DrawRect(new Rect2(0, size.Y * 0.4f * t, size.X, size.Y * 0.4f / 30 + 1), SkyTop.Lerp(SkyLow, t));
         }
-        for (int i = 0; i < 90; i++)
+        for (int i = 0; i < 110; i++)
         {
-            float x = Noise.Hash01(i, 0, 0, 5) * size.X, y = Noise.Hash01(i, 1, 0, 5) * size.Y * 0.45f;
-            float tw = 0.5f + 0.5f * MathF.Sin(_t * (1 + i % 3) + i);
-            c.DrawCircle(new Vector2(x, y), 1 + (i % 4 == 0 ? 0.6f : 0), new Color(1, 0.95f, 0.85f, 0.35f + 0.4f * tw));
+            float x = Noise.Hash01(i, 0, 0, 5) * size.X, y = Noise.Hash01(i, 1, 0, 5) * 260;
+            if (y > Ridge(x, size) - 6) continue;
+            float tw = 0.5f + 0.5f * MathF.Sin(_t * (0.6f + i % 3 * 0.4f) + i);
+            c.DrawCircle(new Vector2(x, y), i % 7 == 0 ? 1.5f : 1f, new Color(1, 0.95f, 0.85f, 0.25f + 0.45f * tw));
         }
-        // The mountain: a ridge from fBm, peaking right of centre.
-        float baseY = size.Y * 0.98f;
-        var ridge = new System.Collections.Generic.List<Vector2>();
-        for (int k = 0; k <= 80; k++)
+
+        // The mountain in bands: topsoil, then the strata, each following the skyline down.
+        const int steps = 96;
+        float[] xs = new float[steps + 1];
+        for (int k = 0; k <= steps; k++) xs[k] = k / (float)steps * size.X;
+        float Band(int b, float x) => b == 0 ? Ridge(x, size) : Ridge(x, size) + 34 + (b - 1) * 78 + MathF.Sin(x / 170f + b * 1.7f) * 14 + Noise.Fbm2(x / 120f, b, 31) * 10;
+        int bands = (int)(size.Y / 78) + 3;
+        for (int b = 0; b < bands; b++)
         {
-            float x = k / 80f * size.X;
-            float u = (x - size.X * 0.68f) / (size.X * 0.42f);
-            float h = MathF.Max(0, 1 - u * u) * size.Y * 0.62f + Noise.Fbm2(k / 9f, 0, 77) * 60 - 30;
-            ridge.Add(new Vector2(x, size.Y * 0.88f - MathF.Max(0, h)));
+            var poly = new Vector2[2 * (steps + 1)];
+            for (int k = 0; k <= steps; k++)
+            {
+                poly[k] = new Vector2(xs[k], Band(b, xs[k]));
+                poly[2 * steps + 1 - k] = new Vector2(xs[k], b + 1 < bands ? Band(b + 1, xs[k]) + 1 : size.Y + 2);
+            }
+            Color fill = b == 0 ? Soil : (b % 2 == 0 ? RockA : RockB);
+            fill = fill.Lerp(Bedrock, Mathf.Clamp((b - 2) / (float)bands, 0, 0.7f));
+            c.DrawColoredPolygon(poly, fill);
         }
-        var poly = new System.Collections.Generic.List<Vector2>(ridge) { new(size.X, baseY + 10), new(0, baseY + 10) };
-        c.DrawColoredPolygon(poly.ToArray(), new Color(0.14f, 0.12f, 0.12f));
-        // Strata.
-        for (int s = 1; s < 7; s++)
+        // Grass and snow along the skyline.
+        var sky = xs.Select(x => new Vector2(x, Ridge(x, size))).ToArray();
+        c.DrawPolyline(sky, new Color(0.28f, 0.36f, 0.2f), 3);
+        Vector2[] snow = sky.Where(p => p.Y < 125).ToArray();
+        if (snow.Length >= 2) c.DrawPolyline(snow, new Color(0.86f, 0.89f, 0.93f), 5);
+
+        // Ore and gems in the rock right of the shaft, catching the light now and then.
+        float shaftX = HallX + HallW + 64;
+        for (int i = 0; i < 46; i++)
         {
-            var line = ridge.Select(p => new Vector2(p.X, p.Y + s * 55 + MathF.Sin(p.X / 140 + s) * 10)).ToArray();
-            c.DrawPolyline(line, new Color(0.26f, 0.22f, 0.2f, 0.5f), 2);
+            float x = shaftX + 60 + Noise.Hash01(i, 3, 0, 11) * (size.X - shaftX - 80);
+            float y = Ridge(x, size) + 70 + Noise.Hash01(i, 4, 0, 11) * (size.Y - Ridge(x, size) - 160);
+            bool gem = i % 5 == 0;
+            Color col = gem ? new Color(0.45f, 0.8f, 0.78f) : new Color(0.85f, 0.68f, 0.3f);
+            float glint = MathF.Max(0, MathF.Sin(_t * 0.7f + i * 2.3f));
+            col.A = 0.35f + 0.5f * glint * glint * glint;
+            float r = gem ? 3.5f : 2.5f;
+            c.DrawColoredPolygon(new[] { new Vector2(x, y - r), new Vector2(x + r, y), new Vector2(x, y + r), new Vector2(x - r, y) }, col);
         }
-        // Snow on the peak.
-        Vector2[] snow = ridge.Where(p => p.Y < size.Y * 0.5f).ToArray();
-        if (snow.Length >= 2) c.DrawPolyline(snow, new Color(0.85f, 0.88f, 0.92f, 0.85f), 4);
-        // A shaft and halls inside, by firelight.
-        float sx = size.X * 0.7f, top = ridge[(int)(0.7f * 80)].Y + 12;
-        c.DrawRect(new Rect2(sx - 6, top, 12, size.Y * 0.62f), new Color(0.05f, 0.04f, 0.04f));
-        for (int h = 0; h < 4; h++)
+
+        // A cavern: a ragged pocket hung with stalactites, a still pool on its floor, glowing caps.
+        Vector2 cav = new(MathF.Max(shaftX + 330, size.X * 0.78f), size.Y * 0.64f);
+        const float cw = 190, ch = 62;
+        var roof = new List<Vector2>();
+        var floor = new List<Vector2>();
+        for (int k = 0; k <= 38; k++)
         {
-            float y = top + 70 + h * 95;
-            float w = 150 + Noise.Hash01(h, 2, 0, 9) * 140;
-            bool left = h % 2 == 0;
-            var r = new Rect2(left ? sx - w : sx, y, w, 34);
-            float flick = 0.75f + 0.25f * MathF.Sin(_t * 9 + h * 2.1f) * MathF.Sin(_t * 5.3f + h);
-            c.DrawRect(r, new Color(0.32f, 0.17f, 0.07f).Lerp(new Color(0.6f, 0.33f, 0.12f), flick * 0.6f));
-            c.DrawRect(r.Grow(-4), new Color(0.12f, 0.07f, 0.04f, 0.4f));
+            float u = -1 + 2 * k / 38f, arc = MathF.Sqrt(MathF.Max(0, 1 - u * u));
+            float x = cav.X + u * cw;
+            float drip = Noise.Hash01(k, 7, 0, 3) < 0.28f ? 6 + Noise.Hash01(k, 8, 0, 3) * 20 : 0;
+            roof.Add(new Vector2(x, cav.Y - ch * arc * (0.8f + Noise.Fbm2(u * 3, 1, 19) * 0.5f) + drip * arc));
+            floor.Add(new Vector2(x, cav.Y + ch * 0.55f * arc * (0.85f + Noise.Fbm2(u * 3, 2, 19) * 0.4f)));
+        }
+        var pocketPoly = new List<Vector2>(roof);
+        for (int k = floor.Count - 1; k >= 0; k--) pocketPoly.Add(floor[k]);
+        c.DrawColoredPolygon(pocketPoly.ToArray(), new Color(0.04f, 0.04f, 0.055f));
+        c.DrawPolyline(pocketPoly.Append(pocketPoly[0]).ToArray(), new Color(0.27f, 0.23f, 0.22f), 2);
+        float water = cav.Y + ch * 0.18f;
+        var pool = floor.Where(p => p.Y > water + 2).ToList();
+        if (pool.Count >= 2)
+        {
+            var poolPoly = new List<Vector2> { new(pool[0].X, water) };
+            poolPoly.Add(new Vector2(pool[^1].X, water));
+            for (int k = pool.Count - 1; k >= 0; k--) poolPoly.Add(pool[k]);
+            c.DrawColoredPolygon(poolPoly.ToArray(), new Color(0.12f, 0.25f, 0.38f));
+            c.DrawLine(new Vector2(pool[0].X, water), new Vector2(pool[^1].X, water), new Color(0.45f, 0.7f, 0.9f, 0.45f + 0.15f * MathF.Sin(_t * 1.3f)), 2);
+        }
+        foreach (int k in new[] { 4, 7, 31, 34 })
+        {
+            Vector2 p = floor[k] + new Vector2(0, -3);
+            c.DrawCircle(p, 8, new Color(0.35f, 0.9f, 0.85f, 0.10f));
+            c.DrawCircle(p, 2.5f, new Color(0.5f, 0.95f, 0.9f, 0.9f));
+        }
+
+        // A magma pool deep on the right, breathing.
+        float breathe = 0.75f + 0.25f * MathF.Sin(_t * 0.9f);
+        var seam = new List<Vector2>();
+        float mx0 = shaftX + 160;
+        for (int k = 0; k <= 40; k++)
+        {
+            float x = mx0 + k / 40f * (size.X - mx0);
+            float edge = Mathf.SmoothStep(0, 1, MathF.Min(1, k / 6f));
+            seam.Add(new Vector2(x, size.Y - 8 - 34 * edge + Noise.Fbm2(x / 60f, 0, 5) * 10));
+        }
+        var magma = new List<Vector2>(seam) { new(size.X, size.Y + 2), new(mx0, size.Y + 2) };
+        c.DrawPolyline(seam.ToArray(), new Color(1f, 0.45f, 0.12f, 0.12f * breathe), 40);
+        c.DrawColoredPolygon(magma.ToArray(), new Color(0.36f, 0.09f, 0.03f));
+        c.DrawPolyline(seam.Select(p => p + new Vector2(0, 6)).ToArray(), new Color(0.85f, 0.3f, 0.06f, 0.55f * breathe), 8);
+        c.DrawPolyline(seam.ToArray(), new Color(1f, 0.66f, 0.24f, 0.85f * breathe), 3);
+
+        // The stair shaft from the surface down past every hall, and the gate where it comes out.
+        float top = Ridge(shaftX, size);
+        float bottom = HallTop + 3 * HallH + 2 * HallGap + 40;
+        c.DrawRect(new Rect2(shaftX - 15, top + 4, 30, bottom - top), new Color(0.05f, 0.04f, 0.04f));
+        for (float y = top + 18; y < bottom; y += 14)
+            c.DrawLine(new Vector2(shaftX - 11, y), new Vector2(shaftX + 11, y), new Color(0.22f, 0.17f, 0.13f), 2);
+        float gx = shaftX - 70, gy = Ridge(gx, size);
+        c.DrawCircle(new Vector2(gx, gy - 14), 50, new Color(1, 0.55f, 0.18f, 0.07f));
+        c.DrawRect(new Rect2(gx - 12, gy - 26, 24, 26), new Color(0.88f, 0.52f, 0.2f));
+        c.DrawCircle(new Vector2(gx, gy - 26), 12, new Color(0.88f, 0.52f, 0.2f));
+
+        // The halls, each where its slot sits.
+        for (int i = 0; i < _hallInfo.Count; i++) DrawHall(c, _hallInfo[i], i, shaftX);
+    }
+
+    private void DrawHall(UITheme.Drawn c, Hall h, int index, float shaftX)
+    {
+        if (!IsInstanceValid(h.Box)) return;
+        Rect2 r = new(h.Box.GlobalPosition - c.GlobalPosition, h.Box.Size);
+        float floorY = r.End.Y;
+        bool hot = _hover == index;
+        if (!h.Dug)
+        {
+            // Still rock: a surveyor's chalk outline of the hall that could be.
+            DashRect(c, r.Grow(-2), new Color(Chalk, hot ? 0.75f : 0.35f));
+            c.DrawLine(new Vector2(r.End.X, r.Position.Y + r.Size.Y * 0.5f), new Vector2(shaftX - 15, r.Position.Y + r.Size.Y * 0.5f), new Color(Chalk, 0.25f), 1);
+            return;
+        }
+        // A passage to the shaft.
+        float py = floorY - 34;
+        c.DrawRect(new Rect2(r.End.X - 2, py, shaftX - 15 - r.End.X + 4, 34), h.Fallen ? new Color(0.06f, 0.06f, 0.07f) : new Color(0.12f, 0.075f, 0.045f));
+
+        if (h.Fallen)
+        {
+            c.DrawRect(r, new Color(0.075f, 0.08f, 0.095f));
+            c.DrawRect(new Rect2(r.Position.X, floorY - 8, r.Size.X, 8), new Color(0.13f, 0.135f, 0.15f));
+            Texture2D coffin = Assets.Sprite("furn-coffin");
             for (int k = 0; k < 3; k++)
             {
-                Vector2 fire = new(r.Position.X + 25 + k * (w - 50) / 2, y + 22);
-                c.DrawCircle(fire, 5 + flick * 2, new Color(1f, 0.55f, 0.15f, 0.8f));
-                c.DrawCircle(fire, 14 + flick * 5, new Color(1f, 0.45f, 0.1f, 0.12f));
+                var at = new Rect2(r.End.X - 260 + k * 76, floorY - 66, 60, 60);
+                if (coffin != null) c.DrawTextureRect(coffin, at, false, new Color(0.6f, 0.65f, 0.75f));
+                else c.DrawRect(new Rect2(at.Position.X + 8, at.End.Y - 16, 32, 14), new Color(0.25f, 0.22f, 0.2f));
             }
-            // Little dwarves at work.
-            for (int k = 0; k < 2 + h % 2; k++)
+            c.DrawRect(r, new Color(0.3f, 0.32f, 0.38f, hot ? 0.8f : 0.4f), false, 1);
+            return;
+        }
+
+        // A lit hall: dark vault, warm floor, carved pillars, two braziers, its clans at work.
+        float flick = 0.8f + 0.2f * MathF.Sin(_t * 8.3f + index * 2) * MathF.Sin(_t * 5.1f + index);
+        float warm = (hot ? 1.15f : 1f) * flick;
+        int rows = 12;
+        for (int k = 0; k < rows; k++)
+        {
+            float t = k / (float)(rows - 1);
+            Color col = new Color(0.075f, 0.05f, 0.04f).Lerp(new Color(0.36f, 0.2f, 0.09f), t * t * warm);
+            c.DrawRect(new Rect2(r.Position.X, r.Position.Y + r.Size.Y * k / rows, r.Size.X, r.Size.Y / rows + 1), col);
+        }
+        for (float x = r.Position.X + 560; x < r.End.X - 20; x += 100)
+        {
+            c.DrawRect(new Rect2(x, r.Position.Y + 6, 12, r.Size.Y - 14), new Color(0.2f, 0.13f, 0.08f, 0.8f));
+            c.DrawRect(new Rect2(x - 3, r.Position.Y + 6, 18, 6), new Color(0.26f, 0.17f, 0.1f));
+        }
+        c.DrawRect(new Rect2(r.Position.X, floorY - 8, r.Size.X, 8), new Color(0.45f, 0.3f, 0.18f));
+        foreach (float bx in new[] { r.End.X - 300, r.End.X - 40 })
+        {
+            Vector2 fire = new(bx, floorY - 22);
+            // Light that stays in the hall: a fan of glow above the floor, not a disc through it.
+            for (int g = 0; g < 10; g++)
             {
-                float px = r.Position.X + 40 + ((k * 53 + _t * (k % 2 == 0 ? 14 : -11)) % (w - 80) + (w - 80)) % (w - 80);
-                c.DrawCircle(new Vector2(px, y + 24), 4, new Color(0.15f, 0.1f, 0.08f));
-                c.DrawCircle(new Vector2(px, y + 17), 3, new Color(0.2f, 0.13f, 0.1f));
+                float rad = (14 + g * 8) * warm;
+                Rect2 glow = new Rect2(bx - rad, floorY - 8 - rad * 1.1f, rad * 2, rad * 1.1f).Intersection(r);
+                c.DrawRect(glow, new Color(Fire, 0.022f));
+            }
+            c.DrawRect(new Rect2(bx - 7, floorY - 18, 14, 10), new Color(0.15f, 0.1f, 0.07f));
+            c.DrawCircle(fire + new Vector2(0, -2), 5 + 2 * flick, new Color(1f, 0.7f, 0.3f, 0.95f));
+        }
+        // The dwarves: the painted figure of each clan in the hold, pacing their stretch of floor.
+        for (int k = 0; k < h.Clans.Length; k++)
+        {
+            float lo = r.End.X - 262 + k * 230f / MathF.Max(1, h.Clans.Length), span = 230f / MathF.Max(1, h.Clans.Length) - 50;
+            float ph = _t * (0.22f + 0.07f * k) + k * 1.9f;
+            float x = lo + (MathF.Sin(ph) * 0.5f + 0.5f) * span;
+            bool left = MathF.Cos(ph) < 0;
+            Texture2D tex = Assets.Sprite("fig-" + h.Clans[k]);
+            const float s = 64;
+            if (tex != null)
+            {
+                c.DrawSetTransform(new Vector2(x, floorY - 6 - s), 0, new Vector2(left ? -1 : 1, 1));
+                c.DrawTextureRect(tex, new Rect2(-s / 2, 0, s, s), false);
+                c.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+            }
+            else
+            {
+                Color body = UITheme.C(Tables.Clan(h.Clans[k]).Color);
+                c.DrawRect(new Rect2(x - 7, floorY - 30, 14, 22), body);
+                c.DrawCircle(new Vector2(x, floorY - 35), 6, new Color(0.85f, 0.7f, 0.55f));
             }
         }
-        // A door at the foot, glowing.
-        float dx = size.X * 0.52f, dy = size.Y * 0.86f;
-        c.DrawRect(new Rect2(dx, dy - 40, 30, 40), new Color(0.85f, 0.5f, 0.18f, 0.85f));
-        c.DrawCircle(new Vector2(dx + 15, dy - 40), 15, new Color(0.85f, 0.5f, 0.18f, 0.85f));
-        c.DrawCircle(new Vector2(dx + 15, dy - 20), 60, new Color(1, 0.5f, 0.15f, 0.06f));
-        // A vignette behind the menu so it reads.
-        for (int i = 0; i < 24; i++)
-            c.DrawRect(new Rect2(0, 0, 720 - i * 22, size.Y), new Color(0.02f, 0.02f, 0.03f, 0.035f));
+        c.DrawRect(r, hot ? UITheme.EdgeLit : new Color(UITheme.Edge, 0.7f), false, 1);
+    }
+
+    private static void DashRect(UITheme.Drawn c, Rect2 r, Color col)
+    {
+        void Dash(Vector2 a, Vector2 b)
+        {
+            float len = a.DistanceTo(b);
+            Vector2 d = (b - a) / len;
+            for (float s = 0; s < len; s += 14) c.DrawLine(a + d * s, a + d * MathF.Min(s + 8, len), col, 1.5f);
+        }
+        Dash(r.Position, new Vector2(r.End.X, r.Position.Y));
+        Dash(new Vector2(r.End.X, r.Position.Y), r.End);
+        Dash(r.End, new Vector2(r.Position.X, r.End.Y));
+        Dash(new Vector2(r.Position.X, r.End.Y), r.Position);
     }
 }

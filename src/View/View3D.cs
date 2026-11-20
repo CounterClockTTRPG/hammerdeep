@@ -39,9 +39,18 @@ public partial class View3D : Node3D
     private bool _painted;
     private double _itemClock;
 
-    /// <summary>The camera's heading round the view centre, in degrees; [ and ] turn it.</summary>
+    /// <summary>The camera's heading round the view centre, in degrees; [ and ] or a right-drag turn it.</summary>
     public float Yaw = 45;
-    public const float Pitch = 52;
+    /// <summary>How far the camera looks down, in degrees (a right-drag up and down tilts it).</summary>
+    public float Pitch = 52;
+    public const float PitchMin = 22, PitchMax = 86;
+
+    /// <summary>A right-drag by <paramref name="rel"/> pixels: sideways turns, up and down tilts.</summary>
+    public void Orbit(Vector2 rel)
+    {
+        Yaw = Mathf.PosMod(Yaw - rel.X * 0.35f, 360);
+        Pitch = Mathf.Clamp(Pitch + rel.Y * 0.25f, PitchMin, PitchMax);
+    }
 
     public override void _Ready()
     {

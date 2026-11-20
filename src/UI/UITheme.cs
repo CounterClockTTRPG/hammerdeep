@@ -81,6 +81,8 @@ public static partial class UITheme
             t.SetColor("font_hover_color", "CheckBox", Gold);
             t.SetColor("font_pressed_color", "CheckBox", Text);
             t.SetColor("font_hover_pressed_color", "CheckBox", Gold);
+            t.SetIcon("unchecked", "CheckBox", BoxIcon(false));
+            t.SetIcon("checked", "CheckBox", BoxIcon(true));
             t.SetStylebox("normal", "CheckBox", new StyleBoxEmpty());
             t.SetStylebox("hover", "CheckBox", new StyleBoxEmpty());
             t.SetStylebox("pressed", "CheckBox", new StyleBoxEmpty());
@@ -104,6 +106,25 @@ public static partial class UITheme
             t.SetColor("font_color", "HSlider", Text);
             return _theme = t;
         }
+    }
+
+    /// <summary>A check box's box: a bronze square, filled with a gilt mark when ticked (the default one is invisible on dark panels).</summary>
+    private static Texture2D BoxIcon(bool on)
+    {
+        const int n = 16;
+        var img = Image.CreateEmpty(n, n, false, Image.Format.Rgba8);
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                bool edge = x is 1 or n - 2 || y is 1 or n - 2;
+                bool inside = x > 1 && x < n - 2 && y > 1 && y < n - 2;
+                Color c = new(0, 0, 0, 0);
+                if (inside) c = new Color(0.05f, 0.045f, 0.04f);
+                if (edge && x > 0 && y > 0 && x < n - 1 && y < n - 1) c = Edge;
+                if (on && x >= 4 && x <= n - 5 && y >= 4 && y <= n - 5) c = Gold;
+                img.SetPixel(x, y, c);
+            }
+        return ImageTexture.CreateFromImage(img);
     }
 
     // ---- builders -----------------------------------------------------------------------

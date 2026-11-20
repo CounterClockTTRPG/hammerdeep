@@ -215,6 +215,20 @@ public partial class ShotRunner : Node
                 await Shot("27-trade");
                 s.CloseOverlay();
             }
+            // The title again, with holds in it: this one in the first slot, a fallen copy in the third.
+            if (Want("title-holds"))
+            {
+                Profile.SaveFortress(f, 1);
+                Fortress lost = Profile.LoadFortress(1);
+                lost.Fallen = true;
+                foreach (Dwarf gone in lost.Dwarves) gone.Dead = true;
+                Profile.SaveFortress(lost, 3);
+                Root.ShowTitle();
+                await Frames(5);
+                await Shot("28-title-holds");
+                Profile.DeleteSlot(1);
+                Profile.DeleteSlot(3);
+            }
             GD.Print($"{_count} shots in {_dir}");
         }
         catch (Exception e) { GD.PrintErr("shots failed: " + e); }

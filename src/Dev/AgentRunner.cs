@@ -44,6 +44,7 @@ public partial class AgentRunner : Node
   click [left|right]    click at the mouse
   at X Y                move the mouse onto map cell X,Y of the level in view
   drag X1 Y1 X2 Y2      left-drag from map cell to map cell on the level in view (designations, zones)
+  rdrag DX DY           right-drag by DX DY screen pixels from the mouse (in 3D: turns and tilts the camera)
   down / up             hold / release the left button (e.g. down; key >; key >; at X Y; up -- a box several levels deep)
   goto X Y Z            centre the camera on a cell
   zoom Z                camera zoom, 0.5 (far) .. 6 (near)
@@ -276,6 +277,15 @@ public partial class AgentRunner : Node
                 if (Root.Map != null) Root.Map.Cam.Zoom = Vector2.One * Math.Clamp(float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), 0.5f, 6f);
                 await Frames(2);
                 return null;
+            case "rdrag":
+            {
+                Vector2 from = _mouse;
+                await Button(MouseButton.Right, true);
+                for (int k = 1; k <= 8; k++) await Move(from + new Vector2(I(a[1]), I(a[2])) * k / 8f, MouseButtonMask.Right);
+                await Button(MouseButton.Right, false);
+                await Frames(2);
+                return Root.Map != null && Root.Map.Is3D ? $"camera yaw {Root.Map.Three.Yaw:0} pitch {Root.Map.Three.Pitch:0}" : null;
+            }
             case "goto":
                 if (a.Length < 4) return "goto needs X Y Z";
                 Root.Screen?.Jump(new P3(I(a[1]), I(a[2]), I(a[3])));
