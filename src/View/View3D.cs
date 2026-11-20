@@ -478,6 +478,13 @@ public partial class View3D : Node3D
             model.Scale = new Vector3(k, ky, k);
             model.Position = new Vector3(-(box.Position.X + box.Size.X / 2) * k, -box.Position.Y * ky, -(box.Position.Z + box.Size.Z / 2) * k);
             root.AddChild(model);
+            // A door spans its doorway: the model spans east-west, right between walls east and west of it; with
+            // walls north and south (a corridor running east-west) it turns a quarter.
+            if (b.Def == "door")
+            {
+                bool ew = Solid(b.X - 1, b.Y, b.Z) || Solid(b.X + 1, b.Y, b.Z), ns = Solid(b.X, b.Y - 1, b.Z) || Solid(b.X, b.Y + 1, b.Z);
+                if (ns && !ew) root.Rotation = new Vector3(0, Mathf.Pi / 2, 0);
+            }
             if (!b.Built) Ghostly(model);
             return root;
         }
