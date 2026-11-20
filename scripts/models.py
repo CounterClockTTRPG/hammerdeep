@@ -85,6 +85,9 @@ MODELS.update({
     "cr-palestalker": f"{_POSE}: the Pale Stalker, a tall emaciated cave horror with bone-white skin, no eyes, very long fingers and a stooped back, about 2.5 m tall",
     "cr-merething": f"{_POSE}: the Thing in the Mere, a bloated swamp monster of green-black hide, weed and tentacles with a wide toothy mouth and small glowing eyes, about 2.2 m tall",
     "cr-gnashjaw": f"{_POSE}: Gnashjaw, a colossal armoured boar-beast with iron-grey bristles, four tusks and a scarred hide, about 2.2 m tall at the shoulder",
+    "cr-gloomhound": f"{_POSE}: a gloomhound, a lean slate-blue cave hound with pale glowing eyes and a ridged back, about 0.9 m tall",
+    "cr-emberling": f"{_POSE}: an emberling, a small fire imp of cracked black rock with glowing orange seams and ember eyes, about 0.8 m tall",
+    "cr-warden": f"{_POSE}: the Warden, a towering ancient stone guardian of carved grey marble with runes on its chest and massive stone fists, about 2.6 m tall",
     "cr-queen": f"{_POSE}: the Many-Legged Queen, a giant purple centipede queen with a raised armoured front, a crown of spines, many legs and a swollen egg-sac, about 2 m tall, 4 m long",
 })
 

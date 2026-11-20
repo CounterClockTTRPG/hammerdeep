@@ -19,6 +19,10 @@ public static class WorldGen
         public P3 Embark;
         public int[] Height;
         public int CavernZ;
+        /// <summary>The cavern layers, top down: the upper caverns, the Glimmer Deep, the Ember Halls (as deep as the world allows).</summary>
+        public int[] Caverns;
+        /// <summary>The ancient ruin's inside, in the deepest layer (-1 when there is none).</summary>
+        public P3 Ruin = new(-1, -1, -1);
     }
 
     public static Result Generate(ulong seed, int w = DefaultW, int h = DefaultH, int d = DefaultD, EmbarkLand land = null)
@@ -118,6 +122,11 @@ public static class WorldGen
         Vein("hematite", cavernZ - 6, top - 4, 45, 60);
         Vein("argentite", 6, cavernZ + 4, 25, 40);
         Vein("goldvein", 4, cavernZ, 15, 30);
+        // The layers below the caverns: the Glimmer Deep and the Ember Halls, each about six levels further down.
+        int glimmerZ = cavernZ - 6, emberZ = Math.Max(5, cavernZ - 11);
+        bool deep = glimmerZ >= 8, deeper = deep && emberZ >= 5 && emberZ <= glimmerZ - 4;
+        if (deep) Vein("glimmerstone", glimmerZ - 1, glimmerZ + 3, 22, 8);
+        if (deeper) Vein("starvein", emberZ - 1, emberZ + 3, 14, 14);
         // Gems: small clusters, richer deeper.
         string[] gems = { "quartz", "quartz", "amethyst", "garnet", "emerald", "ruby" };
         for (int g = 0; g < 500; g++)
@@ -135,16 +144,23 @@ public static class WorldGen
             }
         }
 
-        // The cavern layer: two-high open caves with stalkwood, moss and pools.
+        // The cavern layers: two-high open caves with stalkwood, moss and pools; each deeper one its own shapes.
         byte stalk = Tables.Mi("stalkwood");
+        Cave(cavernZ, 21, 0.56f);
+        if (deep) Cave(glimmerZ, 41, 0.58f);
+        if (deeper) Cave(emberZ, 61, 0.6f);
+        P3 ruin = deeper ? Vault(emberZ) : new P3(-1, -1, -1);
+
+        void Cave(int baseZ, uint salt, float threshold)
+        {
         for (int y = 2; y < h - 2; y++)
             for (int x = 2; x < w - 2; x++)
             {
-                float c = Noise.Fbm2(x / 18f, y / 18f, s + 21, 3);
-                if (c < 0.56f) continue;
-                int floorZ = cavernZ + (int)MathF.Round((Noise.Value2(x / 25f, y / 25f, s + 22) - 0.5f) * 3);
-                int tall = c > 0.64f ? 3 : 2;
-                if (floorZ + tall >= height[y * w + x] - 4) continue;
+                float c = Noise.Fbm2(x / 18f, y / 18f, s + salt, 3);
+                if (c < threshold) continue;
+                int floorZ = baseZ + (int)MathF.Round((Noise.Value2(x / 25f, y / 25f, s + salt + 1) - 0.5f) * 3);
+                int tall = c > threshold + 0.08f ? 3 : 2;
+                if (floorZ + tall >= height[y * w + x] - 4 || floorZ < 3) continue;
                 for (int k = 0; k < tall; k++)
                 {
                     int i = W.Idx(x, y, floorZ + k);
@@ -154,10 +170,43 @@ public static class WorldGen
                 W.Mats[fi] = W.Mats[fi - w * h];
                 float r = Noise.Hash01(x, y, 3, s);
                 // Pools lie in a basin one level down, so they stay put until disturbed.
-                if (c > 0.7f && Noise.Value2(x / 7f, y / 7f, s + 23) > 0.72f && floorZ > 1) { W.Shapes[fi] = Shape.Empty; W.Shapes[fi - w * h] = Shape.Water; }
+                if (c > threshold + 0.14f && Noise.Value2(x / 7f, y / 7f, s + salt + 2) > 0.72f && floorZ > 1) { W.Shapes[fi] = Shape.Empty; W.Shapes[fi - w * h] = Shape.Water; }
                 else if (r < 0.06f) { W.Shapes[fi] = Shape.Tree; W.Mats[fi] = stalk; }
                 else if (r < 0.12f) W.Set(fi, CellFlag.Shrub, true);
             }
+        }
+
+        // The ancient ruin: a sealed vault of worked marble in the deepest caves, its floor paved, nothing in it
+        // but what the hold will find there (the game puts its guardian and its treasure inside).
+        P3 Vault(int baseZ)
+        {
+            byte marble = Tables.Mi("marble");
+            for (int t = 0; t < 400; t++)
+            {
+                int x0 = rng.Range(8, w - 16), y0 = rng.Range(8, h - 14), z = baseZ;
+                const int vw = 9, vh = 7;
+                bool ok = true;
+                for (int y = y0; y < y0 + vh && ok; y++)
+                    for (int x = x0; x < x0 + vw && ok; x++)
+                        if (z + 3 >= height[y * w + x] - 4) ok = false;
+                if (!ok) continue;
+                for (int y = y0; y < y0 + vh; y++)
+                    for (int x = x0; x < x0 + vw; x++)
+                    {
+                        bool wall = x == x0 || x == x0 + vw - 1 || y == y0 || y == y0 + vh - 1;
+                        for (int k = 0; k < 3; k++)
+                        {
+                            int i = W.Idx(x, y, z + k);
+                            W.Shapes[i] = wall || k == 2 ? Shape.Wall : k == 0 ? Shape.Floor : Shape.Empty;
+                            W.Mats[i] = marble;
+                            W.Flags[i] &= ~(CellFlag.Shrub | CellFlag.Grass);
+                        }
+                        W.Mats[W.Idx(x, y, z - 1)] = marble;
+                    }
+                return new P3(x0 + vw / 2, y0 + vh / 2, z);
+            }
+            return new P3(-1, -1, -1);
+        }
 
         // Magma pockets just above the floor of the world.
         for (int y = 0; y < h; y++)
@@ -256,7 +305,11 @@ public static class WorldGen
         W.SurfaceZ = embark.Z;
         W.RebuildComponents();
         W.Changed.Clear();
-        return new Result { World = W, Embark = embark, Height = height, CavernZ = cavernZ };
+        return new Result
+        {
+            World = W, Embark = embark, Height = height, CavernZ = cavernZ, Ruin = ruin,
+            Caverns = deeper ? new[] { cavernZ, glimmerZ, emberZ } : deep ? new[] { cavernZ, glimmerZ } : new[] { cavernZ },
+        };
     }
 
     private static P3 FindEmbark(World W, int[] height, Rng rng)

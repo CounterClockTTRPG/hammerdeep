@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Beasts, Weathers, Nobles, Happenings, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Beasts, Weathers, Nobles, Happenings, Depths, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -457,7 +457,12 @@ public partial class SmokeTest : Node
         Eq(f.TutorialStep, 5, "marking trees to fell passes the wood goal");
         f.AddZone(ZoneKind.Farm, new P3(e.X - 3, e.Y + 4, e.Z), new P3(e.X + 1, e.Y + 6, e.Z), "hearthwheat");
         Tutorial.Advance(f, w);
-        Building brew = f.Place("brewery", e.X + 6, e.Y + 6, e.Z) ?? f.Place("brewery", e.X - 9, e.Y - 2, e.Z);
+        // Wherever it fits near the wagon (the ground differs from seed to seed).
+        Building brew = null;
+        for (int r = 4; r < 16 && brew == null; r++)
+            for (int dy = -r; dy <= r && brew == null; dy++)
+                for (int dx = -r; dx <= r && brew == null; dx++)
+                    if (f.CanPlace("brewery", e.X + dx, e.Y + dy, e.Z) == null) brew = f.Place("brewery", e.X + dx, e.Y + dy, e.Z);
         f.AddOrder(brew, "ale", 1, true);
         Tutorial.Advance(f, w);
         Eq(f.TutorialStep, 7, "a farm and a brewery with ale on order pass those goals");
@@ -517,8 +522,9 @@ public partial class SmokeTest : Node
             // A building by its id, a creature as cr-<key>, one of the other peoples as race-<key>.
             bool Known(string m) => Tables.Build.ContainsKey(m)
                 || (m.StartsWith("cr-") && Tables.Creatures.ContainsKey(m[3..]))
-                || (m.StartsWith("race-") && Races.All.Any(r => r.Key == m[5..]));
-            Check(models.All(Known), $"every model is of a building, creature or people ({string.Join(", ", models.Where(m => !Known(m)))})");
+                || (m.StartsWith("race-") && Races.All.Any(r => r.Key == m[5..]))
+                || (m.StartsWith("it-") && Enum.TryParse<ItemKind>(m[3..], true, out _));
+            Check(models.All(Known), $"every model is of a building, creature, people or item ({string.Join(", ", models.Where(m => !Known(m)))})");
             var broken = new List<string>();
             foreach (string m in models)
             {

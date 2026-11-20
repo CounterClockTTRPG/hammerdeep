@@ -31,6 +31,9 @@ cr-palestalker | 224 | the Pale Stalker: a tall emaciated eyeless cave horror wi
 cr-merething | 224 | the Thing in the Mere: a bloated swamp monster of green-black hide, weed and tentacles, a wide toothy mouth and small glowing eyes, menacing
 cr-gnashjaw  | 224 | Gnashjaw: a colossal armoured boar-beast with iron-grey bristles, four tusks and a scarred hide, side view standing, menacing
 cr-queen     | 224 green | the Many-Legged Queen: a giant purple centipede queen with a raised armoured front, a crown of spines and a swollen egg-sac, menacing
+cr-gloomhound | 160 | a gloomhound: a lean slate-blue cave hound with pale glowing eyes and a ridged back, side view standing, menacing
+cr-emberling | 160 | an emberling: a small crackling fire imp of cracked black rock with glowing orange seams and ember eyes, menacing
+cr-warden    | 224 | the Warden: a towering ancient stone guardian of carved grey marble, runes on its chest, a massive stone fist, menacing
 
 # ---- furniture (upright, one cell) ----
 furn-bed       | 128 | an empty sturdy wooden dwarven bed with a straw mattress, a wool blanket and a pillow, furniture only, no people

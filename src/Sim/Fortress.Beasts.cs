@@ -21,7 +21,7 @@ public partial class Fortress
 
     public static readonly string[] BeastKeys = { "ashwyrm", "palestalker", "merething", "gnashjaw", "queen" };
 
-    [System.Text.Json.Serialization.JsonIgnore] public Creature BeastAbout => Creatures.FirstOrDefault(c => !c.Dead && c.Legend);
+    [System.Text.Json.Serialization.JsonIgnore] public Creature BeastAbout => Creatures.FirstOrDefault(c => !c.Dead && c.Legend && c.Def != "warden");
 
     /// <summary>A beast's line in the old history, if it has one: the last thing told of it.</summary>
     private HistoryEvent LegendOf(string key)
@@ -196,7 +196,7 @@ public partial class Fortress
         Count("beasts_slain");
         string name = c.D.Name.ToUpperFirst();
         string who = by != null ? by.Name : "the hold";
-        string part = c.Def switch { "ashwyrm" => "skull", "palestalker" => "long fingers", "merething" => "eye", "gnashjaw" => "tusks", _ => "crown of spines" };
+        string part = c.Def switch { "ashwyrm" => "skull", "palestalker" => "long fingers", "merething" => "eye", "gnashjaw" => "tusks", "warden" => "heartstone", _ => "crown of spines" };
         Item trophy = Spawn(ItemKind.Bone, Tables.Mi("bone"), c.Cell);
         trophy.Label = $"{c.D.Name}'s {part}";
         trophy.Quality = 5;

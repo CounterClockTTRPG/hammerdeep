@@ -356,6 +356,7 @@ public partial class Posed3D : Node3D
     public static float HeightOf(string name) => name switch
     {
         "cr-hen" => 0.45f, "cr-crawler" => 0.5f, "cr-badger" => 0.7f, "cr-goat" => 0.9f, "cr-fellbuck" => 1.5f,
+        "cr-gloomhound" => 0.9f, "cr-emberling" => 0.8f, "cr-warden" => 2.6f, "cr-ashwyrm" => 2.6f, "cr-palestalker" => 2.5f, "cr-merething" => 2.2f, "cr-gnashjaw" => 2.2f, "cr-queen" => 2f,
         "cr-stalker" => 2.1f, "cr-raider" => 1.2f, "cr-brute" => 2.1f, "cr-trader" => 1.3f, "cr-merchant" => 1.75f,
         "race-delvling" => 1.1f, "race-rootfolk" => 1.0f, "race-stonekin" => 2.2f, _ => 1.2f,
     };

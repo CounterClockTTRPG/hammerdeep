@@ -196,6 +196,18 @@
    the hold's wealth, never buys from the wanderer, and clears the rats. The agent can call
    any of them: `happen bard|refugee|envoy|wanderer|rats` (and `beast KEY`).
 
+19. **The depths** (`Fortress.Caverns`) — three cavern layers where the world is deep enough:
+   the upper caverns (as before), the Glimmer Deep six levels down (glimmerstone, a gem worth
+   25, in its walls; glimmercap, an edible brewable crop, gathered from its shrubs; packs of
+   gloomhounds), and the Ember Halls near the magma (starsilver ore -- a metal worth 30 that
+   hits 1.6x, iron 1.25x, and the forge takes it; emberlings). Each is announced the first
+   time it is broken into, with its first creatures, and sends more each season after
+   (2-3 gloomhounds, 1-2 emberlings, +1 every third year). In the Ember Halls an ancient ruin:
+   a sealed marble vault (9 x 7) where the Warden (1100 hp, 38) sleeps -- it never wanders,
+   and wakes when someone comes within reach -- beside a named starsilver war hammer, an
+   artifact of the first holds. Slain, it leaves its heartstone and a deed. Wealth counts only
+   what the hold has found: a treasure in an undiscovered vault is no one's yet.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

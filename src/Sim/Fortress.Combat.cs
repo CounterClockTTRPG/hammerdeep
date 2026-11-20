@@ -160,13 +160,14 @@ public sealed partial class Fortress
                 CreatureWalk(c, FindStandable(away, 3), 3000);
                 return;
             }
+            if (near != null && c.Def == "warden") { Wakes(c, near); return; }
             if (near != null && !d.Timid)
             {
                 c.Angry = true;
                 Say($"{A(d.Name).ToUpperFirst()} has been provoked by {near.FirstName}!", LogKind.Bad, c.Cell);
                 return;
             }
-            if (Rng.Chance(0.15)) CreatureWalk(c, FindStandable(World.Pos(c.Cell), 6), 2000);
+            if (!d.Still && Rng.Chance(0.15)) CreatureWalk(c, FindStandable(World.Pos(c.Cell), 6), 2000);
             return;
         }
         if (c.Legend && BeastTurn(c)) return;
@@ -205,7 +206,7 @@ public sealed partial class Fortress
             return;
         }
         // Raiders and the great beasts march on the hold (the Mere's thing waits by its water); beasts roam their haunts.
-        if ((c.Raider || (c.Legend && c.Def != "merething")) && World.Pos(c.Cell).Dist(Embark) > 6) { March(c); if (c.Path != null) return; c.NextThink = Tick + 50; }
+        if ((c.Raider || (c.Legend && c.Def is not ("merething" or "warden"))) && World.Pos(c.Cell).Dist(Embark) > 6) { March(c); if (c.Path != null) return; c.NextThink = Tick + 50; }
         if (Rng.Chance(0.3)) CreatureWalk(c, FindStandable(World.Pos(c.Cell), 8), 3000);
     }
 
@@ -354,12 +355,14 @@ public sealed partial class Fortress
         return new P3(-1, -1, -1);
     }
 
-    private int CavernCell()
+    /// <summary>An open floor cell in a cavern layer (0 the upper caverns; -1 if none found).</summary>
+    private int CavernCell(int layer = 0)
     {
+        int cz = Caverns.Length > layer ? Caverns[layer] : CavernZ;
         for (int t = 0; t < 400; t++)
         {
             int x = Rng.Int(World.W), y = Rng.Int(World.H);
-            for (int z = CavernZ - 2; z <= CavernZ + 2; z++)
+            for (int z = cz - 2; z <= cz + 2; z++)
             {
                 if (!World.In(x, y, z)) continue;
                 int i = World.Idx(x, y, z);
@@ -376,6 +379,7 @@ public sealed partial class Fortress
     {
         if (Peaceful) return;
         MaybeGreatBeast();
+        DeepDangers();
         if (CavernFound)
         {
             int n = Rng.Range(1, 3) + Year / 2;

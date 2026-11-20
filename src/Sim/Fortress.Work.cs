@@ -655,7 +655,7 @@ public sealed partial class Fortress
             case Desig.Gather:
                 W.Set(c, CellFlag.Shrub, false);
                 W.Changed.Add(c);
-                byte plant = Tables.Mi(W.IsOutside(c) ? "bramble" : "glowmoss");
+                byte plant = Tables.Mi(W.IsOutside(c) ? "bramble" : LayerAt(W.Pos(c).Z) == 1 ? "glimmercap" : "glowmoss");
                 for (int k = 0; k < Rng.Range(1, 2); k++) Spawn(ItemKind.Plant, plant, c);
                 if (Rng.Chance(0.5)) Spawn(ItemKind.Seed, plant, c);
                 Count("gathered");
@@ -678,12 +678,11 @@ public sealed partial class Fortress
         }
         int opened = W.RevealAround(c);
         if (g == Desig.Channel) opened += W.RevealAround(c - W.W * W.H);
-        if (opened > 40 && !CavernFound)
+        if (opened > 40)
         {
-            CavernFound = true;
-            Say("You have broken into a cavern! Strange things grow here in the dark -- and something stirs.", LogKind.Alert, c);
-            for (int k = 0; k < 2; k++) { int at = CavernCell(); if (at >= 0) SpawnCreature("crawler", at); }
-            LearnRunes();
+            // Older saves know only the one cavern.
+            int layer = Caverns.Length == 0 ? (CavernFound ? -1 : 0) : LayerAt(W.Pos(c).Z);
+            if (layer >= 0 && !LayerFound(layer) && !(layer == 0 && CavernFound)) BrokeInto(layer, c);
         }
         if (!RunesKnown && W.Pos(c).Z <= CavernZ) LearnRunes();
     }

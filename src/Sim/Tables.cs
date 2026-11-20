@@ -111,6 +111,8 @@ public sealed class CreatureDef
     /// <summary>Step time multiplier: 1 is a dwarf's pace, lower is faster.</summary>
     public float Pace = 1;
     public bool Hostile, Bashes, Timid;
+    /// <summary>Stays where it is until provoked (the Warden).</summary>
+    public bool Still;
     public Habitat Home;
     public Rgb Color;
     public float Size = 1;
@@ -190,7 +192,7 @@ public static class Tables
     public const int AttackTicks = 30, DwarfDamage = 9, SightRange = 16, DefendRadius = 14;
     public static readonly string[] BodyParts = { "head", "left arm", "right arm", "left leg", "right leg", "upper body", "lower body", "beard", "left hand", "right foot" };
     public static float WeaponMult(Item w) => w == null ? 0.7f : (w.Kind switch { ItemKind.Weapon => 1.9f, ItemKind.Axe => 1.5f, ItemKind.Pick => 1.3f, _ => 1f }) * MetalMult(w) * (1 + 0.08f * w.Quality) * (w.Rune == "striking" ? 1.4f : 1f);
-    public static float MetalMult(Item i) => i.M.Key switch { "iron" => 1.25f, "bronze" => 1.15f, "silver" => 0.95f, "gold" => 0.85f, "leather" => 0.55f, _ => 1f };
+    public static float MetalMult(Item i) => i.M.Key switch { "starsilver" => 1.6f, "iron" => 1.25f, "bronze" => 1.15f, "silver" => 0.95f, "gold" => 0.85f, "leather" => 0.55f, _ => 1f };
     /// <summary>The share of each blow that armour stops.</summary>
     public static float ArmorStop(Item armor, Item helm) => Math.Min(0.75f, (armor != null ? 0.35f * MetalMult(armor) + (armor.Rune == "warding" ? 0.12f : 0) : 0) + (helm != null ? 0.1f * MetalMult(helm) + (helm.Rune == "warding" ? 0.08f : 0) : 0));
 
@@ -231,12 +233,14 @@ public static class Tables
         AddMat("cassiterite", "cassiterite", MatKind.Ore, 0x5b4636, 1.2f, 3, m => m.Yields = "tin");
         AddMat("hematite", "hematite", MatKind.Ore, 0x8f3b2e, 1.3f, 4, m => m.Yields = "iron");
         AddMat("argentite", "argentite", MatKind.Ore, 0x8e9aa6, 1.2f, 6, m => m.Yields = "silver");
+        AddMat("starvein", "starsilver ore", MatKind.Ore, 0xb8d8f0, 1.4f, 25, m => m.Yields = "starsilver");
         AddMat("goldvein", "gold-veined quartz", MatKind.Ore, 0xd6b13c, 1.2f, 10, m => m.Yields = "gold");
         AddMat("coal", "coal", MatKind.Ore, 0x1e1c1c, 0.9f, 2, m => m.Fuel = true);
         // Gems
         AddMat("quartz", "rock crystal", MatKind.Gem, 0xdfe8ea, 1.2f, 6);
         AddMat("amethyst", "amethyst", MatKind.Gem, 0x8a54b8, 1.2f, 12);
         AddMat("garnet", "garnet", MatKind.Gem, 0x9c1f32, 1.2f, 15);
+        AddMat("glimmerstone", "glimmerstone", MatKind.Gem, 0x7fe3ff, 1.2f, 25);
         AddMat("emerald", "emerald", MatKind.Gem, 0x22a35a, 1.2f, 30);
         AddMat("ruby", "deepfire ruby", MatKind.Gem, 0xd2202f, 1.2f, 45);
         // Wood
@@ -250,11 +254,13 @@ public static class Tables
         AddMat("iron", "iron", MatKind.Metal, 0x7d8085, 1, 6);
         AddMat("silver", "silver", MatKind.Metal, 0xd9dde2, 1, 10);
         AddMat("gold", "gold", MatKind.Metal, 0xf0c64b, 1, 20);
+        AddMat("starsilver", "starsilver", MatKind.Metal, 0xcfe6ff, 1, 30);
         // Plants
         AddMat("dimcap", "dimcap", MatKind.Plant, 0x9b6fb0, 1, 2, m => { m.Edible = true; m.Brewable = true; m.Underground = true; m.Grow = 5000; });
         AddMat("hearthwheat", "hearthwheat", MatKind.Plant, 0xd8b85a, 1, 2, m => { m.Brewable = true; m.Surface = true; m.Grow = 6000; });
         AddMat("bramble", "bramblefruit", MatKind.Plant, 0xa3304a, 1, 2, m => { m.Edible = true; m.Brewable = true; m.Surface = true; m.Grow = 5500; });
         AddMat("glowmoss", "glowmoss", MatKind.Plant, 0x57c4a0, 1, 1, m => { m.Edible = true; m.Underground = true; m.Grow = 4000; });
+        AddMat("glimmercap", "glimmercap", MatKind.Plant, 0x5fd0e8, 1, 3, m => { m.Edible = true; m.Brewable = true; m.Underground = true; m.Grow = 4500; });
         // Flesh, provisions
         AddMat("flesh", "dwarf", MatKind.Flesh, 0xc08f70, 1, 0);
         AddMat("ration", "travel ration", MatKind.Plant, 0xb08d5c, 1, 1, m => m.Edible = true);
@@ -472,6 +478,11 @@ public static class Tables
         Cr("trader", "Mountainhome trader", Habitat.Visitor, 90, 10, 5, 1.1f, 0xb07a3a, false, "punches");
         Cr("merchant", "Lowland merchant", Habitat.Visitor, 70, 8, 3, 1f, 0x4f7fa8, false, "slaps", 1.15f);
         Cr("raider", "grimling raider", Habitat.Raider, 70, 14, 5, 1f, 0x6f8a52, true, "hacks", 1f, c => { c.Loot = ItemKind.Weapon; c.LootMat = "copper"; c.LootChance = 0.4f; });
+        // The deep layers' own: gloomhounds of the Glimmer Deep hunt in packs; emberlings come up from the magma;
+        // the Warden sleeps in the ancient ruin until someone wakes it.
+        Cr("gloomhound", "gloomhound", Habitat.Cavern, 60, 14, 6, 0.7f, 0x3d5a6e, true, "bites", 1f, c => { c.Meat = 3; c.Bones = 2; c.HasHide = true; });
+        Cr("emberling", "emberling", Habitat.Cavern, 45, 16, 5, 0.8f, 0xd2552a, true, "sears", 0.7f, c => { c.Meat = 0; c.Bones = 1; });
+        Cr("warden", "the Warden", Habitat.Cavern, 1100, 38, 9, 1.2f, 0x8c8a86, false, "crushes", 2.4f, c => { c.Still = true; c.Meat = 0; c.Bones = 0; });
         // The great beasts of the legends (Fortress.Beasts): named, and each with its trick.
         Cr("ashwyrm", "the Ashwyrm", Habitat.Legend, 700, 34, 9, 1.1f, 0x3a2a26, true, "rends", 2.4f, c => { c.Bashes = true; c.Meat = 12; c.Bones = 6; c.HasHide = true; });
         Cr("palestalker", "the Pale Stalker", Habitat.Legend, 420, 40, 11, 0.7f, 0xd8d4cc, true, "claws", 2f, c => { c.Meat = 4; c.Bones = 4; });
@@ -506,7 +517,7 @@ public static class Tables
             case "ore": return it.Kind == ItemKind.Boulder && m.Kind == MatKind.Ore && m.Yields != null;
             case "fuel": return it.Kind == ItemKind.Charcoal || (it.Kind == ItemKind.Boulder && m.Fuel);
             case "roughgem": return it.Kind == ItemKind.RoughGem;
-            case "toolbar": return it.Kind == ItemKind.Bar && (m.Key is "iron" or "bronze" or "copper");
+            case "toolbar": return it.Kind == ItemKind.Bar && (m.Key is "iron" or "bronze" or "copper" or "starsilver");
             case "cookable": return (it.Kind == ItemKind.Plant && m.Edible) || it.Kind is ItemKind.Meat or ItemKind.Egg;
             case "brewable": return it.Kind == ItemKind.Plant && m.Brewable;
             case "food": return it.Kind is ItemKind.Meal or ItemKind.Meat or ItemKind.Egg || (it.Kind == ItemKind.Plant && m.Edible);

@@ -73,12 +73,13 @@ public sealed partial class Fortress
         WorldMap map = worldSeed != 0 ? new WorldMap(worldSeed) : null;
         EmbarkLand land = map != null && ex >= 0 ? map.Land(ex, ey) : null;
         WorldGen.Result gen = WorldGen.Generate(seed, w, h, d, land);
-        var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ, WorldSeed = worldSeed, WorldX = ex, WorldY = ey };
+        var f = new Fortress { Name = name, Seed = seed, Rng = new Rng(seed * 31 + 7), Embark = gen.Embark, CavernZ = gen.CavernZ, Caverns = gen.Caverns, Ruin = gen.Ruin, WorldSeed = worldSeed, WorldX = ex, WorldY = ey };
         f.SetWorld(map);
         f.Attach(gen.World);
         f.Settle();
         f.Livestock();
         f.SpawnWildlife();
+        f.FurnishRuin();
         return f;
     }
 
@@ -346,7 +347,9 @@ public sealed partial class Fortress
     {
         get
         {
-            int v = Items.Values.Where(i => i.Kind != ItemKind.Corpse).Sum(i => i.Value);
+            // What the hold has found: a treasure still sealed in an undiscovered ruin is no one's wealth yet
+            // (counted, it made the first year's raids huge).
+            int v = Items.Values.Where(i => i.Kind != ItemKind.Corpse && (i.Cell < 0 || !World.Has(i.Cell, CellFlag.Hidden))).Sum(i => i.Value);
             v += Buildings.Where(b => b.Built).Sum(b => b.Parts.Count * 2 + 10);
             return v;
         }
