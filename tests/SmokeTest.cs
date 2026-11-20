@@ -537,7 +537,7 @@ public partial class SmokeTest : Node
             AnimationLibrary clips = Kit.Clips(skel);
             var names = Godot.FileAccess.GetFileAsString(Kit.Dir + "/manifest.txt").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')).Select(l => l.Split(' ')[0]).ToList();
             var dead = names.Where(n => n.StartsWith("clip-") && !clips.HasAnimation(n[5..])).ToList();
-            Check(dead.Count == 0, $"every clip plays on the body (not: {string.Join(", ", dead)})");
+            Check(dead.Count == 0, $"every clip plays on the body (not: {string.Join(", ", dead)}{(Kit.ClipTrouble.Count > 0 ? "; " + string.Join("; ", Kit.ClipTrouble) : "")})");
             Check(clips.HasAnimation("walk") && clips.HasAnimation("idle"), "at least walk and idle");
             var unskinned = new List<string>();
             foreach (string n in names.Where(n => !n.StartsWith("clip-") && !n.StartsWith("held-") && n != "body"))

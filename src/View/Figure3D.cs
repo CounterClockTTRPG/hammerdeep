@@ -58,18 +58,17 @@ public static class Kit
     {
         if (_clips != null) return _clips;
         _clips = new AnimationLibrary();
-        var dir = DirAccess.Open(Dir);
-        if (dir == null) return _clips;
-        foreach (string f in dir.GetFiles())
+        ClipTrouble.Clear();
+        foreach (string name in ClipNames())
         {
-            if (!f.StartsWith("clip-") || !f.EndsWith(".glb")) continue;
-            string name = f[5..^4];
             Node3D scene = Part("clip-" + name);
-            if (scene == null) continue;
+            if (scene == null) { ClipTrouble.Add($"{name}: did not load"); continue; }
             var player = Find<AnimationPlayer>(scene);
+            if (player == null) ClipTrouble.Add($"{name}: no animation player");
             if (player != null)
             {
                 string src = player.GetAnimationList().FirstOrDefault();
+                if (src == null) ClipTrouble.Add($"{name}: no animation");
                 if (src != null)
                 {
                     var anim = (Animation)player.GetAnimation(src).Duplicate(true);
@@ -116,6 +115,24 @@ public static class Kit
             anim.TrackSetPath(t, new NodePath($"Body/{SkeletonPath}:{bone}"));
         }
     }
+
+    /// <summary>
+    /// The clips there are: from the manifest, since an exported build's pack can read a file but not list
+    /// a folder (every clip was lost that way); the folder itself only when there is no manifest.
+    /// </summary>
+    private static IEnumerable<string> ClipNames()
+    {
+        string mf = $"{Dir}/manifest.txt";
+        if (FileAccess.FileExists(mf))
+            return FileAccess.GetFileAsString(mf).Split('\n').Select(l => l.Trim())
+                .Where(l => l.StartsWith("clip-")).Select(l => l.Split(' ')[0][5..]).Where(n => Has("clip-" + n)).ToList();
+        var dir = DirAccess.Open(Dir);
+        if (dir == null) { ClipTrouble.Add($"cannot list {Dir}: {DirAccess.GetOpenError()}"); return Array.Empty<string>(); }
+        return dir.GetFiles().Where(f => f.StartsWith("clip-") && f.EndsWith(".glb")).Select(f => f[5..^4]).ToList();
+    }
+
+    /// <summary>Why clips were left out of the last <see cref="Clips"/> (the self-check reports it).</summary>
+    public static readonly List<string> ClipTrouble = new();
 
     /// <summary>Where the skeleton sits in a body, set when the first body is loaded.</summary>
     public static string SkeletonPath = "Skeleton3D";
