@@ -328,13 +328,20 @@ public partial class FortressScreen
             v.AddChild(h);
             // What it takes, and how much of that is to hand.
             bool short_ = false;
-            string uses = string.Join(" + ", r.Inputs.Select(n =>
+            // The same need twice (a stew's two foods) is one entry with its count.
+            string uses = string.Join(" + ", r.Inputs.GroupBy(n => n.Tag).Select(g =>
             {
-                int have = F.Items.Values.Count(i => i.Free && Tables.Matches(n.Tag, i));
-                if (have < n.Count) short_ = true;
-                return $"{(n.Count > 1 ? n.Count + " " : "")}{Tables.NeedName(n.Tag)} ({have})";
+                int count = g.Sum(n => n.Count);
+                int have = F.Items.Values.Count(i => i.Free && Tables.Matches(g.Key, i));
+                if (have < count) short_ = true;
+                return $"{(count > 1 ? count + " " : "")}{Tables.NeedName(g.Key)} ({have})";
             }));
-            v.AddChild(UITheme.L("   uses " + uses, 12, short_ ? UITheme.Ember : UITheme.Faint));
+            // Wrapped to the panel: a long list of ingredients once pushed the panel (and its buttons) off the screen.
+            Label usesL = UITheme.Wrap("uses " + uses, 12, short_ ? UITheme.Ember : UITheme.Faint, 300);
+            var indent = new MarginContainer();
+            indent.AddThemeConstantOverride("margin_left", 12);
+            indent.AddChild(usesL);
+            v.AddChild(indent);
         }
         v.AddChild(UITheme.L("Work orders", 13, UITheme.Bronze, UITheme.Title));
         if (b.Orders.Count == 0) v.AddChild(UITheme.L("None yet: add one above.", 13, UITheme.Faint));
