@@ -25,7 +25,14 @@ public static class Kit
     private static readonly Dictionary<string, Node3D> _protos = new();
     private static AnimationLibrary _clips;
 
-    public static bool Has(string name) => FileAccess.FileExists($"{Dir}/{name}.glb");
+    private static readonly Dictionary<string, bool> _has = new();
+
+    /// <summary>Is there such a part? Asked many times a frame, so the answer is kept (the files do not change while playing).</summary>
+    public static bool Has(string name)
+    {
+        if (!_has.TryGetValue(name, out bool yes)) _has[name] = yes = FileAccess.FileExists($"{Dir}/{name}.glb");
+        return yes;
+    }
 
     /// <summary>A fresh copy of a part, or null.</summary>
     public static Node3D Part(string name)
@@ -141,6 +148,7 @@ public static class Kit
     {
         foreach (Node3D n in _protos.Values) n?.Free();
         _protos.Clear();
+        _has.Clear();
         _clips = null;
     }
 }
@@ -155,9 +163,12 @@ public partial class Figure3D : Node3D
     private Node3D _body;
     private Skeleton3D _skel;
     private AnimationPlayer _player;
-    private readonly List<Node> _worn = new();
-    private string _wearing = "", _clip = "";
+    private readonly List<Node> _worn = new(), _held = new();
+    private string _wearing = "", _holding = "", _clip = "";
     private float _scale = 1;
+
+    /// <summary>What the view last dressed this figure from (its gear, task and gait); it re-dresses only when that changes.</summary>
+    public object Gear;
 
     /// <summary>Whether figures can be built at all (there is a body).</summary>
     public static bool Available => Kit.Has("body");
@@ -186,14 +197,25 @@ public partial class Figure3D : Node3D
     public void Show(IReadOnlyList<(string piece, Color tint)> pieces, string right, Color rightTint, string left, Color leftTint)
     {
         if (_skel == null) return;
-        string key = string.Join(",", pieces.Select(p => p.piece + p.tint.ToHtml())) + "|" + right + rightTint.ToHtml() + "|" + left;
-        if (key == _wearing) return;
-        _wearing = key;
-        foreach (Node n in _worn) n.QueueFree();
-        _worn.Clear();
-        foreach (var (piece, tint) in pieces) Wear(piece, tint);
-        Hold(right, "socket_hand_r", rightTint);
-        Hold(left, "socket_forearm_l", leftTint);
+        // Clothes and what is in hand are rebuilt apart: a dwarf changes tools far more often than clothes,
+        // and re-binding every skinned piece for a new pick is what made task changes stutter.
+        string wear = string.Join(",", pieces.Select(p => p.piece + p.tint.ToHtml()));
+        if (wear != _wearing)
+        {
+            _wearing = wear;
+            foreach (Node n in _worn) n.QueueFree();
+            _worn.Clear();
+            foreach (var (piece, tint) in pieces) Wear(piece, tint);
+        }
+        string hold = right + rightTint.ToHtml() + "|" + left + leftTint.ToHtml();
+        if (hold != _holding)
+        {
+            _holding = hold;
+            foreach (Node n in _held) n.QueueFree();
+            _held.Clear();
+            Hold(right, "socket_hand_r", rightTint);
+            Hold(left, "socket_forearm_l", leftTint);
+        }
     }
 
     /// <summary>Move a piece's skinned meshes onto this skeleton, binding by bone name.</summary>
@@ -254,7 +276,7 @@ public partial class Figure3D : Node3D
         if (item == null || at == null) { item?.Free(); return; }
         at.AddChild(item);
         if (tint != Colors.White) foreach (MeshInstance3D mi in item.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>()) Tint(mi, tint);
-        _worn.Add(item);
+        _held.Add(item);
     }
 
     /// <summary>Multiply a mesh's materials by a tint (clan cloth, the metal of armour).</summary>

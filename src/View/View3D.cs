@@ -180,21 +180,32 @@ public partial class View3D : Node3D
 
     // ---- each frame ---------------------------------------------------------------------
 
+    /// <summary>Milliseconds spent in each part of the last frames (summed; the agent's 'perf' reads and resets them).</summary>
+    public readonly Dictionary<string, double> Spent = new();
+    private readonly System.Diagnostics.Stopwatch _watch = new();
+    private void Lap(string part) { Spent[part] = Spent.GetValueOrDefault(part) + _watch.Elapsed.TotalMilliseconds; _watch.Restart(); }
+
     public override void _Process(double delta)
     {
         if (!Visible || F == null) return;
+        _watch.Restart();
         PlaceCamera();
         _dt = (float)delta;
         bool painted = Profile.Current?.PaintedArt ?? true;
         if (Map.Z != _z || F.Season != _season || painted != _painted)
         {
+            // Figures survive a change of level or season (they are hidden and shown); only the art setting remakes them.
+            bool remake = painted != _painted;
             _z = Map.Z; _season = F.Season; _painted = painted;
             foreach (var m in _chunks.Values) m.QueueFree();
             _chunks.Clear();
             foreach (var n in _buildings.Values) n.QueueFree();
             _buildings.Clear();
-            foreach (var n in _figures.Values) n.QueueFree();
-            _figures.Clear();
+            if (remake)
+            {
+                foreach (var n in _figures.Values) n.QueueFree();
+                _figures.Clear();
+            }
         }
         // Chunks near the camera first, a few a frame, so a level change never stalls.
         int ccx = (int)(Target.X / CS), ccy = (int)(Target.Z / CS), reach = Math.Clamp((int)(Distance * 1.6f / CS) + 1, 2, 9);
@@ -210,11 +221,16 @@ public partial class View3D : Node3D
                     _chunks[Key(cx, cy)] = BuildChunk(cx, cy);
                     built++;
                 }
+        Lap("terrain");
         SyncBuildings();
+        Lap("buildings");
         SyncFigures();
+        Lap("figures");
         _itemClock -= delta;
         if (_itemClock <= 0) { _itemClock = 0.4; SyncItems(); }
+        Lap("items");
         DrawOverlay();
+        Lap("overlay");
     }
 
     // ---- terrain ------------------------------------------------------------------------
@@ -485,12 +501,18 @@ public partial class View3D : Node3D
         return true;
     }
 
+    private readonly HashSet<int> _seen = new(), _alive = new();
+
     private void SyncFigures()
     {
-        var seen = new HashSet<int>();
+        HashSet<int> seen = _seen, alive = _alive;
+        seen.Clear();
+        alive.Clear();
         foreach (Dwarf d in F.Dwarves)
         {
-            if (d.Dead || !FigureSeen(d.Cell)) continue;
+            if (d.Dead) continue;
+            alive.Add(d.Id);
+            if (!FigureSeen(d.Cell)) continue;
             int key = d.Id;
             seen.Add(key);
             bool modelled = _painted && Figure3D.Available && (d.Race ?? "dwarf") == "dwarf";
@@ -503,7 +525,9 @@ public partial class View3D : Node3D
         }
         foreach (Creature c in F.Creatures)
         {
-            if (c.Dead || !FigureSeen(c.Cell)) continue;
+            if (c.Dead) continue;
+            alive.Add(-1 - c.Id);
+            if (!FigureSeen(c.Cell)) continue;
             int key = -1 - c.Id;
             seen.Add(key);
             Node3D n = Figure(key, () => MakeFigure(_painted ? Assets.Sprite("cr-" + c.Def) : null, Col(c.D.Color), 0.6f + c.D.Size * 0.25f));
@@ -511,7 +535,21 @@ public partial class View3D : Node3D
             Vector2 at = new((p.X + 0.5f) * MapView.T, (p.Y + 0.5f) * MapView.T);
             n.Position = new Vector3(at.X / MapView.T, p.Z, at.Y / MapView.T);
         }
-        foreach (int id in _figures.Keys.Where(k => !seen.Contains(k)).ToList()) { _figures[id].QueueFree(); _figures.Remove(id); }
+        // Out of view (another level), a figure is hidden and paused, not thrown away: building one -- a body,
+        // its clothes bound to the skeleton, an animation player -- is what made walking between levels hitch.
+        // Only the dead and the departed are freed.
+        List<int> gone = null;
+        foreach (var (id, n) in _figures)
+        {
+            if (!alive.Contains(id)) { (gone ??= new()).Add(id); continue; }
+            bool on = seen.Contains(id);
+            if (n.Visible != on)
+            {
+                n.Visible = on;
+                n.ProcessMode = on ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
+            }
+        }
+        if (gone != null) foreach (int id in gone) { _figures[id].QueueFree(); _figures.Remove(id); }
     }
 
     private float _dt;
@@ -519,6 +557,20 @@ public partial class View3D : Node3D
 
     /// <summary>A modelled dwarf: what they wear and hold, what they are doing, which way they face.</summary>
     private void Animate(Figure3D fig, Dwarf d, Vector2 moved, float dt)
+    {
+        TaskKind k = d.Task?.Kind ?? TaskKind.Idle;
+        bool walking = F.Stepping.ContainsKey(d.Id) && d.Path != null;
+        // What they wear, hold and do changes rarely: rebuild it only then, not every frame.
+        var gear = (d.Armor, d.Helm, d.Shield, d.Weapon, d.Pick, d.Axe, k, walking);
+        if (!gear.Equals(fig.Gear))
+        {
+            fig.Gear = gear;
+            Dress(fig, d, k, walking);
+        }
+        Face(fig, d, k, walking, moved, dt);
+    }
+
+    private void Dress(Figure3D fig, Dwarf d, TaskKind k, bool walking)
     {
         Item Of(int id) => id >= 0 && F.Items.TryGetValue(id, out Item it) ? it : null;
         Color Metal(Item it) => it == null ? Colors.White : Col(it.M.Color, 1.4f).Lerp(Colors.White, 0.45f);
@@ -541,7 +593,6 @@ public partial class View3D : Node3D
         string beard = $"beard-{d.Id % 3 + 1}";
         if (Kit.Has(beard)) pieces.Add((beard, Beards[d.Id % Beards.Length]));
         // In hand: the tool for the work, the weapon for a fight.
-        TaskKind k = d.Task?.Kind ?? TaskKind.Idle;
         Item weapon = Of(d.Weapon), pick = Of(d.Pick), axe = Of(d.Axe);
         (string held, Item heldItem) = k switch
         {
@@ -553,7 +604,6 @@ public partial class View3D : Node3D
         };
         if (held != null && !Kit.Has("held-" + held)) held = Kit.Has("held-sword") && k is TaskKind.Fight or TaskKind.Duty ? "sword" : null;
         fig.Show(pieces, held, Metal(heldItem), shield != null ? "shield" : null, Metal(shield));
-        bool walking = F.Stepping.ContainsKey(d.Id) && d.Path != null;
         if (walking) fig.Act(k == TaskKind.Flee ? new[] { "run", "walk" } : new[] { "walk" });
         else fig.Act(k switch
         {
@@ -568,7 +618,11 @@ public partial class View3D : Node3D
             TaskKind.Haul or TaskKind.Store or TaskKind.Plant or TaskKind.Harvest or TaskKind.Gather => new[] { "pickup", "idle" },
             _ => new[] { "idle" },
         });
-        // Face the way they go, or what they work on.
+    }
+
+    /// <summary>Face the way they go, or what they work on.</summary>
+    private void Face(Figure3D fig, Dwarf d, TaskKind k, bool walking, Vector2 moved, float dt)
+    {
         Vector2 face = moved;
         if (!walking && d.Task != null)
         {

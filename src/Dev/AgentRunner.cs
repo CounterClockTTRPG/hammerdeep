@@ -48,6 +48,8 @@ public partial class AgentRunner : Node
   down / up             hold / release the left button (e.g. down; key >; key >; at X Y; up -- a box several levels deep)
   goto X Y Z            centre the camera on a cell
   zoom Z                camera zoom, 0.5 (far) .. 6 (near)
+  perf [FRAMES]         time FRAMES frames (default 120) as they run: frame and process time, draw calls,
+                        objects; in 3D also where View3D's own time goes
   level Z               show level Z
   wait MS               let the game run MS real milliseconds
   tick N                advance the fortress N ticks at once (50 ticks = 2.5 s of normal speed)
@@ -285,6 +287,37 @@ public partial class AgentRunner : Node
                 await Button(MouseButton.Right, false);
                 await Frames(2);
                 return Root.Map != null && Root.Map.Is3D ? $"camera yaw {Root.Map.Three.Yaw:0} pitch {Root.Map.Three.Pitch:0}" : null;
+            }
+            case "perf":
+            {
+                int n = a.Length > 1 ? I(a[1]) : 120;
+                bool was = Busy;
+                Busy = true;
+                Root.Map?.Three?.Spent.Clear();
+                var frames = new List<double>();
+                double procSum = 0, draws = 0, objs = 0, prims = 0;
+                ulong last = Time.GetTicksUsec();
+                for (int k = 0; k < n; k++)
+                {
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                    ulong now = Time.GetTicksUsec();
+                    frames.Add((now - last) / 1000.0);
+                    last = now;
+                    procSum += Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000;
+                    draws += Performance.GetMonitor(Performance.Monitor.RenderTotalDrawCallsInFrame);
+                    objs += Performance.GetMonitor(Performance.Monitor.RenderTotalObjectsInFrame);
+                    prims += Performance.GetMonitor(Performance.Monitor.RenderTotalPrimitivesInFrame);
+                }
+                Busy = was;
+                frames.Sort();
+                string view = Root.Map == null ? "none" : Root.Map.Is3D ? "3D" : "2D";
+                var sb = new System.Text.StringBuilder();
+                sb.Append($"{view}: frame avg {frames.Average():0.0} ms, median {frames[n / 2]:0.0}, worst {frames[^1]:0.0} ({1000 / frames.Average():0} fps); ");
+                sb.Append($"process {procSum / n:0.0} ms; draw calls {draws / n:0}, objects {objs / n:0}, primitives {prims / n / 1000:0}k; ");
+                sb.Append($"nodes {Performance.GetMonitor(Performance.Monitor.ObjectNodeCount):0}");
+                if (Root.Map?.Three is View3D t && t.Spent.Count > 0)
+                    sb.Append("\nView3D per frame: " + string.Join(", ", t.Spent.Select(kv => $"{kv.Key} {kv.Value / n:0.00} ms")));
+                return sb.ToString();
             }
             case "goto":
                 if (a.Length < 4) return "goto needs X Y Z";
