@@ -38,6 +38,7 @@ public partial class View3D : Node3D
     private readonly MultiMeshInstance3D[] _items = new MultiMeshInstance3D[4];
     private const int ShapeBlock = 0, ShapeEgg = 1, ShapeLog = 2, ShapeBoulder = 3;
     private int _z = -1, _season = -1;
+    private Weather _sky;
     private bool _painted;
     private double _itemClock;
 
@@ -197,15 +198,35 @@ public partial class View3D : Node3D
     private readonly System.Diagnostics.Stopwatch _watch = new();
     private void Lap(string part) { Spent[part] = Spent.GetValueOrDefault(part) + _watch.Elapsed.TotalMilliseconds; _watch.Restart(); }
 
+    /// <summary>The sun and the sky by the hour: warm by day, gold at dawn and dusk, dim and blue by night
+    /// (never too dark to play).</summary>
+    private void Daylight()
+    {
+        float f = F.DayFraction;
+        // Below the surface the hours do not reach: a steady light, as by day.
+        float day = Map.Z < W.SurfaceZ - 1 ? 1 : Mathf.Clamp(Mathf.Sin((f - 0.22f) / 0.6f * Mathf.Pi), 0, 1);
+        float edge = Map.Z < W.SurfaceZ - 1 ? 0 : Mathf.Clamp(1 - Mathf.Abs(day - 0.35f) / 0.35f, 0, 1) * (day < 0.7f ? 1 : 0);
+        Color noon = new(1f, 0.95f, 0.86f), gold = new(1f, 0.72f, 0.45f), moon = new(0.6f, 0.68f, 0.95f);
+        Color sun = moon.Lerp(noon, day).Lerp(gold, edge * 0.6f);
+        _sun.LightColor = sun;
+        _sun.LightEnergy = 0.35f + 0.65f * day;
+        Godot.Environment env = _env.Environment;
+        env.AmbientLightEnergy = 0.32f + 0.14f * day;
+        env.AmbientLightColor = new Color(0.5f, 0.52f, 0.66f).Lerp(new Color(0.62f, 0.6f, 0.66f), day);
+        env.BackgroundColor = new Color(0.02f, 0.025f, 0.05f).Lerp(new Color(0.05f, 0.05f, 0.07f), day);
+    }
+
     public override void _Process(double delta)
     {
         if (!Visible || F == null) return;
         _watch.Restart();
+        Daylight();
         PlaceCamera();
         _dt = (float)delta;
         bool painted = Profile.Current?.PaintedArt ?? true;
-        if (Map.Z != _z || F.Season != _season || painted != _painted)
+        if (Map.Z != _z || F.Season != _season || F.Sky != _sky || painted != _painted)
         {
+            _sky = F.Sky;
             // Figures survive a change of level or season (they are hidden and shown); only the art setting remakes them.
             bool remake = painted != _painted;
             _z = Map.Z; _season = F.Season; _painted = painted;
@@ -289,7 +310,7 @@ public partial class View3D : Node3D
 
     private static Color Col(Rgb c, float f = 1) => new(c.R / 255f * f, c.G / 255f * f, c.B / 255f * f);
 
-    private Color Grass() => F.Season switch
+    private Color Grass() => F.Sky == Weather.Drought ? new Color(0.55f, 0.49f, 0.27f) : F.Season switch
     {
         0 => new Color(0.31f, 0.47f, 0.22f),
         1 => new Color(0.28f, 0.44f, 0.18f),
@@ -330,6 +351,8 @@ public partial class View3D : Node3D
         if (s == Shape.Wall || (hidden && s != Shape.Empty))
         {
             Color c = hidden ? new Color(0.07f, 0.065f, 0.07f) : Col(m.Color, dim * n);
+            // The ancient vault: worked marble, warm and banded by course.
+            if (!hidden && F.InRuin(x, y, z)) c = c.Lerp(new Color(0.91f, 0.84f, 0.66f), 0.45f) * (z % 2 == 0 ? 1f : 0.93f);
             bool cut = z == _z && z + 1 < W.D && World.IsSolid(W.Shapes[W.Idx(x, y, z + 1)]);
             // On the level in view, the top of a wall is where the level above was cut away: darker.
             Color top = z < _z && Solid(x, y, z + 1) ? c : cut ? c * 0.62f : c * 1.05f;
@@ -400,7 +423,8 @@ public partial class View3D : Node3D
         if (depth == 0) return;
         bool magma = W.Has(i, CellFlag.Magma);
         float h = z + depth / 7f * 0.95f;
-        Color c = magma ? new Color(1f, 0.42f, 0.08f, 0.95f) : new Color(0.16f, 0.36f, 0.62f, 0.62f);
+        // In a hard winter the water under the sky is ice.
+        Color c = magma ? new Color(1f, 0.42f, 0.08f, 0.95f) : F.Frozen(i) ? new Color(0.8f, 0.88f, 0.94f, 0.94f) : new Color(0.16f, 0.36f, 0.62f, 0.62f);
         water.Quad(new(x, h, y), new(x + 1, h, y), new(x + 1, h, y + 1), new(x, h, y + 1), Vector3.Up, c);
     }
 
@@ -420,8 +444,11 @@ public partial class View3D : Node3D
     private void Tree(Geo g, int i, Mat m, int x, int y, int z, float dim)
     {
         bool winter = F.Season == 3 && W.IsOutside(i);
+        bool snowed = winter && F.Sky == Weather.HardWinter;
         Color leaf = m.Key == "stalkwood" ? new Color(0.47f, 0.31f, 0.59f) : m.Key == "pine" ? new Color(0.13f, 0.32f, 0.2f)
             : winter ? new Color(0.43f, 0.38f, 0.31f) : F.Season == 2 ? new Color(0.67f, 0.39f, 0.16f) : new Color(0.19f, 0.41f, 0.17f);
+        // A hard winter lays snow on every crown.
+        if (snowed) leaf = leaf.Lerp(new Color(0.9f, 0.92f, 0.95f), 0.7f);
         leaf *= dim * (0.9f + Noise.Hash01(x, y, z, 7) * 0.2f);
         Color bark = new Color(0.33f, 0.22f, 0.13f) * dim;
         float h = TreeHeight(x, y, z);
@@ -558,7 +585,7 @@ public partial class View3D : Node3D
             string race = d.Race ?? "dwarf";
             bool modelled = _painted && Figure3D.Available && race == "dwarf";
             Node3D n = Figure(key, () => modelled ? new Figure3D()
-                : Posed("race-" + race) ?? MakeFigure(_painted ? Assets.Sprite("fig-" + d.Clan) : null, UITheme.C(Tables.Clan(d.Clan).Color), 1.05f));
+                : Rigged("body-" + race, Posed3D.HeightOf("race-" + race)) ?? Posed("race-" + race) ?? MakeFigure(_painted ? Assets.Sprite("fig-" + d.Clan) : null, UITheme.C(Tables.Clan(d.Clan).Color), 1.05f));
             Vector2 at = Map.DwarfPos(d);
             Vector3 was = n.Position;
             n.Position = new Vector3(at.X / MapView.T, W.Pos(d.Cell).Z, at.Y / MapView.T);
@@ -574,12 +601,14 @@ public partial class View3D : Node3D
             if (!FigureSeen(c.Cell)) continue;
             int key = -1 - c.Id;
             seen.Add(key);
-            Node3D n = Figure(key, () => Posed("cr-" + c.Def) ?? MakeFigure(_painted ? Assets.Sprite("cr-" + c.Def) : null, Col(c.D.Color), 0.6f + c.D.Size * 0.25f));
+            Node3D n = Figure(key, () => Rigged(c.Def == "trader" ? "body" : "body-" + c.Def, Posed3D.HeightOf("cr-" + c.Def)) ?? Posed("cr-" + c.Def) ?? MakeFigure(_painted ? Assets.Sprite("cr-" + c.Def) : null, Col(c.D.Color), 0.6f + c.D.Size * 0.25f));
             // Where the top-down view has it: walking smoothly from cell to cell, not jumping.
             Vector2 at = Map.CreaturePos(c);
             Vector3 was = n.Position;
             n.Position = new Vector3(at.X / MapView.T, W.Pos(c.Cell).Z, at.Y / MapView.T);
-            if (n is Posed3D posed) posed.Step(new Vector2(n.Position.X - was.X, n.Position.Z - was.Z), _dt, c.Id == Map.SelCreature);
+            Vector2 cm = new(n.Position.X - was.X, n.Position.Z - was.Z);
+            if (n is Posed3D posed) posed.Step(cm, _dt, c.Id == Map.SelCreature);
+            else if (n is Figure3D cf) AnimateCreature(cf, c, cm, _dt);
         }
         // Out of view (another level), a figure is hidden and paused, not thrown away: building one -- a body,
         // its clothes bound to the skeleton, an animation player -- is what made walking between levels hitch.
@@ -663,6 +692,8 @@ public partial class View3D : Node3D
             _ => (null, null),
         };
         if (held != null && !Kit.Has("held-" + held)) held = Kit.Has("held-sword") && k is TaskKind.Fight or TaskKind.Duty ? "sword" : null;
+        // Only the dwarf body wears the outfit pieces; the other peoples come dressed as they are.
+        if (!fig.Dwarven) pieces.Clear();
         fig.Show(pieces, held, Metal(heldItem), shield != null ? "shield" : null, Metal(shield));
         if (walking) fig.Act(k == TaskKind.Flee ? new[] { "run", "walk" } : new[] { "walk" });
         else fig.Act(k switch
@@ -703,6 +734,31 @@ public partial class View3D : Node3D
         n = make();
         _things.AddChild(n);
         return _figures[key] = n;
+    }
+
+    /// <summary>A rigged figure on its own body, when the body exists and painted art is on; else null.</summary>
+    private Figure3D Rigged(string body, float height) => _painted && Kit.Has(body) ? new Figure3D(body, height) : null;
+
+    /// <summary>A creature on a rigged body: what it holds, and walk, strike or stand by what it is doing.</summary>
+    private void AnimateCreature(Figure3D fig, Creature c, Vector2 moved, float dt)
+    {
+        bool walking = F.CStepping.ContainsKey(c.Id) && c.Path != null;
+        Dwarf foe = c.Target >= 0 ? F.DwarfById(c.Target) : null;
+        bool striking = !walking && foe != null && !foe.Dead && W.Pos(foe.Cell).Dist(W.Pos(c.Cell)) <= 1;
+        var gear = (walking, striking);
+        if (!gear.Equals(fig.Gear))
+        {
+            fig.Gear = gear;
+            string held = c.Def switch { "raider" => "axe", "brute" => "club", _ => null };
+            var dress = c.Def == "trader"
+                ? new List<(string, Color)> { ("cloth-torso", Col(c.D.Color)), ("cloth-arms", Col(c.D.Color)), ("cloth-legs", new Color(0.35f, 0.28f, 0.2f)), ("cloth-feet", new Color(0.3f, 0.22f, 0.15f)), ("beard-1", new Color(0.85f, 0.85f, 0.82f)) }
+                : new List<(string, Color)>();
+            fig.Show(dress.Where(p => Kit.Has(p.Item1)).ToList(), held != null && Kit.Has("held-" + held) ? held : null, Colors.White, null, Colors.White);
+            fig.Act(walking ? new[] { c.D.Pace < 0.8f ? "run" : "walk", "walk" } : striking ? new[] { "strike", "idle" } : new[] { "idle" });
+        }
+        Vector2 face = moved;
+        if (foe != null) { P3 a = W.Pos(c.Cell), b = W.Pos(foe.Cell); if (!walking) face = new Vector2(b.X - a.X, b.Y - a.Y); }
+        fig.Face(face, dt);
     }
 
     /// <summary>A creature's or a people's posed model, when there is one and painted art is on; else null (a sprite then).</summary>

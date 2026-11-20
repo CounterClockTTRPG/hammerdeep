@@ -61,6 +61,9 @@ public partial class AgentRunner : Node
   mood [NAME]           (debug) a strange mood for a dwarf
   happen KEY            (debug) something at the gate: bard, refugee, envoy, wanderer, rats
   beast KEY             (debug) a great beast: ashwyrm, palestalker, merething, gnashjaw, queen
+  weather KIND          (debug) the season's weather: fair, floods, drought, heat, hard
+  ruin                  (debug) uncover the ancient vault and look at it
+  time HOUR             (debug) set the hour of the day, 0..23 (the 3D light follows it)
   arm [NAME|all]        (debug) iron armour, helm, hammer and shield
   help";
 
@@ -281,6 +284,36 @@ public partial class AgentRunner : Node
                 if (Root.Map != null) Root.Map.Cam.Zoom = Vector2.One * Math.Clamp(float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), 0.5f, 6f);
                 await Frames(2);
                 return null;
+            case "weather":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                f.Sky = (a.Length > 1 ? a[1] : "fair") switch { "floods" => Weather.Floods, "drought" => Weather.Drought, "heat" => Weather.Heat, "hard" => Weather.HardWinter, _ => Weather.Fair };
+                if (f.Sky == Weather.Floods) f.Flood();
+                await Frames(3);
+                return $"the weather: {Fortress.WeatherName(f.Sky)}";
+            }
+            case "ruin":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                if (f.Ruin.X < 0) return "this hold has no ruin";
+                World w = f.World;
+                for (int z = f.Ruin.Z - 1; z <= f.Ruin.Z + 3; z++)
+                    for (int y = f.Ruin.Y - 6; y <= f.Ruin.Y + 6; y++)
+                        for (int x = f.Ruin.X - 7; x <= f.Ruin.X + 7; x++)
+                            if (w.In(x, y, z)) { int i = w.Idx(x, y, z); w.Set(i, CellFlag.Hidden, false); w.Changed.Add(i); }
+                Root.Map?.SetZ(f.Ruin.Z);
+                Root.Screen?.Jump(f.Ruin);
+                await Frames(4);
+                return $"the vault at {f.Ruin}";
+            }
+            case "time":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                long day = f.Tick / Tables.TicksPerDay;
+                f.Tick = day * Tables.TicksPerDay + I(a[1]) * Tables.TicksPerDay / 24;
+                await Frames(3);
+                return $"now {f.Date}";
+            }
             case "happen":
             {
                 Fortress f = Root.Fortress ?? throw new Exception("no fortress");

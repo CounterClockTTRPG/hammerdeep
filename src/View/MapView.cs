@@ -23,6 +23,7 @@ public partial class MapView : Node2D
     private readonly Dictionary<int, ImageTexture> _chunks = new();
     private readonly HashSet<int> _dirty = new();
     private int _chunksZ = -1, _season = -1;
+    private Weather _sky;
     private readonly byte[] _buf = new byte[CH * A * CH * A * 4];
 
     // What the screen wants shown.
@@ -257,7 +258,7 @@ public partial class MapView : Node2D
     {
         if (F == null) return;
         Time += (float)delta;
-        if (F.Season != _season) { _season = F.Season; _chunks.Clear(); }
+        if (F.Season != _season || F.Sky != _sky) { _season = F.Season; _sky = F.Sky; _chunks.Clear(); }
         // The world says what changed; a change at z shows on z..z+3 (seen from above through air).
         if (W.Changed.Count > 0)
         {
@@ -341,6 +342,7 @@ public partial class MapView : Node2D
         if (dep >= World.Deep)
         {
             if (hot) PaintLiquid(i, ox, oy, new Rgb(170, 40, 10), new Rgb(255, 150, 40));
+            else if (F.Frozen(i)) PaintLiquid(i, ox, oy, new Rgb(180, 205, 222), new Rgb(232, 242, 250));
             else PaintLiquid(i, ox, oy, new Rgb(34, 78, 140).Scale(0.85f + dep * 0.03f), new Rgb(70, 130, 200));
             if (bright < 0.999f) Dim(ox, oy, bright);
             return;
@@ -361,7 +363,7 @@ public partial class MapView : Node2D
                 else if (W.Has(i, CellFlag.Shrub)) PaintShrub(i, ox, oy);
                 break;
         }
-        if (dep > 0) Tint(ox, oy, hot ? new Rgb(240, 110, 30) : new Rgb(50, 110, 190), 0.22f + dep * 0.1f);
+        if (dep > 0) Tint(ox, oy, hot ? new Rgb(240, 110, 30) : F.Frozen(i) ? new Rgb(215, 232, 245) : new Rgb(50, 110, 190), 0.22f + dep * 0.1f);
         if (bright < 0.999f) Dim(ox, oy, bright);
     }
 
@@ -388,6 +390,9 @@ public partial class MapView : Node2D
         bool built = W.Has(i, CellFlag.Built);
         Rgb host = m.Kind is MatKind.Ore or MatKind.Gem ? HostRock(x, y, z) : m.Color;
         Rgb baseC = host.Scale(m.Kind == MatKind.Soil ? 0.85f : 0.92f);
+        // The ancient vault: worked marble, warm and banded, so it stands out once it is found.
+        bool vault = F.InRuin(x, y, z);
+        if (vault) baseC = baseC.Mix(new Rgb(232, 214, 168), 0.4f);
         for (int j = 0; j < A; j++)
             for (int k = 0; k < A; k++)
             {
@@ -429,7 +434,8 @@ public partial class MapView : Node2D
         return new Rgb(110, 104, 98);
     }
 
-    private Rgb GrassColor(uint h) => F.Season switch
+    // A drought burns the grass to straw.
+    private Rgb GrassColor(uint h) => F.Sky == Weather.Drought ? new Rgb(150, 132, 72) : F.Season switch
     {
         0 => new Rgb(78, 120, 56),
         1 => new Rgb(70, 112, 46),

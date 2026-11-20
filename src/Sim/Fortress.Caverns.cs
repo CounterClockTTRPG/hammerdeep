@@ -27,6 +27,9 @@ public partial class Fortress
 
     public bool LayerFound(int k) => (CavernsFound & (1 << k)) != 0;
 
+    /// <summary>Part of the ancient vault (its walls, roof and floor): the views draw it as worked stone.</summary>
+    public bool InRuin(int x, int y, int z) => Ruin.X >= 0 && Math.Abs(x - Ruin.X) <= 4 && Math.Abs(y - Ruin.Y) <= 3 && z >= Ruin.Z - 1 && z <= Ruin.Z + 2;
+
     /// <summary>A layer opened by digging: announced, with the first of its creatures.</summary>
     internal void BrokeInto(int layer, int cell)
     {

@@ -23,7 +23,8 @@ public static class Kit
         : OS.GetExecutablePath().GetBaseDir() + "/assets/figures";
 
     private static readonly Dictionary<string, Node3D> _protos = new();
-    private static AnimationLibrary _clips;
+    /// <summary>The clips retargeted to each body (by the body's name: they differ in height and rest pose).</summary>
+    private static readonly Dictionary<string, AnimationLibrary> _clips = new();
 
     private static readonly Dictionary<string, bool> _has = new();
 
@@ -54,10 +55,13 @@ public static class Kit
     }
 
     /// <summary>Every clip, its tracks aimed at the figure's skeleton (under its "Body" node) and fitted to that body.</summary>
-    public static AnimationLibrary Clips(Skeleton3D ours)
+    public static AnimationLibrary Clips(Skeleton3D ours) => Clips("body", ours, SkeletonPath);
+
+    /// <summary>Every clip fitted to one body: its skeleton <paramref name="ours"/>, found at <paramref name="skelPath"/> under "Body".</summary>
+    public static AnimationLibrary Clips(string bodyName, Skeleton3D ours, string skelPath)
     {
-        if (_clips != null) return _clips;
-        _clips = new AnimationLibrary();
+        if (_clips.TryGetValue(bodyName, out AnimationLibrary have)) return have;
+        var lib = _clips[bodyName] = new AnimationLibrary();
         ClipTrouble.Clear();
         foreach (string name in ClipNames())
         {
@@ -72,14 +76,14 @@ public static class Kit
                 if (src != null)
                 {
                     var anim = (Animation)player.GetAnimation(src).Duplicate(true);
-                    Retarget(anim, Find<Skeleton3D>(scene), ours);
+                    Retarget(anim, Find<Skeleton3D>(scene), ours, skelPath);
                     anim.LoopMode = name is "death" or "sleep" or "pickup" ? Animation.LoopModeEnum.None : Animation.LoopModeEnum.Linear;
-                    _clips.AddAnimation(name, anim);
+                    lib.AddAnimation(name, anim);
                 }
             }
             scene.Free();
         }
-        return _clips;
+        return lib;
     }
 
     /// <summary>
@@ -88,7 +92,7 @@ public static class Kit
     /// but positions are the clip's movement away from its rest, scaled by how much shorter
     /// (or taller) our body stands, added to our rest: so a dwarf's hips stay at dwarf height.
     /// </summary>
-    private static void Retarget(Animation anim, Skeleton3D theirs, Skeleton3D ours)
+    private static void Retarget(Animation anim, Skeleton3D theirs, Skeleton3D ours, string skelPath)
     {
         float ratio = 1;
         if (theirs != null && ours != null)
@@ -112,7 +116,7 @@ public static class Kit
                 for (int k = 0; k < anim.TrackGetKeyCount(t); k++)
                     anim.TrackSetKeyValue(t, k, ourRest + ((Vector3)anim.TrackGetKeyValue(t, k) - theirRest) * ratio);
             }
-            anim.TrackSetPath(t, new NodePath($"Body/{SkeletonPath}:{bone}"));
+            anim.TrackSetPath(t, new NodePath($"Body/{skelPath}:{bone}"));
         }
     }
 
@@ -166,7 +170,7 @@ public static class Kit
         foreach (Node3D n in _protos.Values) n?.Free();
         _protos.Clear();
         _has.Clear();
-        _clips = null;
+        _clips.Clear();
     }
 }
 
@@ -190,23 +194,35 @@ public partial class Figure3D : Node3D
     /// <summary>Whether figures can be built at all (there is a body).</summary>
     public static bool Available => Kit.Has("body");
 
+    /// <summary>Which body (body: the dwarf; body-raider, body-delvling... the others) and how tall it stands.</summary>
+    public readonly string BodyName = "body";
+    private readonly float _height = 1.3f;
+
+    public Figure3D() { }
+
+    public Figure3D(string body, float height) { BodyName = body; _height = height; }
+
+    /// <summary>A dwarf body, which wears the outfit pieces (the others come dressed as they are).</summary>
+    public bool Dwarven => BodyName == "body";
+
     public override void _Ready()
     {
-        _body = Kit.Part("body");
+        _body = Kit.Part(BodyName);
         if (_body == null) return;
         _body.Name = "Body";
         AddChild(_body);
         _skel = Kit.Find<Skeleton3D>(_body);
-        if (_skel != null) Kit.SkeletonPath = _body.GetPathTo(_skel).ToString();
+        string skelPath = _skel != null ? _body.GetPathTo(_skel).ToString() : "Skeleton3D";
+        if (_skel != null && Dwarven) Kit.SkeletonPath = skelPath;
         // Its own player only: the body's (if any) would fight it.
         foreach (AnimationPlayer p in _body.FindChildren("*", "AnimationPlayer", true, false).Cast<AnimationPlayer>()) p.QueueFree();
         _player = new AnimationPlayer { Name = "Anim" };
         AddChild(_player);
         _player.RootNode = new NodePath("..");
-        _player.AddAnimationLibrary("", Kit.Clips(_skel));
-        // A dwarf stands about 1.3 m whatever the body was modelled at.
+        _player.AddAnimationLibrary("", Kit.Clips(BodyName, _skel, skelPath));
+        // It stands as tall as it should whatever it was modelled at (a dwarf 1.3 m).
         Aabb box = MeshBounds(_body);
-        _scale = box.Size.Y > 0.1f ? 1.3f / box.Size.Y : 1;
+        _scale = box.Size.Y > 0.1f ? _height / box.Size.Y : 1;
         _body.Scale = Vector3.One * _scale;
     }
 
