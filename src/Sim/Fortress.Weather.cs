@@ -96,6 +96,6 @@ public partial class Fortress
     /// <summary>What a grazer gets from a mouthful of grass now.</summary>
     private int GrazeGain => Sky == Weather.HardWinter ? 0 : Sky == Weather.Drought || Season == 3 ? 2 : 7;
 
-    /// <summary>Surface water frozen solid cannot be drunk.</summary>
+    /// <summary>Surface water frozen: drinking means breaking the ice (slow, cold).</summary>
     internal bool Frozen(int cell) => Sky == Weather.HardWinter && World.IsOutside(cell);
 }

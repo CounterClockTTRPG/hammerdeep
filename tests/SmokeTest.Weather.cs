@@ -32,16 +32,16 @@ public partial class SmokeTest
             f.Flood();
             Check(w.Depth[pond] == System.Math.Min(7, before + 2) && w.Active.Contains(pond), $"a flood raises the pond ({before} -> {w.Depth[pond]}) and sets it running");
         }
-        // A hard winter freezes the water under the sky; underground, it runs as ever.
+        // A hard winter freezes the water under the sky: it can still be drunk, but the ice must be broken first.
         {
             Fortress f = Tiny(new[] { "##########", "#@..~~...#", "#...~~...#", "##########" });
             World w = f.World;
             int beside = w.Idx(3, 1, 1);
             Check(f.BesideWater(beside), "a dwarf beside the pond can drink");
             f.Sky = Weather.HardWinter;
-            Check(f.BesideWater(beside), "underground, even in a hard winter");
+            Check(!f.Frozen(beside), "underground, a hard winter freezes nothing");
             for (int i = 0; i < w.N; i++) w.Set(i, CellFlag.Outside, true);
-            Check(!f.BesideWater(beside), "under the sky in a hard winter, the pond is frozen solid");
+            Check(f.Frozen(beside) && f.BesideWater(beside), "under the sky the pond is frozen -- but the ice can be broken for a drink");
         }
         // Heat spoils ale; drought slows crops under the sky.
         {

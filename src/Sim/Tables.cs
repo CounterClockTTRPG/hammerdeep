@@ -425,6 +425,7 @@ public static class Tables
         T("clan_pride", "is proud of what their clan has made of the hold", 8, 12);
         T("clan_slighted", "feels the hold slights their clan", -3, 12);
         T("brawled", "came to blows over an old grudge", -4, 2);
+        T("drank_ice", "had to break the ice for a drink", -2, 1);
         T("heard_bard", "heard the bard sing in the hall", 3, 1);
         T("noble_angry", "had to listen to the noble rage", -5, 3);
         T("beast_slain", "saw a beast of legend slain", 16, 6);

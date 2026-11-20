@@ -78,6 +78,7 @@ public partial class Fortress
         {
             d.Hp = Math.Max(1, d.Hp - Rng.Range(4, 9));
             d.LastHurt = Tick;
+            d.Brawled = Tick;
             AddThought(d, "brawled");
         }
         a.Opinion[b.Id] = Math.Max(-100, a.Opinion.GetValueOrDefault(b.Id) - 10);
@@ -89,5 +90,6 @@ public partial class Fortress
 
     /// <summary>When two of feuding clans meet: do they brawl? (Loathing, and a bad day for one of them.)</summary>
     internal bool Brawls(Dwarf a, Dwarf b) =>
-        a.Opinion.GetValueOrDefault(b.Id) <= -50 && (a.Mood < 0 || b.Mood < 0) && Rng.Chance(0.3);
+        a.Opinion.GetValueOrDefault(b.Id) <= -70 && (a.Mood < 0 || b.Mood < 0)
+        && Tick - a.Brawled > Tables.TicksPerSeason && Tick - b.Brawled > Tables.TicksPerSeason && Rng.Chance(0.3);
 }

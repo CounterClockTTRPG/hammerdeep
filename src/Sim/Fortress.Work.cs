@@ -974,7 +974,8 @@ public sealed partial class Fortress
             }
             t.Stage = 1;
         }
-        if (t.Stage == 1) { t.Stage = 2; t.Total = 40; }
+        // In a hard winter the ice must be broken first: three times as long, and cold comfort.
+        if (t.Stage == 1) { t.Stage = 2; t.Total = t.Item < 0 && Frozen(d.Cell) ? 120 : 40; }
         if (++t.Work < t.Total) return true;
         if (t.Item >= 0)
         {
@@ -988,7 +989,7 @@ public sealed partial class Fortress
         else
         {
             if (!BesideWater(d.Cell)) return false;
-            AddThought(d, WaterFouled ? "foul_water" : BesideWell(d.Cell) ? "drank_well" : "drank_water");
+            AddThought(d, WaterFouled ? "foul_water" : Frozen(d.Cell) && !BesideWell(d.Cell) ? "drank_ice" : BesideWell(d.Cell) ? "drank_well" : "drank_water");
         }
         d.Thirst = 0;
         d.Thoughts.RemoveAll(x => x.Id == "thirsty");
@@ -1004,8 +1005,8 @@ public sealed partial class Fortress
             {
                 if (!World.In(p.X + dx, p.Y + dy, p.Z)) continue;
                 int j = World.Idx(p.X + dx, p.Y + dy, p.Z);
-                if (World.WaterAt(j) && !Frozen(j)) return true;
-                if (World.Shapes[j] == Shape.Empty && p.Z > 0 && World.WaterAt(j - World.W * World.H) && !Frozen(j - World.W * World.H)) return true;
+                if (World.WaterAt(j)) return true;
+                if (World.Shapes[j] == Shape.Empty && p.Z > 0 && World.WaterAt(j - World.W * World.H)) return true;
             }
         return _anyWell && BesideWell(c);
     }

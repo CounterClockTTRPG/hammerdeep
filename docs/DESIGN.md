@@ -168,7 +168,8 @@
    stream under the sky rises 2 and runs (an alert: mind the low ground). Highsun: drought
    20% -- crops under the sky ripen at half speed and grazers get 2 a mouthful, not 7; or a
    heatwave 15% -- each day 4% of the ale not in hand spoils. Deepfrost: a hard winter 30% --
-   water under the sky is frozen solid (no drinking there) and the grass gives nothing.
+   water under the sky is frozen (a drink there means breaking the ice: three times as long,
+   -2) and the grass gives nothing.
    Leaffall is always fair. Underground, a hold hardly notices. `Peaceful` (tests) keeps
    raids, beasts and cavern spawns from the seasons.
 
@@ -215,9 +216,9 @@
    or silver, the Hollyhocks 30 cells of farm under the sky, the Graniteborn 800 cells dug.
    Met (checked each season), the clan is proud (+8 for twelve days); still unmet at a new
    year, slighted (-3). A dwarf's panel shows their clan's ambition. Two of feuding clans who
-   loathe each other (opinion -50 or worse), when one is having a bad day (mood below 0),
-   may come to blows when they meet (30%): bruises (4-8, never below 1 hp), -4 each, and
-   their opinion of each other sinks further.
+   loathe each other (opinion -70 or worse), when one is having a bad day (mood below 0),
+   may come to blows when they meet (30%; each at most once a season): bruises (4-8, never
+   below 1 hp), -4 each, and their opinion of each other sinks further.
 
 21. **Things lying about, modelled** — in the 3D view an item is its kind's model (`it-*` in
    `assets/models`; furniture from the buildings', tools and shields from the dwarves' kit),
