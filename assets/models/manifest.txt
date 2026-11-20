@@ -12,7 +12,9 @@ cr-ashwyrm cr-ashwyrm-5effa0
 cr-badger cr-badger-a37e2e
 cr-brute cr-brute-0246c4
 cr-crawler cr-crawler-933bdf
+cr-emberling cr-emberling-2cf2c2
 cr-fellbuck cr-fellbuck-33e885
+cr-gloomhound cr-gloomhound-a12f36
 cr-gnashjaw cr-gnashjaw-1e336c
 cr-goat cr-goat-11380b
 cr-hen cr-hen-54c45c
@@ -23,6 +25,7 @@ cr-queen cr-queen-c14a56
 cr-raider cr-raider-afb142
 cr-stalker cr-stalker-83ed7b
 cr-trader cr-trader-fc1580
+cr-warden cr-warden-4eb8a1
 craftsdwarf craftsdwarf-16356b
 depot depot-9ad041
 door door-e03638
@@ -33,6 +36,7 @@ it-armor it-armor-e9f7b2
 it-bar it-bar-e8076b
 it-barrel it-barrel-8e9be3
 it-block it-block-0d6e55
+it-bone it-bone-d9e755
 it-boulder it-boulder-59a7ee
 it-carcass it-carcass-6d8e7f
 it-charcoal it-charcoal-da4907
@@ -40,8 +44,11 @@ it-craft it-craft-17ade7
 it-cutgem it-cutgem-3c98cf
 it-drink it-drink-70ebed
 it-helm it-helm-b3e268
+it-hide it-hide-083547
+it-leather it-leather-a2bf76
 it-log it-log-592e4a
 it-meal it-meal-93770c
+it-meat it-meat-abd072
 it-mechanism it-mechanism-d2dca0
 it-plant it-plant-2c30bf
 it-roughgem it-roughgem-cda5dd
