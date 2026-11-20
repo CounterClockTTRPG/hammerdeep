@@ -88,6 +88,35 @@ public partial class ShotRunner : Node
                 m.SetIso(false);
                 m.CenterOn(o.HallCenter);
             }
+            if (Want("3d"))
+            {
+                // The 3D view: terrain is meshed a few chunks a frame, so give it time before each shot.
+                m.Set3D(true);
+                m.Cam.Zoom = new Vector2(2.2f, 2.2f);
+                m.CenterOn(o.HallCenter);
+                await Frames(60);
+                await Shot("05c-hall-3d");
+                m.CenterOn(f.Embark);
+                m.Cam.Zoom = new Vector2(1.4f, 1.4f);
+                await Frames(60);
+                await Shot("03c-surface-3d");
+                Dwarf near = f.Living.OrderBy(d => f.World.Pos(d.Cell).Z == f.World.SurfaceZ ? 0 : 1).First();
+                m.Cam.Zoom = new Vector2(4.5f, 4.5f);
+                s.Jump(f.World.Pos(near.Cell));
+                await Frames(40);
+                await Shot("03d-dwarf-3d");
+                m.Three.Yaw += 135;
+                m.Three.Pitch = 30;
+                m.Cam.Zoom = new Vector2(1.6f, 1.6f);
+                m.CenterOn(f.Embark);
+                await Frames(60);
+                await Shot("03e-surface-3d-low");
+                m.Three.Yaw -= 135;
+                m.Three.Pitch = 52;
+                m.Set3D(false);
+                m.Cam.Zoom = new Vector2(2.2f, 2.2f);
+                m.CenterOn(o.HallCenter);
+            }
             if (Want("tutorial"))
             {
                 f.TutorialStep = 4;

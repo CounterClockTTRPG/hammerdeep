@@ -391,6 +391,8 @@ public partial class View3D : Node3D
         else g.Quad(new(x, lo, y), new(x + 1, lo, y), new(x + 1, lo, y + 1), new(x, lo, y + 1), Vector3.Up, c);
     }
 
+    private static float TreeHeight(int x, int y, int z) => 0.9f + Noise.Hash01(x, y, z, 8) * 0.5f;
+
     private void Tree(Geo g, int i, Mat m, int x, int y, int z, float dim)
     {
         bool winter = F.Season == 3 && W.IsOutside(i);
@@ -398,7 +400,7 @@ public partial class View3D : Node3D
             : winter ? new Color(0.43f, 0.38f, 0.31f) : F.Season == 2 ? new Color(0.67f, 0.39f, 0.16f) : new Color(0.19f, 0.41f, 0.17f);
         leaf *= dim * (0.9f + Noise.Hash01(x, y, z, 7) * 0.2f);
         Color bark = new Color(0.33f, 0.22f, 0.13f) * dim;
-        float h = 0.9f + Noise.Hash01(x, y, z, 8) * 0.5f;
+        float h = TreeHeight(x, y, z);
         g.Box(new(x + 0.42f, z, y + 0.42f), new(x + 0.58f, z + h * 0.7f, y + 0.58f), bark, bark * 0.8f);
         if (m.Key == "pine")
         {
@@ -714,9 +716,26 @@ public partial class View3D : Node3D
         {
             P3 p = W.Pos(c);
             if (p.Z != _z || p.X < x0 || p.X > x1 || p.Y < y0 || p.Y > y1) continue;
-            float y = World.IsSolid(W.Shapes[c]) ? _z + 1.02f : _z + 0.03f;
-            Color col = W.Desigs[c] switch { Desig.Chop or Desig.Gather => new Color(0.4f, 0.9f, 0.4f, 0.45f), Desig.Remove => new Color(1, 0.4f, 0.3f, 0.45f), _ => new Color(1f, 0.85f, 0.3f, 0.42f) };
-            Flat(p.X + 0.08f, p.Y + 0.08f, p.X + 0.92f, p.Y + 0.92f, y, col); any++;
+            Desig g = W.Desigs[c];
+            // The same colours as the top-down view, a fill and a bright edge; a tree's mark rides above its
+            // canopy and a shrub's around its top, where they would otherwise hide it.
+            Color col = g switch
+            {
+                Desig.Dig => new Color(1f, 0.84f, 0.3f),
+                Desig.Channel => new Color(0.85f, 0.5f, 1f),
+                Desig.StairUD or Desig.StairDown or Desig.StairUp => new Color(0.4f, 0.9f, 1f),
+                Desig.Chop => new Color(0.6f, 1f, 0.4f),
+                Desig.Gather => new Color(0.6f, 1f, 0.8f),
+                Desig.Remove => new Color(1, 0.4f, 0.3f),
+                _ => new Color(1, 1, 1),
+            };
+            bool taken = F.Claims.ContainsKey(c);
+            float y = g == Desig.Chop && W.Shapes[c] == Shape.Tree ? _z + TreeHeight(p.X, p.Y, p.Z) * 1.25f + 0.04f
+                : g == Desig.Gather ? _z + 0.42f
+                : World.IsSolid(W.Shapes[c]) ? _z + 1.02f : _z + 0.03f;
+            if (g is not (Desig.Chop or Desig.Gather)) Flat(p.X + 0.08f, p.Y + 0.08f, p.X + 0.92f, p.Y + 0.92f, y, new Color(col, taken ? 0.5f : 0.32f));
+            Frame(p.X + 0.06f, p.Y + 0.06f, p.X + 0.94f, p.Y + 0.94f, y + 0.005f, new Color(col, 0.95f), 0.07f);
+            any++;
         }
         if (Map.Box is var (a, b))
         {
