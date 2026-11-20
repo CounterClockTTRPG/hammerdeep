@@ -8,8 +8,16 @@ carpenter carpenter-4af525
 chair chair-118a78
 chest chest-cd8aa9
 coffin coffin-5a18ba
+cr-badger cr-badger-a37e2e
+cr-brute cr-brute-0246c4
+cr-crawler cr-crawler-933bdf
+cr-fellbuck cr-fellbuck-33e885
 cr-goat cr-goat-11380b
 cr-hen cr-hen-54c45c
+cr-merchant cr-merchant-d33c1a
+cr-raider cr-raider-afb142
+cr-stalker cr-stalker-83ed7b
+cr-trader cr-trader-fc1580
 craftsdwarf craftsdwarf-16356b
 depot depot-9ad041
 door door-e03638
@@ -21,6 +29,9 @@ leatherworks leatherworks-039c94
 mason mason-3e2437
 mforge mforge-8cc6ea
 msmelter msmelter-5f2c0b
+race-delvling race-delvling-c104c0
+race-rootfolk race-rootfolk-a2e0df
+race-stonekin race-stonekin-2ab072
 runeforge runeforge-01049e
 shrine shrine-58a982
 smelter smelter-df3ddf
