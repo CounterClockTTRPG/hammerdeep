@@ -149,15 +149,7 @@ public partial class TitleScreen : Control
         }
     }
 
-    /// <summary>The slot's main action: lit like a brazier.</summary>
-    private static Button Primary(Button b)
-    {
-        b.AddThemeStyleboxOverride("normal", UITheme.Box(new Color(0.30f, 0.17f, 0.07f), UITheme.Bronze, 1, 3, 12));
-        b.AddThemeStyleboxOverride("hover", UITheme.Box(new Color(0.42f, 0.24f, 0.09f), UITheme.Gold, 1, 3, 12));
-        b.AddThemeStyleboxOverride("pressed", UITheme.Box(new Color(0.52f, 0.30f, 0.11f), UITheme.Gold, 1, 3, 12));
-        b.AddThemeColorOverride("font_color", UITheme.Gold);
-        return b;
-    }
+    private static Button Primary(Button b) => UITheme.Primary(b);
 
     private void AskName(int slot)
     {

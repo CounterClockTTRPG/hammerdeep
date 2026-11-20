@@ -156,6 +156,17 @@ public static partial class UITheme
         return b;
     }
 
+    /// <summary>A screen's main action, lit like a brazier (the title's Continue, the world's Embark here).</summary>
+    public static Button Primary(Button b)
+    {
+        b.AddThemeStyleboxOverride("normal", Box(new Color(0.30f, 0.17f, 0.07f), Bronze, 1, 3, 12));
+        b.AddThemeStyleboxOverride("hover", Box(new Color(0.42f, 0.24f, 0.09f), Gold, 1, 3, 12));
+        b.AddThemeStyleboxOverride("pressed", Box(new Color(0.52f, 0.30f, 0.11f), Gold, 1, 3, 12));
+        b.AddThemeStyleboxOverride("disabled", Box(new Color(0.12f, 0.09f, 0.07f), new Color(0.3f, 0.22f, 0.14f), 1, 3, 12));
+        b.AddThemeColorOverride("font_color", Gold);
+        return b;
+    }
+
     public static PanelContainer Panel(Control content, Color? fill = null)
     {
         var p = new PanelContainer();
