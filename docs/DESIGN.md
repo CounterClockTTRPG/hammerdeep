@@ -226,6 +226,32 @@
    batch per kind; bars, blocks, gems, boulders and crafts take their material's colour.
    Eggs, and anything without a model yet, keep their plain shapes.
 
+22. **The views show it, and it is heard** — drought burns the grass to straw; a hard winter
+   turns the water under the sky to ice and lays snow on the trees; the ancient vault is
+   worked marble, warm and banded. In 3D the light follows the clock (warm by day, gold at
+   dawn and dusk, dim and blue at night; steady below the surface). The sim queues cues
+   (`Fortress.Cues`) and the screen plays them: a roar for a great beast or the Warden
+   waking, rushing water for a flood, a noble's stamped rage, a knock at the gate, a
+   brawl's thumps, a deep bell for a new layer, a fanfare for a beast slain or an ambition
+   met; a wintering bard doubles the hall's lute. `--shots music` writes the cues to
+   `shots/cue-*.wav`.
+
+23. **Achievements** (`Achievements`) — twenty deeds kept in the player's profile across every
+   hold (with the hold and the day each was earned): founding, the first year, three years,
+   fifty living, wealth 50,000, five raids broken, a great beast slain and three, the Glimmer
+   Deep and the Ember Halls, the Warden slain, starsilver, an artifact, five demands met, a
+   hard winter come through, a bard taken in, three sheltered, four clans content, 5,000
+   traded, and losing a hold. Checked once a day; earned, a fanfare and a line. The title
+   lists them all ("Achievements (n/20)"). The agent's and the self-check's play never count.
+
+24. **Rigged creatures** — the humanoid creatures and other peoples (grimling raider and
+   brute, the Lowland merchant, Delvling, Rootfolk, Stonekin, the Pale Stalker, the Warden)
+   get bodies on the same skeleton template as the dwarves (`scripts/figures.py`, `body-*`),
+   so every clip plays on them, retargeted per body; they come dressed as they are. A
+   creature on a body walks (runs if fast), strikes when next to its foe, and stands; the
+   raider carries an axe, the brute a club; the Mountainhome trader is a dwarf in an ochre
+   coat. Without a body, the posed model; without that, the sprite.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

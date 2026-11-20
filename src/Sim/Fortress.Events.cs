@@ -113,6 +113,7 @@ public partial class Fortress
             case "bard":
                 if (!yes) { Say("The bard shrugs and trudges off into the cold.", LogKind.Info); break; }
                 BardUntil = (Tick / Tables.TicksPerYear + 1) * Tables.TicksPerYear;
+                Count("bards");
                 Say("The bard settles by the hearth. The hall will have music until Thaw.", LogKind.Good);
                 break;
             case "refugee":

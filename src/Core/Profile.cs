@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using Godot;
 
@@ -29,6 +30,11 @@ public sealed class Profile
     public bool PaintedArt = true;
     public float MusicVolume = 0.5f;
     public int LastSlot = 1;
+    /// <summary>Achievements earned, by id: in which hold, and when ("Morbarrow, 3 Thaw, year 2").</summary>
+    public Dictionary<string, string> Achieved = new();
+
+    /// <summary>Whether play here counts toward achievements (not the agent's or the self-check's).</summary>
+    public static bool Counts => !Agent && !Scratch;
 
     private static string SettingsPath => Scratch ? "user://scratch_settings.json" : "user://hammerdeep.json";
     public static string SlotPath(int slot) => Agent ? "user://agent_fort.sav" : Scratch ? $"user://scratch_fort{slot}.sav" : $"user://fort{slot}.sav";

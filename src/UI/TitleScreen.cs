@@ -69,6 +69,7 @@ public partial class TitleScreen : Control
         row.AddChild(Toggle("Painted art", Profile.Current.PaintedArt, on => { Profile.Current.PaintedArt = on; Profile.Current.Save(); }, "Painted figures, creatures and buildings. Off: the original look, drawn by the game itself."));
         row.AddChild(Toggle("Full screen (F11)", Profile.Current.Fullscreen, on => { Profile.Current.Fullscreen = on; Profile.Current.Apply(); Profile.Current.Save(); }));
         row.AddChild(new Control { CustomMinimumSize = new Vector2(12, 0) });
+        row.AddChild(UITheme.B($"Achievements ({Profile.Current.Achieved.Count(kv => Achievements.All.Any(x => x.Id == kv.Key))}/{Achievements.All.Length})", ShowAchievements, 15));
         row.AddChild(UITheme.B("Quit", () => GetTree().Quit(), 15));
         AddChild(row);
         FortressScreen.Anchor(row, 0, 1, 0, 1, HallX, -62, HallX + 760, -26);
@@ -150,6 +151,37 @@ public partial class TitleScreen : Control
     }
 
     private static Button Primary(Button b) => UITheme.Primary(b);
+
+    /// <summary>Every achievement: the earned in gold, with the hold and the day; the rest dim, with how.</summary>
+    private void ShowAchievements()
+    {
+        _dialog?.QueueFree();
+        var shade = new ColorRect { Color = new Color(0, 0, 0, 0.6f) };
+        var center = new CenterContainer();
+        shade.AddChild(center);
+        FortressScreen.Anchor(center, 0, 0, 1, 1, 0, 0, 0, 0);
+        var v = UITheme.V(8);
+        center.AddChild(UITheme.Panel(v));
+        int got = Achievements.All.Count(x => Profile.Current.Achieved.ContainsKey(x.Id));
+        v.AddChild(UITheme.Heading($"Achievements  {got} of {Achievements.All.Length}", 26));
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(560, 520), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var list = UITheme.V(6);
+        list.CustomMinimumSize = new Vector2(530, 0);
+        scroll.AddChild(list);
+        foreach (Achievement x in Achievements.All)
+        {
+            bool have = Profile.Current.Achieved.TryGetValue(x.Id, out string where);
+            var e = UITheme.V(0);
+            e.AddChild(UITheme.L(x.Title, 17, have ? UITheme.Gold : UITheme.Dim, UITheme.Title));
+            e.AddChild(UITheme.Wrap(have ? $"{x.Text} Earned at {where}." : x.Text, 13, have ? UITheme.Text : UITheme.Faint, 520));
+            list.AddChild(e);
+        }
+        v.AddChild(scroll);
+        v.AddChild(UITheme.B("Close", () => { shade.QueueFree(); _dialog = null; }, 16));
+        AddChild(shade);
+        FortressScreen.Anchor(shade, 0, 0, 1, 1, 0, 0, 0, 0);
+        _dialog = shade;
+    }
 
     private void AskName(int slot)
     {

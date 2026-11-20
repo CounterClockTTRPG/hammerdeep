@@ -440,6 +440,7 @@ public partial class FortressScreen : Control
         bool fighting = F.Creatures.Any(c => !c.Dead && (c.D.Hostile || c.Angry) && !c.Tame && F.World.Pos(c.Cell).Dist(F.Embark) < 40) && F.Living.Any(d => d.Task?.Kind is TaskKind.Fight or TaskKind.Flee);
         Music.Instance?.Play(fighting ? MusicMood.Battle : Map.Z <= F.CavernZ + 2 ? MusicMood.Deep : MusicMood.Hall);
         if (Music.Instance != null) Music.Instance.Bard = F.BardUntil > F.Tick;
+        CheckAchievements();
         // The game's own cues: a beast's roar, a flood, a knock at the gate...
         foreach (string cue in F.Cues) Sfx.Cue(cue);
         F.Cues.Clear();
@@ -451,6 +452,22 @@ public partial class FortressScreen : Control
         }
         _refresh -= delta;
         if (_refresh <= 0 || Map.Z != _shownZ) { _refresh = 0.25; _shownZ = Map.Z; RefreshHud(); }
+    }
+
+    private long _achievedDay = -1;
+
+    /// <summary>Once a day: anything newly earned is kept in the profile, with a fanfare.</summary>
+    private void CheckAchievements()
+    {
+        long day = F.Tick / Tables.TicksPerDay;
+        if (day == _achievedDay || !Profile.Counts) return;
+        _achievedDay = day;
+        var got = Achievements.NewlyEarned(F, Profile.Current.Achieved.Keys).ToList();
+        if (got.Count == 0) return;
+        foreach (Achievement a in got) Profile.Current.Achieved[a.Id] = $"{F.Name}, {F.Date}";
+        Profile.Current.Save();
+        Sfx.Cue("triumph");
+        Toast(got.Count == 1 ? $"Achievement: {got[0].Title} -- {got[0].Text}" : $"Achievements: {string.Join(", ", got.Select(a => a.Title))}");
     }
 
     /// <summary>The choice an event puts to the player, in the middle of the screen until it is answered.</summary>
