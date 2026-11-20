@@ -90,7 +90,7 @@ public partial class View3D : Node3D
             new CylinderMesh { TopRadius = 0.075f, BottomRadius = 0.085f, Height = 0.5f, RadialSegments = 8, Rings = 1 },
             new SphereMesh { Radius = 0.15f, Height = 0.22f, RadialSegments = 6, Rings = 3 },
         };
-        var itemMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f };
+        var itemMat = _itemMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f };
         for (int k = 0; k < _items.Length; k++)
         {
             _items[k] = new MultiMeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, MaterialOverride = itemMat };
@@ -737,10 +737,94 @@ public partial class View3D : Node3D
 
     // ---- items --------------------------------------------------------------------------
 
+    private StandardMaterial3D _itemMat;
+    private readonly Dictionary<ItemKind, MultiMeshInstance3D> _itemModels = new();
+    private readonly HashSet<ItemKind> _noItemModel = new();
+
+    /// <summary>How big each kind of item lies, its longest side in metres.</summary>
+    private static float ItemSize(ItemKind k) => k switch
+    {
+        ItemKind.CutGem => 0.12f, ItemKind.RoughGem => 0.16f, ItemKind.Seed or ItemKind.Craft => 0.2f,
+        ItemKind.Meal or ItemKind.Helm or ItemKind.Mechanism or ItemKind.Meat => 0.26f,
+        ItemKind.Log or ItemKind.Bed or ItemKind.Table or ItemKind.Door or ItemKind.Coffin => 0.5f,
+        ItemKind.Carcass => 0.6f,
+        ItemKind.Armor or ItemKind.Hide or ItemKind.Barrel or ItemKind.Chest or ItemKind.Chair or ItemKind.Statue or ItemKind.Pick or ItemKind.Axe or ItemKind.Weapon or ItemKind.Shield => 0.42f,
+        _ => 0.32f,
+    };
+
+    /// <summary>Items whose model is drawn in their material's colour (bars, blocks, gems, boulders, crafts).</summary>
+    private static bool Tinted(ItemKind k) => k is ItemKind.Bar or ItemKind.Block or ItemKind.RoughGem or ItemKind.CutGem or ItemKind.Boulder or ItemKind.Craft;
+
+    /// <summary>
+    /// A kind of item's model as one mesh, its parts' colours baked into the vertices, fitted to the item's size
+    /// and lying on the floor: furniture from the buildings, tools from the dwarves' kit, the rest from
+    /// assets/models/it-*.glb. Null when there is none (the item keeps its plain shape).
+    /// </summary>
+    private MultiMeshInstance3D ItemModel(ItemKind k)
+    {
+        if (!_painted || _noItemModel.Contains(k)) return null;
+        if (_itemModels.TryGetValue(k, out var have)) return have;
+        string furniture = k switch { ItemKind.Bed => "bed", ItemKind.Table => "table", ItemKind.Chair => "chair", ItemKind.Door => "door", ItemKind.Chest => "chest", ItemKind.Statue => "statue", ItemKind.Coffin => "coffin", _ => null };
+        string held = k switch { ItemKind.Pick => "held-pick", ItemKind.Axe => "held-axe", ItemKind.Weapon => "held-hammer", ItemKind.Shield => "held-shield", _ => null };
+        Node3D src = furniture != null ? Assets.Model(furniture)
+            : held != null && Kit.Has(held) ? Kit.Part(held)
+            : Assets.Model("it-" + k.ToString().ToLowerInvariant());
+        Mesh mesh = src == null ? null : Bake(src, ItemSize(k));
+        src?.Free();
+        if (mesh == null) { _noItemModel.Add(k); return null; }
+        var mmi = new MultiMeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, MaterialOverride = _itemMat };
+        mmi.Multimesh = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = mesh };
+        AddChild(mmi);
+        return _itemModels[k] = mmi;
+    }
+
+    /// <summary>A model's meshes merged into one, each part's colour in its vertices, scaled so its longest side is
+    /// <paramref name="size"/>, centred, its underside on the floor.</summary>
+    private static Mesh Bake(Node3D model, float size)
+    {
+        var parts = new List<(Mesh mesh, Transform3D at, MeshInstance3D mi)>();
+        foreach (MeshInstance3D mi in model.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>())
+        {
+            if (mi.Mesh == null) continue;
+            Transform3D t = Transform3D.Identity;
+            for (Node n = mi; n != null && n != model; n = n.GetParent()) if (n is Node3D n3) t = n3.Transform * t;
+            parts.Add((mi.Mesh, t, mi));
+        }
+        if (parts.Count == 0) return null;
+        Aabb box = parts.Select(p => p.at * p.mesh.GetAabb()).Aggregate((a, b) => a.Merge(b));
+        float longest = Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z));
+        if (longest < 1e-4f) return null;
+        float k = size / longest;
+        var fit = new Transform3D(Basis.Identity.Scaled(Vector3.One * k), new Vector3(-(box.Position.X + box.Size.X / 2) * k, -box.Position.Y * k, -(box.Position.Z + box.Size.Z / 2) * k));
+        var st = new SurfaceTool();
+        st.Begin(Mesh.PrimitiveType.Triangles);
+        foreach (var (mesh, at, mi) in parts)
+            for (int s = 0; s < mesh.GetSurfaceCount(); s++)
+            {
+                var arrays = mesh.SurfaceGetArrays(s);
+                var v = (Vector3[])arrays[(int)Mesh.ArrayType.Vertex];
+                var nr = arrays[(int)Mesh.ArrayType.Normal].VariantType == Variant.Type.Nil ? null : (Vector3[])arrays[(int)Mesh.ArrayType.Normal];
+                var idx = arrays[(int)Mesh.ArrayType.Index].VariantType == Variant.Type.Nil ? null : (int[])arrays[(int)Mesh.ArrayType.Index];
+                Color c = (mi.GetActiveMaterial(s) as BaseMaterial3D)?.AlbedoColor ?? Colors.White;
+                Transform3D t = fit * at;
+                int n = idx?.Length ?? v.Length;
+                for (int q = 0; q < n; q++)
+                {
+                    int i = idx != null ? idx[q] : q;
+                    st.SetColor(c);
+                    if (nr != null) st.SetNormal((t.Basis * nr[i]).Normalized());
+                    st.AddVertex(t * v[i]);
+                }
+            }
+        if (parts.All(p => p.mesh.GetSurfaceCount() == 0)) return null;
+        return st.Commit();
+    }
+
     private void SyncItems()
     {
         var shown = new List<(Transform3D, Color)>[_items.Length];
         for (int k = 0; k < shown.Length; k++) shown[k] = new();
+        var modelled = new Dictionary<ItemKind, List<(Transform3D, Color)>>();
         var perCell = new Dictionary<int, int>();
         foreach (Item it in F.Items.Values)
         {
@@ -754,6 +838,12 @@ public partial class View3D : Node3D
             Vector3 at = new(p.X + 0.5f + ox, p.Z, p.Y + 0.5f + oz);
             float turn = Noise.Hash01(it.Id, 0, 0, 5) * Mathf.Tau;
             Color col = Col(it.M.Color);
+            if (it.Kind != ItemKind.Egg && ItemModel(it.Kind) != null)
+            {
+                if (!modelled.TryGetValue(it.Kind, out var list)) modelled[it.Kind] = list = new();
+                list.Add((new Transform3D(new Basis(Vector3.Up, turn), at + new Vector3(0, 0.005f, 0)), Tinted(it.Kind) ? Colors.White.Lerp(col, 0.75f) : Colors.White));
+                continue;
+            }
             switch (it.Kind)
             {
                 case ItemKind.Egg:
@@ -774,14 +864,16 @@ public partial class View3D : Node3D
                     break;
             }
         }
-        for (int s = 0; s < _items.Length; s++)
+        for (int s = 0; s < _items.Length; s++) Fill(_items[s].Multimesh, shown[s]);
+        foreach (var (kind, mmi) in _itemModels) Fill(mmi.Multimesh, modelled.GetValueOrDefault(kind));
+
+        static void Fill(MultiMesh mm, List<(Transform3D, Color)> list)
         {
-            MultiMesh mm = _items[s].Multimesh;
-            mm.InstanceCount = shown[s].Count;
-            for (int k = 0; k < shown[s].Count; k++)
+            mm.InstanceCount = list?.Count ?? 0;
+            for (int k = 0; k < mm.InstanceCount; k++)
             {
-                mm.SetInstanceTransform(k, shown[s][k].Item1);
-                mm.SetInstanceColor(k, shown[s][k].Item2);
+                mm.SetInstanceTransform(k, list[k].Item1);
+                mm.SetInstanceColor(k, list[k].Item2);
             }
         }
     }

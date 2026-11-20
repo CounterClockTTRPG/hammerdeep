@@ -208,6 +208,23 @@
    artifact of the first holds. Slain, it leaves its heartstone and a deed. Wealth counts only
    what the hold has found: a treasure in an undiscovered vault is no one's yet.
 
+20. **Clan ambitions and brawls** (`Fortress.Clans`) — each clan wants something of the hold:
+   the Ironhands a forge that has armed it (a forge, six weapons and armour), the Mossbeards
+   a great garden (40 cells of farm) and forty barrels, the Stonewards a strong guard (six
+   under arms) and a door, the Gemhollows eight cut gems, the Copperclaws six things of gold
+   or silver, the Hollyhocks 30 cells of farm under the sky, the Graniteborn 800 cells dug.
+   Met (checked each season), the clan is proud (+8 for twelve days); still unmet at a new
+   year, slighted (-3). A dwarf's panel shows their clan's ambition. Two of feuding clans who
+   loathe each other (opinion -50 or worse), when one is having a bad day (mood below 0),
+   may come to blows when they meet (30%): bruises (4-8, never below 1 hp), -4 each, and
+   their opinion of each other sinks further.
+
+21. **Things lying about, modelled** — in the 3D view an item is its kind's model (`it-*` in
+   `assets/models`; furniture from the buildings', tools and shields from the dwarves' kit),
+   merged into one mesh with its parts' colours, fitted to the item's size and drawn as one
+   batch per kind; bars, blocks, gems, boulders and crafts take their material's colour.
+   Eggs, and anything without a model yet, keep their plain shapes.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,
