@@ -67,6 +67,11 @@ public partial class FortressScreen
         v.AddChild(UITheme.Heading(d.Name, 20));
         RaceDef race = Races.Of(d);
         v.AddChild(UITheme.L($"{(race.Key == "dwarf" ? "" : race.Name + ", ")}of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
+        if (Fortress.AmbitionOf(d.Clan) is string ambition)
+        {
+            bool met = F.AmbitionsMet.Contains(d.Clan);
+            v.AddChild(UITheme.Wrap($"The clan wants {ambition}{(met ? " -- and has it." : ".")}", 12, met ? UITheme.Good : UITheme.Dim, 320));
+        }
         if (race.Key != "dwarf") v.AddChild(UITheme.Wrap(race.Blurb + (race.Thief && d.Hoard > 0 ? $" Has a hoard of {d.Hoard} shiny things somewhere." : ""), 12, UITheme.Dim, 320));
         if (d.Dead) { v.AddChild(UITheme.L($"Dead: {d.DeathCause}.", 16, UITheme.Bad)); return; }
         if (F.Noble == d.Id)

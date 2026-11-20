@@ -1148,6 +1148,7 @@ public sealed partial class Fortress
         if (feud) { AddThought(a, "feud"); AddThought(b, "feud"); }
         else { AddThought(a, "chatted"); AddThought(b, "chatted"); }
         a.Activity = b.Activity = feud ? "Arguing" : "Chatting";
+        if (feud && Brawls(a, b)) Brawl(a, b);
         if (a.Opinion[b.Id] == 100 && delta > 0 && !_friends.Contains((Math.Min(a.Id, b.Id), Math.Max(a.Id, b.Id))))
         {
             _friends.Add((Math.Min(a.Id, b.Id), Math.Max(a.Id, b.Id)));

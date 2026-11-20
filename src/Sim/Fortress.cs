@@ -474,6 +474,7 @@ public sealed partial class Fortress
         if (Season is 0 or 1) Breed();
         CaravanSeason();
         NobleSeason();
+        ClanSeason();
         MaybeHappening();
         // Migrants follow word of a thriving hold.
         if (Tick < Tables.TicksPerSeason || Alive == 0) return;
