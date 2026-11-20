@@ -30,7 +30,8 @@ public partial class FortressScreen : Control
     private int _shownZ = -1;
     public string BuildDef;
     private P3? _dragFrom;
-    private bool _panning;
+    private bool _panning, _orbiting;
+    private Vector2? _rightFrom;
     private readonly HashSet<Key> _held = new();
     public string Alert;
     public Dwarf Follow;
@@ -645,11 +646,15 @@ public partial class FortressScreen : Control
                 return;
             }
             if (mb.ButtonIndex == MouseButton.Middle) { _panning = mb.Pressed; return; }
-            if (mb.ButtonIndex == MouseButton.Right && mb.Pressed)
+            if (mb.ButtonIndex == MouseButton.Right)
             {
-                if (_dragFrom != null) { _dragFrom = null; Map.Box = null; }
-                else if (Tool != Tool.Select) Pick(Tool.Select);
-                else { Selected = null; Follow = null; Map.SelDwarf = Map.SelBuilding = Map.SelZone = -1; RefreshInfo(true); }
+                // In 3D a right-drag turns the camera, so there a right-click acts on release, and only if it did not drag.
+                if (Map.Is3D)
+                {
+                    if (mb.Pressed) { _rightFrom = mb.Position; _orbiting = false; }
+                    else if (_rightFrom != null) { bool turned = _orbiting; _rightFrom = null; _orbiting = false; if (!turned) RightClick(); }
+                }
+                else if (mb.Pressed) RightClick();
                 return;
             }
             if (mb.ButtonIndex == MouseButton.Left) Click(mb);
@@ -657,6 +662,11 @@ public partial class FortressScreen : Control
         }
         if (e is InputEventMouseMotion mm)
         {
+            if (_rightFrom is Vector2 rf && Map.Is3D && (_orbiting || mm.Position.DistanceTo(rf) > 5))
+            {
+                _orbiting = true;
+                Map.Three.Orbit(mm.Relative);
+            }
             if (_panning) { Map.Cam.Position -= Map.ScreenDeltaToLocal(mm.Relative); Follow = null; ClampCam(); }
             Map.Hover = Map.CellAt(mm.Position);
             if (Map.Ghost != null && Map.Hover is P3 h)
@@ -995,4 +1005,12 @@ public partial class FortressScreen : Control
     }
 
     public bool MenuOpen => _menu != null;
+
+    /// <summary>A right-click: drop the drag box, else the tool, else the selection.</summary>
+    private void RightClick()
+    {
+        if (_dragFrom != null) { _dragFrom = null; Map.Box = null; }
+        else if (Tool != Tool.Select) Pick(Tool.Select);
+        else { Selected = null; Follow = null; Map.SelDwarf = Map.SelBuilding = Map.SelZone = -1; RefreshInfo(true); }
+    }
 }

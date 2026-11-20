@@ -133,7 +133,7 @@
    figures are the painted sprites standing up and turned to the camera; items small blocks in
    their material. Zones, designations, the drag box (with its soil/grass marks), the ghost and
    selection drawn over it; picking by ray (a wall's top on the level in view, else the floor).
-   [ and ] turn the camera by 45 degrees; the wheel zooms, arrows and middle-drag pan as before.
+   [ and ] turn the camera by 45 degrees, a right-drag turns and tilts it (a right-click that does not drag still cancels); the wheel zooms, arrows and middle-drag pan as before.
 
 ## The simulation
 

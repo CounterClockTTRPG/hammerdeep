@@ -871,7 +871,7 @@ public partial class HelpPanel : Overlay
         Section("You do not command dwarves",
             "You say what should be done -- dig here, build that, stockpile there, make five beds -- and the dwarves choose their own tasks by skill, labor and whim. Hungry, thirsty or tired dwarves see to themselves first.");
         Section("Moving around",
-            "Ctrl+Z (or Undo in the toolbar) takes back the last designation, zone or unbuilt building; R drags a box that clears designations; clicking a marked cell lets you cancel just that one. Arrow keys or middle-drag pan, the wheel zooms. The arrow buttons beside the level's name (or < and >, Page Up/Down, Shift+wheel) go up and down a level. F2 (or the view button) goes round the top-down, isometric and 3D views; in 3D, [ and ] turn the camera. Open air shows the levels below it, dimmer the deeper they are. C centres on the wagon; Tab shows names.");
+            "Ctrl+Z (or Undo in the toolbar) takes back the last designation, zone or unbuilt building; R drags a box that clears designations; clicking a marked cell lets you cancel just that one. Arrow keys or middle-drag pan, the wheel zooms. The arrow buttons beside the level's name (or < and >, Page Up/Down, Shift+wheel) go up and down a level. F2 (or the view button) goes round the top-down, isometric and 3D views; in 3D, [ and ] turn the camera, a right-drag turns and tilts it. Open air shows the levels below it, dimmer the deeper they are. C centres on the wagon; Tab shows names.");
         Section("Time",
             "Space pauses; 1, 2 and 3 run at normal, fast and fastest. You can give orders while paused. Alerts (deaths, caverns, tantrums...) pause the game.");
         Section("Digging",
