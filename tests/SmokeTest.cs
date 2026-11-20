@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Beasts, Weathers, Nobles, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, Beasts, Weathers, Nobles, Happenings, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -686,6 +686,7 @@ public partial class SmokeTest : Node
         GD.Print($"    larder: {f.Items.Values.Count(i => i.Kind == ItemKind.Meat)} meat, {f.Items.Values.Count(i => i.Kind == ItemKind.Egg)} eggs, {f.Items.Values.Count(i => i.Kind == ItemKind.Leather)} leather, {f.Living.Count(d => d.Armor >= 0 && f.Items[d.Armor].M.Key == "leather")} in leather armour");
         GD.Print($"    deaths by cause: {string.Join(", ", f.Dwarves.Where(d => d.Dead).GroupBy(d => d.DeathCause ?? "?").OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}"))}");
         GD.Print($"    nobles: {S("nobles")} named; demands {S("demands_met")} met, {S("demands_failed")} failed{(f.NobleDwarf is Dwarf nb ? $"; now {Fortress.TitleOf(nb)} {nb.Name}" : "")}");
+        GD.Print($"    at the gate: {S("happenings")} happenings, {S("refugees")} refugees taken in{(f.BardUntil > f.Tick ? ", a bard wintering" : "")}");
         GD.Print($"    weather: {S("floods")} floods, {S("droughts")} droughts, {S("heatwaves")} heatwaves, {S("hard_winters")} hard winters");
         GD.Print($"    great beasts: came {string.Join(",", f.BeastsCome)}; slain {string.Join(",", f.BeastsSlain)}; {string.Join(" / ", f.Deeds)}");
         foreach (LogEntry e in f.Log.Where(l => l.Kind == LogKind.Alert).TakeLast(12)) GD.Print($"    alert {Fortress.ShortDate(e.Tick)} y{e.Tick / Tables.TicksPerYear + 1}: {e.Text}");

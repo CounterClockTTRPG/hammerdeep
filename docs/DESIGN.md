@@ -182,6 +182,20 @@
    demand and how it stands. The overseer humours them (orders what is wanted, sets a chest
    and table by their bed, keeps banned goods out of its trades).
 
+18. **At the gate** (`Fortress.Events`) — each season from the first Highsun, a 50% chance that
+   something comes wanting an answer: the game stops and a dialog asks; left two days, the
+   last (careful) answer is taken. A bard (Leaffall or Deepfrost) asks to winter: taken in,
+   +3 for everyone daily until Thaw, and they eat a meal and drink an ale a day. Someone
+   asks shelter (any people): taken in, they join (thin and hungry) -- but 15% are a grimling
+   spy who slips away and a raid follows; turned away, -3 for everyone. An envoy from a
+   neighbouring hold asks a gift (wealth/20, 100-600, paid in finished goods): given, three
+   more migrants next season. A wanderer sells one odd thing (80-200): 60% a named masterwork
+   (a cut gem or a craft in gold, silver or stone), 40% a painted stone. Rats in the stores:
+   cleared at once (5% of the food), or left (4% a day for six days). The overseer takes in a
+   bard if there is plenty, shelters everyone, pays the envoy when the gift is small beside
+   the hold's wealth, never buys from the wanderer, and clears the rats. The agent can call
+   any of them: `happen bard|refugee|envoy|wanderer|rats` (and `beast KEY`).
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

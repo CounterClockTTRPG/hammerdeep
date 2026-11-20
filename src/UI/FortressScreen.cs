@@ -98,7 +98,7 @@ public partial class FortressScreen : Control
     private RichTextLabel _stats;
     private readonly Button[] _speedButtons = new Button[4];
     private VBoxContainer _info, _log, _toolbar;
-    private PanelContainer _infoPanel, _alertPanel, _buildPanel;
+    private PanelContainer _infoPanel, _alertPanel, _buildPanel, _happening;
     private Label _alertText;
     public Control Overlay;
     private Control _menu;
@@ -426,6 +426,9 @@ public partial class FortressScreen : Control
             ShowAlert(F.PauseFor, last?.Cell ?? -1);
             F.PauseFor = null;
         }
+        // Something at the gate wants an answer.
+        if (F.Pending != null && _happening == null) ShowHappening(F.Pending);
+        else if (F.Pending == null && _happening != null) { _happening.QueueFree(); _happening = null; }
         if (F.Season != _season)
         {
             _season = F.Season;
@@ -444,6 +447,36 @@ public partial class FortressScreen : Control
         }
         _refresh -= delta;
         if (_refresh <= 0 || Map.Z != _shownZ) { _refresh = 0.25; _shownZ = Map.Z; RefreshHud(); }
+    }
+
+    /// <summary>The choice an event puts to the player, in the middle of the screen until it is answered.</summary>
+    private void ShowHappening(Happening h)
+    {
+        _alertPanel.Visible = false;
+        var v = UITheme.V(10);
+        _happening = UITheme.Panel(v);
+        _happening.AddThemeStyleboxOverride("panel", UITheme.Box(new Color(0.09f, 0.075f, 0.06f, 0.98f), UITheme.EdgeLit, 2, 6, 18));
+        v.AddChild(UITheme.Heading(h.Title, 24));
+        v.AddChild(UITheme.Wrap(h.Text, 16, UITheme.Text, 480));
+        HBoxContainer row = UITheme.H(10);
+        for (int k = 0; k < h.Options.Length; k++)
+        {
+            int pick = k;
+            Button b = UITheme.B(h.Options[k], () =>
+            {
+                F.Choose(pick);
+                _happening?.QueueFree();
+                _happening = null;
+                RefreshInfo(true);
+            }, 16);
+            row.AddChild(k == 0 ? UITheme.Primary(b) : b);
+        }
+        v.AddChild(row);
+        v.AddChild(UITheme.L("Left unanswered for two days, the last answer is taken.", 12, UITheme.Faint));
+        AddChild(_happening);
+        Anchor(_happening, 0.5f, 0.32f, 0.5f, 0.32f, -260, -90, 260, 90);
+        _happening.GrowHorizontal = GrowDirection.Both;
+        _happening.GrowVertical = GrowDirection.Both;
     }
 
     public void ShowAlert(string text, int cell)

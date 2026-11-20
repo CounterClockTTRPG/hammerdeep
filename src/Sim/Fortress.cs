@@ -443,7 +443,7 @@ public sealed partial class Fortress
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
         if (Tick % 500 == 250) { StockWarning(); SupplyWarning(); }
         if (Tick % 500 == 300) BuildWarning();
-        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); DailyWeather(); }
+        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); DailyWeather(); DailyHappenings(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         else if (Tick % Tables.TicksPerSeason == Tables.TicksPerSeason - Tables.TicksPerDay * 4) CaravanWord();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
@@ -471,10 +471,12 @@ public sealed partial class Fortress
         if (Season is 0 or 1) Breed();
         CaravanSeason();
         NobleSeason();
+        MaybeHappening();
         // Migrants follow word of a thriving hold.
         if (Tick < Tables.TicksPerSeason || Alive == 0) return;
         int wealth = Wealth;
-        int n = Rng.Range(1, 3) + Math.Min(12, wealth / 4000) + (Alive < 10 ? 2 : 0);
+        int n = Rng.Range(1, 3) + Math.Min(12, wealth / 4000) + (Alive < 10 ? 2 : 0) + (Befriended ? 3 : 0);
+        Befriended = false;
         // Word of hard times travels too: every death in the past year turns someone back,
         // and a hold with an empty larder draws only the desperate.
         int lately = Dwarves.Count(d => d.Dead && Tick - d.DiedAt < Tables.TicksPerSeason * 4);

@@ -331,8 +331,27 @@ public sealed class Overseer
         }
     }
 
+    /// <summary>What the overseer answers at the gate: a bard if there is plenty, shelter always, the envoy if the
+    /// gift is small beside the hold's wealth, never the wanderer, and the rats cleared at once.</summary>
+    private void Answer()
+    {
+        if (F.Pending is not Happening h) return;
+        int pop = F.Alive;
+        bool yes = h.Key switch
+        {
+            "bard" => Have(i => Tables.Matches("food", i)) > pop * 8 && Have(i => i.Kind == ItemKind.Drink) > pop * 4,
+            "refugee" => true,
+            "envoy" => F.Wealth > h.Value * 15,
+            "rats" => true,
+            _ => false,
+        };
+        F.Choose(yes ? 0 : h.Options.Length - 1);
+        _notes.Add($"{h.Title}: {(yes ? h.Options[0] : h.Options[^1])} ({F.Date})");
+    }
+
     private void Maintain()
     {
+        Answer();
         Humour();
         int pop = F.Alive;
         int drinks = Have(i => i.Kind == ItemKind.Drink), meals = Have(i => i.Kind == ItemKind.Meal);

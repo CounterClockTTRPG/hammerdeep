@@ -59,6 +59,8 @@ public partial class AgentRunner : Node
   caravan [low|mountain]   (debug) send a caravan and wait until it reaches the depot
   raid [N]              (debug) a grimling raid of N
   mood [NAME]           (debug) a strange mood for a dwarf
+  happen KEY            (debug) something at the gate: bard, refugee, envoy, wanderer, rats
+  beast KEY             (debug) a great beast: ashwyrm, palestalker, merething, gnashjaw, queen
   arm [NAME|all]        (debug) iron armour, helm, hammer and shield
   help";
 
@@ -279,6 +281,20 @@ public partial class AgentRunner : Node
                 if (Root.Map != null) Root.Map.Cam.Zoom = Vector2.One * Math.Clamp(float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), 0.5f, 6f);
                 await Frames(2);
                 return null;
+            case "happen":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                Happening h = f.Happen(a.Length > 1 ? a[1] : "bard");
+                await Frames(3);
+                return $"{h.Title}: {string.Join(" / ", h.Options)}";
+            }
+            case "beast":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                Creature beast = f.LaunchBeast(a.Length > 1 ? a[1] : "gnashjaw");
+                await Frames(3);
+                return $"{beast.D.Name} at {f.World.Pos(beast.Cell)}";
+            }
             case "rdrag":
             {
                 Vector2 from = _mouse;
