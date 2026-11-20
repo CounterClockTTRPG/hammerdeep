@@ -141,7 +141,9 @@ public sealed class Overseer
         _tradedWith.Add(c.Id);
         var deal = new Fortress.Deal();
         int soldiers = F.Squads.Sum(s => s.Members.Count);
-        foreach (Item it in F.Tradeable().Where(i => i.Def.Cat is StockCat.Finished or StockCat.Gems && i.Kind is not (ItemKind.Mechanism or ItemKind.Leather)).ToList()) deal.Offer.Add(it);
+        // Not what the noble has forbidden to leave.
+        ItemKind? banned = F.Mandate is { Kind: "ban" } m ? m.Item : null;
+        foreach (Item it in F.Tradeable().Where(i => i.Def.Cat is StockCat.Finished or StockCat.Gems && i.Kind is not (ItemKind.Mechanism or ItemKind.Leather) && i.Kind != banned).ToList()) deal.Offer.Add(it);
         int pop = F.Alive;
         int food = Have(i => Tables.Matches("food", i)), drink = Have(i => i.Kind == ItemKind.Drink);
         bool Want(Good g) => g.Creature != null ? F.Creatures.Count(x => x.Tame && x.Def == g.Creature) < 4
@@ -302,8 +304,36 @@ public sealed class Overseer
         if (have + planned < want && planned < 3) F.AddOrder(b, recipe, Math.Min(3, want - have - planned), first: urgent);
     }
 
+    /// <summary>What the noble wants, done: the things made at whatever shop makes them, a chest and a table by
+    /// their bed. (A ban is kept by leaving that kind out of every trade.)</summary>
+    private void Humour()
+    {
+        if (F.Mandate is not Demand m || F.NobleDwarf is not Dwarf n) return;
+        Recipe Making(ItemKind k) => Tables.Recipes.FirstOrDefault(r => r.Outputs.Any(o => o.Kind == k) && Shop(r.Shop) != null);
+        if (m.Kind == "make" && Making(m.Item) is Recipe make)
+        {
+            string def = m.Item switch { ItemKind.Statue => "statue", ItemKind.Chair => "chair", ItemKind.Coffin => "coffin", _ => null };
+            int have = Have(i => i.Kind == m.Item) + (def == null ? 0 : F.Buildings.Count(b => b.Def == def));
+            Order(make.Shop, make.Id, m.Baseline + m.Count, have, urgent: true);
+        }
+        if (m.Kind == "room" && n.Bed >= 0 && F.BuildingById(n.Bed) is Building bed)
+        {
+            foreach (var (kind, def) in new[] { (ItemKind.Chest, "chest"), (ItemKind.Table, "table") })
+            {
+                if (F.Buildings.Any(b => b.Def == def && b.Z == bed.Z && Math.Abs(b.X - bed.X) <= 3 && Math.Abs(b.Y - bed.Y) <= 3)) continue;
+                if (Making(kind) is Recipe r) Order(r.Shop, r.Id, 1, Have(i => i.Kind == kind), urgent: true);
+                var spots = new List<P3>();
+                for (int dy = -2; dy <= 2; dy++)
+                    for (int dx = -2; dx <= 2; dx++)
+                        if (dx != 0 || dy != 0) spots.Add(new P3(bed.X + dx, bed.Y + dy, bed.Z));
+                PlaceFurniture(kind, def, spots);
+            }
+        }
+    }
+
     private void Maintain()
     {
+        Humour();
         int pop = F.Alive;
         int drinks = Have(i => i.Kind == ItemKind.Drink), meals = Have(i => i.Kind == ItemKind.Meal);
         int food = Have(i => Tables.Matches("food", i));

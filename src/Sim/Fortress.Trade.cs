@@ -258,7 +258,7 @@ public sealed partial class Fortress
         if (c.State != CaravanState.Trading || !Weigh(c, d).ok) return false;
         Building depot = BuildingById(c.Depot);
         int offer = OfferValue(c, d), ask = AskValue(c, d);
-        foreach (Item it in d.Offer.ToList()) if (Items.ContainsKey(it.Id) && it.Free) Destroy(it);
+        foreach (Item it in d.Offer.ToList()) if (Items.ContainsKey(it.Id) && it.Free) { TradedAway(it); Destroy(it); }
         P3 at = depot.Center;
         foreach (var (g, n) in d.Ask)
         {

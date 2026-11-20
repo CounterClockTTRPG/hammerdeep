@@ -414,6 +414,8 @@ public static class Tables
         T("saw_corpse", "saw a rotting corpse", -4, 1);
         T("raid_won", "saw the raiders driven off", 10, 4);
         T("beast_dread", "dreads the great beast at the gates", -6, 3);
+        T("noble_pleased", "heard the noble was satisfied, for once", 3, 2);
+        T("noble_angry", "had to listen to the noble rage", -5, 3);
         T("beast_slain", "saw a beast of legend slain", 16, 6);
         T("foul_water", "drank water fouled by the Thing in the Mere", -6, 2);
         T("alarm", "is hiding from danger", -3, 1);

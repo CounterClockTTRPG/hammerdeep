@@ -69,6 +69,12 @@ public partial class FortressScreen
         v.AddChild(UITheme.L($"{(race.Key == "dwarf" ? "" : race.Name + ", ")}of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
         if (race.Key != "dwarf") v.AddChild(UITheme.Wrap(race.Blurb + (race.Thief && d.Hoard > 0 ? $" Has a hoard of {d.Hoard} shiny things somewhere." : ""), 12, UITheme.Dim, 320));
         if (d.Dead) { v.AddChild(UITheme.L($"Dead: {d.DeathCause}.", 16, UITheme.Bad)); return; }
+        if (F.Noble == d.Id)
+        {
+            v.AddChild(UITheme.L($"{Fortress.TitleOf(d)} of {F.Name}", 14, UITheme.Gold, UITheme.Title));
+            if (F.Mandate is Demand m)
+                v.AddChild(UITheme.Wrap($"Demands {m.Text} by {Tables.Seasons[(int)(m.Due / Tables.TicksPerSeason % 4)]}{(m.Kind == "ban" && m.Broken ? " -- already broken" : F.DemandMet ? " -- done, for now" : "")}.", 13, F.DemandMet ? UITheme.Good : UITheme.Ember, 320));
+        }
         v.AddChild(UITheme.L(d.Activity, 16, UITheme.Text));
         if (d.Strange != null)
         {

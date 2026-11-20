@@ -172,6 +172,16 @@
    Leaffall is always fair. Underground, a hold hardly notices. `Peaceful` (tests) keeps
    raids, beasts and cavern spawns from the seasons.
 
+17. **Nobles** (`Fortress.Nobles`) — at twenty dwarves the Mountainhome names one (a dwarf,
+   not a soldier; the most skilled) Baron or Baroness; if they die, another, once the hold is
+   twenty again. Each season they demand one thing by the next season's turn: a room (their
+   own bed with a chest and a table within 3 cells), things made (three crafts, a statue,
+   two chairs, a coffin, three barrels -- counted from when it was asked), or a ban (no
+   crafts, bars, ale or meals traded away; a trade that does breaks it). Met: +3 for everyone.
+   Failed: -5 for everyone and the Mountainhome's standing -10. The noble's panel shows the
+   demand and how it stands. The overseer humours them (orders what is wanted, sets a chest
+   and table by their bed, keeps banned goods out of its trades).
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,
