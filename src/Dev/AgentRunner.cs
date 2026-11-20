@@ -46,6 +46,7 @@ public partial class AgentRunner : Node
   drag X1 Y1 X2 Y2      left-drag from map cell to map cell on the level in view (designations, zones)
   down / up             hold / release the left button (e.g. down; key >; key >; at X Y; up -- a box several levels deep)
   goto X Y Z            centre the camera on a cell
+  zoom Z                camera zoom, 0.5 (far) .. 6 (near)
   level Z               show level Z
   wait MS               let the game run MS real milliseconds
   tick N                advance the fortress N ticks at once (50 ticks = 2.5 s of normal speed)
@@ -55,6 +56,7 @@ public partial class AgentRunner : Node
   caravan [low|mountain]   (debug) send a caravan and wait until it reaches the depot
   raid [N]              (debug) a grimling raid of N
   mood [NAME]           (debug) a strange mood for a dwarf
+  arm [NAME|all]        (debug) iron armour, helm, hammer and shield
   help";
 
     public override void _Ready()
@@ -270,7 +272,12 @@ public partial class AgentRunner : Node
                 await Button(MouseButton.Left, false);
                 return null;
             }
+            case "zoom":
+                if (Root.Map != null) Root.Map.Cam.Zoom = Vector2.One * Math.Clamp(float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), 0.5f, 6f);
+                await Frames(2);
+                return null;
             case "goto":
+                if (a.Length < 4) return "goto needs X Y Z";
                 Root.Screen?.Jump(new P3(I(a[1]), I(a[2]), I(a[3])));
                 await Frames(2);
                 return null;
@@ -322,6 +329,23 @@ public partial class AgentRunner : Node
                 Dwarf d = f.Living.FirstOrDefault(x => rest.Length == 0 || x.Name.Contains(rest, StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("no such dwarf");
                 f.StartMood(d);
                 return $"{d.Name} is in a {d.Strange} mood, wanting {string.Join(", ", d.MoodNeeds)}";
+            }
+            case "arm":
+            {
+                // (debug) iron breastplate, helm, war hammer and shield for one dwarf, or everyone: "arm all".
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                var who = rest == "all" ? f.Living.ToList() : f.Living.Where(x => rest.Length == 0 || x.Name.Contains(rest, StringComparison.OrdinalIgnoreCase)).Take(1).ToList();
+                if (who.Count == 0) throw new Exception("no such dwarf");
+                byte iron = Tables.Mi("iron");
+                foreach (Dwarf d in who)
+                {
+                    Item Give(ItemKind k) { Item it = f.Spawn(k, iron, d.Cell); f.PickUp(it, d); return it; }
+                    d.Armor = Give(ItemKind.Armor).Id;
+                    d.Helm = Give(ItemKind.Helm).Id;
+                    d.Weapon = Give(ItemKind.Weapon).Id;
+                    d.Shield = Give(ItemKind.Shield).Id;
+                }
+                return $"armed {who.Count}";
             }
             case "freeze": Frozen = a.Length < 2 || a[1] != "off"; return $"freeze {(Frozen ? "on" : "off")}";
         }

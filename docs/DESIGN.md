@@ -135,6 +135,16 @@
    selection drawn over it; picking by ray (a wall's top on the level in view, else the floor).
    [ and ] turn the camera by 45 degrees; the wheel zooms, arrows and middle-drag pan as before.
 
+14. **Modelled dwarves** — in the 3D view, dwarves are put together from parts on assetgen's
+   humanoid skeleton template (`assets/figures`, `scripts/figures.py`): a stocky dwarf base
+   body; cloth (tunic, sleeves, trousers, boots, belt, cloak) in the clan's colour; leather
+   or plate where they wear armour, tinted by its metal; one of three beards; a pick, axe,
+   hammer, sword or shield in the sockets. Clips play from what they do -- walk, run, idle,
+   dig, chop, hammer (building and crafting), strike, eat, pray, sleep, pick up (hauling,
+   farming), tantrum, death -- retargeted to the body (positions scaled by hip height) and
+   blended; they face the way they walk or what they work on. Other peoples, and every
+   dwarf when there is no body, stay sprites.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,
