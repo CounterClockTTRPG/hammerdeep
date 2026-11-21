@@ -75,7 +75,7 @@ public sealed class Thought
     public int Value;
 }
 
-public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter, Bury, Tame, Slaughter, Train, Mood, Rampage, Pray, Feast }
+public enum TaskKind : byte { Idle, Wander, Dig, Chop, Gather, Haul, Build, Craft, Eat, Drink, Sleep, Plant, Harvest, Tantrum, Socialize, Arrive, Store, Fight, Flee, Duty, Equip, Shelter, Bury, Tame, Slaughter, Train, Mood, Rampage, Pray, Feast, Link, Pull }
 
 /// <summary>What a dwarf is doing, as plain data: kind, targets and how far along it is.</summary>
 public sealed class Task
@@ -206,8 +206,22 @@ public sealed class Building
     /// <summary>A door kept shut to everyone; a trap's reload time.</summary>
     public bool Locked;
     public long ArmedAt;
-    /// <summary>A drawbridge: up or down, and whether it spans open air.</summary>
+    /// <summary>A drawbridge or hatch: up (open) or down, and whether it spans open air; a lift: stopped.</summary>
     public bool Raised, OverAir;
+    /// <summary>A lever or pressure plate: on or off; a lever waiting to be pulled.</summary>
+    public bool On, PullWanted;
+    /// <summary>A pressure plate: what sets it off (0 foes, 1 dwarves, 2 anyone), and when it goes off again.</summary>
+    public int Watch;
+    public long OffAt;
+    /// <summary>A bolt launcher's facing: 0 north, 1 east, 2 south, 3 west.</summary>
+    public int Facing;
+    /// <summary>A cage trap's catch (a creature kind), and whether it came with a raid.</summary>
+    public string Caught;
+    public bool CaughtRaider;
+    /// <summary>A lift: its top level (it runs from Z up to Top).</summary>
+    public int Top;
+    /// <summary>What the 3D view must rebuild a building for when it changes.</summary>
+    [JsonIgnore] public int Look => Tier + (On ? 8 : 0) + (Raised ? 16 : 0) + (Caught != null ? 32 : 0) + Facing * 64 + (Locked ? 512 : 0);
     /// <summary>Taken for a job that is not building it (a burial).</summary>
     public int Claim = -1;
     /// <summary>A workshop seized by a dwarf in a strange mood; furniture that is an artifact.</summary>

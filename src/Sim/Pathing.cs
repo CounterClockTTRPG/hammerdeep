@@ -65,7 +65,8 @@ public sealed class Pathing
         int bx = b % W, bt = b / W, by = bt % HH, bz = bt / HH;
         int dx = Math.Abs(ax - bx), dy = Math.Abs(ay - by), dz = Math.Abs(az - bz);
         int lo = Math.Min(dx, dy), hi = Math.Max(dx, dy);
-        return lo * Tables.DiagTicks + (hi - lo) * Tables.StepTicks + dz * Tables.StairTicks;
+        // With a lift about, a level may cost as little as a ride: the estimate must never be more than the truth.
+        return lo * Tables.DiagTicks + (hi - lo) * Tables.StepTicks + dz * (_w.Lifts.Count > 0 ? Tables.LiftTicks : Tables.StairTicks);
     }
 
     private void Begin()
@@ -166,7 +167,7 @@ public sealed class Pathing
     public int StepCost(int a, int b)
     {
         P3 pa = _w.Pos(a), pb = _w.Pos(b);
-        if (pa.Z != pb.Z) return pa.X == pb.X && pa.Y == pb.Y ? Tables.StairTicks : Tables.DiagTicks + 2;
+        if (pa.Z != pb.Z) return pa.X == pb.X && pa.Y == pb.Y ? (_w.Lifts.Count > 0 && _w.Lifts.Contains(a) && _w.Lifts.Contains(b) ? Tables.LiftTicks : Tables.StairTicks) : Tables.DiagTicks + 2;
         return pa.X != pb.X && pa.Y != pb.Y ? Tables.DiagTicks : Tables.StepTicks;
     }
 

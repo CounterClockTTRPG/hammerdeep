@@ -39,7 +39,7 @@ public sealed partial class Fortress
     private Func<int, bool> Blocker(Creature c) => c.D.Bashes ? null : DoorAt;
 
     // A name of the legends ("the Ashwyrm", "Gnashjaw") goes as it is.
-    private static string A(string name) => name.StartsWith("the ") || (char.IsUpper(name[0]) && !name.Contains(' ')) ? name : "aeiou".Contains(name[0]) ? "an " + name : "a " + name;
+    public static string A(string name) => name.StartsWith("the ") || (char.IsUpper(name[0]) && !name.Contains(' ')) ? name : "aeiou".Contains(name[0]) ? "an " + name : "a " + name;
 
     // ---- creatures ----------------------------------------------------------------------
 

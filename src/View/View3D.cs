@@ -512,14 +512,14 @@ public partial class View3D : Node3D
         var seen = new HashSet<int>();
         foreach (Building b in F.Buildings)
         {
-            if (!Shown(b.Z)) continue;
+            if (b.Def == "lift" ? b.Z > _z || b.Top < _z - Below : !Shown(b.Z)) continue;
             seen.Add(b.Id);
-            if (!_buildings.TryGetValue(b.Id, out Node3D n) || (bool)n.GetMeta("built") != b.Built || (int)n.GetMeta("tier") != b.Tier)
+            if (!_buildings.TryGetValue(b.Id, out Node3D n) || (bool)n.GetMeta("built") != b.Built || (int)n.GetMeta("look") != b.Look + (b.Def == "lift" ? Math.Min(b.Top, _z) * 4096 : 0))
             {
                 n?.QueueFree();
                 n = MakeBuilding(b);
                 n.SetMeta("built", b.Built);
-                n.SetMeta("tier", b.Tier);
+                n.SetMeta("look", b.Look + (b.Def == "lift" ? Math.Min(b.Top, _z) * 4096 : 0));
                 _things.AddChild(n);
                 _buildings[b.Id] = n;
             }
@@ -533,6 +533,10 @@ public partial class View3D : Node3D
     {
         BuildDef d = b.D;
         var root = new Node3D { Position = new Vector3(b.X + d.W / 2f, b.Z, b.Y + d.H / 2f) };
+        if (b.Def == "lift" && b.Built) { Lift(root, b, Math.Min(b.Top, _z)); return root; }
+        // An open hatch has dropped away: nothing to show but the pit.
+        if (b.Def == "hatch" && b.Built && b.Raised) return root;
+        if (b.Def == "cage" && b.Caught != null) CageBars(root);
         // A raised workshop shows its tier's model (carpenter-t2, -t3), the base one until that is made.
         Node3D model = !_painted ? null : (b.Tier > 1 ? Assets.Model($"{b.Def}-t{b.Tier}") : null) ?? Assets.Model(b.Def);
         if (model != null)
@@ -545,7 +549,7 @@ public partial class View3D : Node3D
             // fitted by footprint alone rose three or four levels through the ones above. Furniture shrinks whole,
             // so a statue keeps its shape; a workshop only lowers, so it still fills its 3 x 3.
             float ky = Math.Min(k, MaxBuildingHeight / Math.Max(box.Size.Y, 0.01f));
-            if (d.Kind == BuildKind.Furniture) k = ky;
+            if (d.Kind is BuildKind.Furniture or BuildKind.Mechanism) k = ky;
             model.Scale = new Vector3(k, ky, k);
             model.Position = new Vector3(-(box.Position.X + box.Size.X / 2) * k, -box.Position.Y * ky, -(box.Position.Z + box.Size.Z / 2) * k);
             root.AddChild(model);
@@ -562,8 +566,9 @@ public partial class View3D : Node3D
         // No model: a block in the building's material, with its letter on top.
         Mat m = Tables.Mats[b.Mat];
         Color c = Col(m.Color, 0.9f);
-        float h = d.Kind == BuildKind.Workshop ? 0.45f : d.Kind == BuildKind.Furniture ? 0.5f : 1f;
-        float inset = d.Kind == BuildKind.Furniture ? 0.18f : 0.05f;
+        float h = d.Kind == BuildKind.Workshop ? 0.45f : d.Kind is BuildKind.Furniture or BuildKind.Mechanism ? 0.5f : 1f;
+        float inset = d.Kind is BuildKind.Furniture or BuildKind.Mechanism ? 0.18f : 0.05f;
+        if (d.Kind == BuildKind.Mechanism) { h = b.Def is "plate" or "hatch" ? 0.06f : b.Def == "lever" ? 0.35f : 0.5f; if (b.Def == "lever") inset = 0.3f; }
         var mesh = new BoxMesh { Size = new Vector3(d.W - inset * 2, h, d.H - inset * 2) };
         var mi = new MeshInstance3D { Mesh = mesh, Position = new Vector3(0, h / 2, 0) };
         mi.MaterialOverride = b.Built ? new StandardMaterial3D { AlbedoColor = c, Roughness = 0.9f } : _ghost;
@@ -575,6 +580,43 @@ public partial class View3D : Node3D
         };
         root.AddChild(label);
         return root;
+    }
+
+    /// <summary>A lift: four posts and chains up the shaft from its bottom to its top, a cage platform at the bottom.</summary>
+    private void Lift(Node3D root, Building b, int top)
+    {
+        // Only up to the level in view: above it the map is cut away.
+        float hgt = top - b.Z + 0.9f;
+        var wood = new StandardMaterial3D { AlbedoColor = new Color(0.42f, 0.28f, 0.16f), Roughness = 0.9f };
+        var iron = new StandardMaterial3D { AlbedoColor = b.Raised ? new Color(0.5f, 0.2f, 0.15f) : new Color(0.45f, 0.45f, 0.48f), Metallic = 0.6f, Roughness = 0.5f };
+        foreach (var (px, pz) in new[] { (-0.42f, -0.42f), (0.42f, -0.42f), (-0.42f, 0.42f), (0.42f, 0.42f) })
+            root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.08f, hgt, 0.08f) }, Position = new Vector3(px, hgt / 2, pz), MaterialOverride = wood });
+        // At the real top, an open headframe -- four beams, a crossbeam and its pulley -- so the shaft shows through.
+        if (top >= b.Top)
+        {
+            for (int k = 0; k < 4; k++)
+                root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(k % 2 == 0 ? 0.92f : 0.08f, 0.08f, k % 2 == 0 ? 0.08f : 0.92f) }, Position = new Vector3(k == 1 ? 0.42f : k == 3 ? -0.42f : 0, hgt - 0.04f, k == 0 ? 0.42f : k == 2 ? -0.42f : 0), MaterialOverride = wood });
+            root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.92f, 0.07f, 0.07f) }, Position = new Vector3(0, hgt + 0.02f, 0), MaterialOverride = wood });
+            root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { TopRadius = 0.09f, BottomRadius = 0.09f, Height = 0.06f }, Position = new Vector3(0, hgt - 0.06f, 0), RotationDegrees = new Vector3(90, 0, 0), MaterialOverride = iron });
+        }
+        root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.03f, hgt, 0.03f) }, Position = new Vector3(0, hgt / 2, 0), MaterialOverride = iron });
+        root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.74f, 0.06f, 0.74f) }, Position = new Vector3(0, 0.05f, 0), MaterialOverride = iron });
+        for (int k = 0; k < 4; k++)
+            root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(k % 2 == 0 ? 0.74f : 0.03f, 0.5f, k % 2 == 0 ? 0.03f : 0.74f) }, Position = new Vector3(k == 1 ? 0.36f : k == 3 ? -0.36f : 0, 0.3f, k == 0 ? 0.36f : k == 2 ? -0.36f : 0), MaterialOverride = iron });
+    }
+
+    /// <summary>The bars of a dropped cage over its catch.</summary>
+    private static void CageBars(Node3D root)
+    {
+        var iron = new StandardMaterial3D { AlbedoColor = new Color(0.35f, 0.33f, 0.32f), Metallic = 0.7f, Roughness = 0.45f };
+        for (int k = 0; k < 6; k++)
+            for (int side = 0; side < 4; side++)
+            {
+                float t = -0.4f + k * 0.16f;
+                Vector3 p = side switch { 0 => new(t, 0.45f, -0.42f), 1 => new(t, 0.45f, 0.42f), 2 => new(-0.42f, 0.45f, t), _ => new(0.42f, 0.45f, t) };
+                root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.03f, 0.9f, 0.03f) }, Position = p, MaterialOverride = iron });
+            }
+        root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.88f, 0.05f, 0.88f) }, Position = new Vector3(0, 0.92f, 0), MaterialOverride = iron });
     }
 
     private void Ghostly(Node n)

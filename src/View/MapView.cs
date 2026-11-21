@@ -766,7 +766,7 @@ public partial class MapView : Node2D
     {
         foreach (Building b in F.Buildings)
         {
-            if (b.Z != Z) continue;
+            if (b.Def == "lift" ? Z < b.Z || Z > b.Top : b.Z != Z) continue;
             var r = new Rect2(b.X * T, b.Y * T, b.W * T, b.H * T);
             if (!view.Intersects(r)) continue;
             DrawBuilding(b, r);
@@ -953,6 +953,57 @@ public partial class MapView : Node2D
                     for (int k = 3; k < 16; k += 4) DrawLine(r.Position + new Vector2(0, k), r.Position + new Vector2(16, k), mc.Darkened(0.55f), 1);
                 }
                 break;
+            case "lever":
+            {
+                Color iron = new(0.55f, 0.55f, 0.6f);
+                DrawRect(new Rect2(c + new Vector2(-5, 3), new Vector2(10, 4)), dark);
+                Vector2 tip = c + (b.On ? new Vector2(5, -5) : new Vector2(-5, -5));
+                DrawLine(c + new Vector2(0, 4), tip, iron, 2, true);
+                DrawCircle(tip, 2.2f, b.On ? UITheme.Gold : new Color(0.75f, 0.3f, 0.2f));
+                break;
+            }
+            case "plate":
+                DrawRect(r.Grow(-3), b.On ? new Color(0.95f, 0.75f, 0.3f, 0.9f) : mc.Darkened(0.25f));
+                DrawRect(r.Grow(-3), dark, false, 1);
+                break;
+            case "hatch":
+                if (b.Raised) { DrawRect(r.Grow(-1), new Color(0.05f, 0.04f, 0.04f)); DrawRect(r.Grow(-1), new Color(0.5f, 0.2f, 0.15f), false, 1); }
+                else
+                {
+                    DrawRect(r.Grow(-1), mc.Darkened(0.15f));
+                    DrawLine(r.Position + new Vector2(8, 1), r.Position + new Vector2(8, 15), mc.Darkened(0.55f), 1);
+                    DrawRect(r.Grow(-1), new Color(0.3f, 0.3f, 0.32f), false, 1);
+                }
+                break;
+            case "cage":
+            {
+                Color bars = new(0.42f, 0.4f, 0.4f);
+                if (b.Caught != null)
+                {
+                    DrawCircle(c, 4.5f, UITheme.C(Tables.Creatures[b.Caught].Color));
+                    for (int k = 2; k < 16; k += 3) DrawLine(r.Position + new Vector2(k, 1), r.Position + new Vector2(k, 15), bars, 1);
+                    DrawRect(r.Grow(-1), bars, false, 1.5f);
+                }
+                else { DrawRect(r.Grow(-2), bars, false, 1); DrawRect(new Rect2(c - new Vector2(2, 2), new Vector2(4, 4)), bars); }
+                break;
+            }
+            case "launcher":
+            {
+                Vector2 dir = b.Facing switch { 0 => Vector2.Up, 1 => Vector2.Right, 2 => Vector2.Down, _ => Vector2.Left };
+                DrawRect(new Rect2(c - new Vector2(5, 5), new Vector2(10, 10)), mc.Darkened(0.3f));
+                DrawLine(c, c + dir * 8, new Color(0.6f, 0.6f, 0.65f), 3);
+                DrawLine(c - dir.Orthogonal() * 6, c + dir.Orthogonal() * 6, new Color(0.4f, 0.3f, 0.2f), 2);
+                break;
+            }
+            case "lift":
+            {
+                Color post = new(0.42f, 0.28f, 0.16f), chain = b.Raised ? new Color(0.6f, 0.25f, 0.2f) : new Color(0.55f, 0.55f, 0.6f);
+                if (Z == b.Z) DrawRect(r.Grow(-2), new Color(0.45f, 0.45f, 0.48f));
+                else DrawRect(r.Grow(-1), new Color(0.05f, 0.04f, 0.04f, 0.6f));
+                foreach (Vector2 o in new[] { new Vector2(1, 1), new Vector2(13, 1), new Vector2(1, 13), new Vector2(13, 13) }) DrawRect(new Rect2(r.Position + o, new Vector2(2, 2)), post);
+                DrawLine(c - new Vector2(0, 6), c + new Vector2(0, 6), chain, 1.5f);
+                break;
+            }
             case "statue":
                 DrawCircle(c + new Vector2(0, 4), 5, dark);
                 DrawCircle(c + new Vector2(0, -3), 3, mc.Lightened(0.2f));

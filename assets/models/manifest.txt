@@ -5,6 +5,8 @@ brewery brewery-eb3979
 bridge bridge-5d6e2f
 butcher butcher-f6d542
 carpenter carpenter-4af525
+carpenter-t2 carpenter-t2-915709
+carpenter-t3 carpenter-t3-1dbb17
 chair chair-118a78
 chest chest-cd8aa9
 cistern cistern-6158a4
@@ -60,6 +62,8 @@ it-seed it-seed-92fbef
 kitchen kitchen-a84c2a
 leatherworks leatherworks-039c94
 mason mason-3e2437
+mason-t2 mason-t2-4af91c
+mason-t3 mason-t3-ebea60
 mforge mforge-8cc6ea
 msmelter msmelter-5f2c0b
 race-delvling race-delvling-c104c0

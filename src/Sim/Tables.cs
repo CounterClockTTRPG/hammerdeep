@@ -60,7 +60,7 @@ public enum StockCat : ushort
 
 public enum Labor : byte { Mining, Woodcutting, Hauling, Construction, Carpentry, Masonry, Smelting, Smithing, Crafting, Cooking, Brewing, Farming, Gathering, Fighting, Husbandry, Butchery, Leatherwork }
 
-public enum BuildKind : byte { Workshop, Furniture, Construction, Monument }
+public enum BuildKind : byte { Workshop, Furniture, Construction, Monument, Mechanism }
 
 /// <summary>A material requirement: <see cref="Tables.Matches"/> reads the tag.</summary>
 public readonly record struct Need(string Tag, int Count = 1);
@@ -152,7 +152,7 @@ public static class Tables
     public static readonly string[] Seasons = { "Thaw", "Highsun", "Leaffall", "Deepfrost" };
 
     // ---- bodies ------------------------------------------------------------------------
-    public const int StepTicks = 5, DiagTicks = 7, StairTicks = 8;
+    public const int StepTicks = 5, DiagTicks = 7, StairTicks = 8, LiftTicks = 2;
     public const int HungryAt = 2600, StarvingAt = 7000, StarveDeath = 14000;
     /// <summary>Dwarves go looking for food a little before hunger sours their mood; before sleep, sooner still.</summary>
     public const int EatAt = 2100, EatBeforeBedAt = 1500;
@@ -334,12 +334,18 @@ public static class Tables
         B("temple", "Temple", BuildKind.Workshop, 3, 3, Labor.Construction, 600, 'A', "A", "A house for all the gods: anyone may pray here, the prayers are stronger, it holds the Feast of the Founding each Thaw and can calm restless spirits.", new Need("buildmat", 4));
         B("runeforge", "Runeforge", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'Q', "Q", "Carves the old runes into weapons, armour and picks, with a gem. The runes must first be found in the deep.", new Need("stone", 2), new Need("gem"));
         B("well", "Well", BuildKind.Furniture, 1, 1, Labor.Construction, 200, 'O', "o", "Over a shaft with water below: clean water to drink (+1) instead of pond water, which dwarves grumble about (-5).", new Need("stone"), new Need("barrel"));
-        B("floodgate", "Floodgate", BuildKind.Furniture, 1, 1, Labor.Construction, 150, 'H', "y", "Holds back water and magma when shut (it is built shut); opened, lets them through.", new Need("mechanism"), new Need("buildmat"));
+        B("floodgate", "Floodgate", BuildKind.Mechanism, 1, 1, Labor.Construction, 150, 'H', "y", "Holds back water and magma when shut (it is built shut); opened, lets them through.", new Need("mechanism"), new Need("buildmat"));
         B("msmelter", "Magma smelter", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'G', "G", "A smelter heated by magma close by: no fuel needed.", new Need("stone", 3));
         B("mforge", "Magma forge", BuildKind.Workshop, 3, 3, Labor.Construction, 500, 'J', "J", "A forge heated by magma close by: no fuel needed.", new Need("stone", 3));
         B("coffin", "Coffin", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '0', "n", "A resting place for one of the dead. Dig a quiet tomb for them.", new Need("coffin"));
-        B("bridge", "Drawbridge", BuildKind.Furniture, 1, 1, Labor.Construction, 150, '=', "g", "Spans a gap or sits on a floor. Raised, it drops whatever is on it into the gap, or seals the way.", new Need("mechanism"), new Need("buildmat"));
-        B("trap", "Stonefall trap", BuildKind.Furniture, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself.", new Need("mechanism"), new Need("stone"));
+        B("bridge", "Drawbridge", BuildKind.Mechanism, 1, 1, Labor.Construction, 150, '=', "g", "Spans a gap or sits on a floor. Raised, it drops whatever is on it into the gap, or seals the way.", new Need("mechanism"), new Need("buildmat"));
+        B("trap", "Stonefall trap", BuildKind.Mechanism, 1, 1, Labor.Construction, 100, '^', "r", "Drops a stone on the first foe to step on it; resets itself. Linked to a switch, it also drops when the switch goes on.", new Need("mechanism"), new Need("stone"));
+        B("lever", "Lever", BuildKind.Mechanism, 1, 1, Labor.Construction, 80, '/', "l", "A switch: link it to doors, floodgates, drawbridges, hatches, cages, launchers or a lift (each link takes a mechanism). Ask for a pull from its panel and a dwarf walks over and throws it.", new Need("mechanism"), new Need("stone"));
+        B("plate", "Pressure plate", BuildKind.Mechanism, 1, 1, Labor.Construction, 80, '_', "p", "A switch on the floor: on while a foe (or a dwarf, or anyone: set it in its panel) stands on it, off a little after. Link it like a lever.", new Need("mechanism"), new Need("stone"));
+        B("hatch", "Pit hatch", BuildKind.Mechanism, 1, 1, Labor.Construction, 120, 'u', "a", "A trapdoor over a gap: walked on like a floor until a switch opens it, and whatever stands on it drops to the level below. Build it over open air (a channelled pit).", new Need("mechanism"), new Need("buildmat"));
+        B("cage", "Cage trap", BuildKind.Mechanism, 1, 1, Labor.Construction, 120, '%', "k", "When a switch goes on, a cage drops over whatever foe or wild beast stands here and holds it until you let it go or put it to death. Put a pressure plate on it, or beside it.", new Need("mechanism"), new Need("bar", 2));
+        B("launcher", "Bolt launcher", BuildKind.Mechanism, 1, 1, Labor.Construction, 200, '>', "v", "Fires a volley of bolts down a corridor (14 cells, the longest open run beside it; turn it in its panel) at the first foe in line when a switch goes on. Reloads in a while; dwarves know to duck.", new Need("mechanism", 2), new Need("bar"), new Need("buildmat"));
+        B("lift", "Lift", BuildKind.Mechanism, 1, 1, Labor.Construction, 1200, '|', "e", "A cage on chains in a stair shaft: place it on up/down stairs and it runs the whole shaft. Riding it is four times as quick as the stairs. Link it to a switch to stop it.", new Need("mechanism", 4), new Need("block", 6), new Need("bar", 4));
         Add(new BuildDef { Id = "wall", Name = "Wall", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 120, Glyph = '#', Key = "w", Makes = Shape.Wall, Cost = new[] { new Need("buildmat") }, Help = "A built wall." });
         Add(new BuildDef { Id = "floor", Name = "Floor", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 80, Glyph = '+', Key = "f", Makes = Shape.Floor, Cost = new[] { new Need("buildmat") }, Help = "A floor over open air." });
         Add(new BuildDef { Id = "stairs", Name = "Up/down stairs", Kind = BuildKind.Construction, Labor = Labor.Construction, Work = 120, Glyph = 'X', Key = "x", Makes = Shape.StairUD, Cost = new[] { new Need("buildmat") }, Help = "Built stairs (match them above and below)." });

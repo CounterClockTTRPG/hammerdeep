@@ -174,6 +174,7 @@ public sealed partial class Fortress
         if (t == null && d.Strange == null) t = PlanPrayer(d);
         if (t == null && d.Insane != null) { d.Task = PlanMadness(d); return; }
         t ??= PlanOrders(d);
+        if (t == null && d.Can(Labor.Hauling)) t = PlanPull(d);
         if (t == null)
         {
             ClanDef clan = Tables.Clan(d.Clan);
@@ -191,7 +192,7 @@ public sealed partial class Fortress
             {
                 t = job switch
                 {
-                    Job.Build => d.Can(Labor.Construction) ? PlanBuild(d) : null,
+                    Job.Build => d.Can(Labor.Construction) ? PlanBuild(d) ?? PlanLink(d) : null,
                     Job.Craft => PlanCraft(d),
                     Job.Farm => d.Can(Labor.Farming) ? PlanFarm(d) : null,
                     Job.Mine => d.Can(Labor.Mining) ? PlanDig(d, Labor.Mining) : null,
@@ -543,6 +544,8 @@ public sealed partial class Fortress
             case TaskKind.Bury: return DoBury(d, t);
             case TaskKind.Mood: return DoMood(d, t);
             case TaskKind.Pray: return DoPray(d, t);
+            case TaskKind.Link: return DoLink(d, t);
+            case TaskKind.Pull: return DoPull(d, t);
             case TaskKind.Feast: return DoFeast(d, t);
             case TaskKind.Rampage: return DoRampage(d, t);
             case TaskKind.Tame: return DoTame(d, t);
@@ -767,6 +770,9 @@ public sealed partial class Fortress
         return false;
     }
 
+    /// <summary>Finishes a planned building at once (the agent's debug, and tests).</summary>
+    public void FinishNow(Building b) { if (!b.Built && Living.FirstOrDefault() is Dwarf d) FinishBuilding(b, d); }
+
     private void FinishBuilding(Building b, Dwarf d)
     {
         var parts = b.Parts.Select(id => Items[id]).ToList();
@@ -792,7 +798,9 @@ public sealed partial class Fortress
         }
         b.Built = true;
         Count("buildings");
-        if (b.Def == "bridge")
+        if (b.Def == "launcher") AimLauncher(b);
+        if (b.Def == "lift") OpenLift(b, true);
+        if (b.Def is "bridge" or "hatch")
         {
             int bc = World.Idx(b.X, b.Y, b.Z);
             b.OverAir = World.Shapes[bc] == Shape.Empty;
@@ -809,7 +817,10 @@ public sealed partial class Fortress
     {
         Buildings.Remove(b);
         if (b.Def is "door" or "floodgate") { World.SetLocked(World.Idx(b.X, b.Y, b.Z), false); World.Stir(World.Idx(b.X, b.Y, b.Z)); }
-        if (b.Def == "bridge" && b.Built)
+        foreach (Link l in Links.Where(l => l.Switch == b.Id || l.Target == b.Id).ToList()) RemoveLink(l);
+        if (b.Def == "lift" && b.Built) { if (b.Raised) SetLiftStopped(b, false); OpenLift(b, false); }
+        if (b.Def == "lift") for (int z = b.Z + 1; z <= b.Top; z++) BuildingAt.Remove(World.Idx(b.X, b.Y, z));
+        if (b.Def is "bridge" or "hatch" && b.Built)
         {
             int bc = World.Idx(b.X, b.Y, b.Z);
             World.SetLocked(bc, false);
@@ -1201,6 +1212,7 @@ public sealed partial class Fortress
             foreach (Order o in b.Orders) if (o.Worker == d.Id) o.Worker = -1;
         }
         foreach (var kv in Seats.Where(kv => kv.Value == d.Id).ToList()) Seats.Remove(kv.Key);
+        foreach (Link l in Links) if (l.Worker == d.Id) l.Worker = -1;
         foreach (Creature cr in Creatures) if (cr.Claim == d.Id) cr.Claim = -1;
         if (t.Kind == TaskKind.Equip && t.Item >= 0 && Items.TryGetValue(t.Item, out Item eq) && eq.HeldBy == d.Id) Drop(eq, d.Cell);
         foreach (var kv in Crops.Where(kv => kv.Value.Claim == d.Id).ToList())
@@ -1304,6 +1316,15 @@ public sealed partial class Fortress
                     continue;
                 }
                 if (def == "bridge") { if (s is not (Shape.Floor or Shape.Empty)) return "a drawbridge goes on a floor or over a gap"; continue; }
+                if (def == "hatch") { if (s != Shape.Empty || z == 0) return "a hatch goes over open air -- channel a pit first (H), then build it over the hole"; continue; }
+                if (def == "lift")
+                {
+                    var (lo, hi) = LiftShaft(xx, yy, z);
+                    if (hi <= lo) return "a lift goes in a shaft of stairs at least two levels deep -- dig up/down stairs (X)";
+                    for (int lz = lo; lz <= hi; lz++)
+                        if (BuildingAt.ContainsKey(World.Idx(xx, yy, lz))) return "something is built in the shaft";
+                    continue;
+                }
                 if (def == "well") { if (s != Shape.Empty || !WaterBelow(c)) return "a well goes over open air with water a few levels below"; continue; }
                 if (World.Depth[c] >= World.Deep) return "under deep liquid";
                 if (s != Shape.Floor) return Blocked(s);
@@ -1330,6 +1351,7 @@ public sealed partial class Fortress
     {
         if (CanPlace(def, x, y, z) != null) return null;
         var b = new Building { Id = NextId++, Def = def, X = x, Y = y, Z = z };
+        if (def == "lift") (b.Z, b.Top) = LiftShaft(x, y, z);
         if (def == "shrine") b.Deity = DefaultDeity(z);
         Buildings.Add(b);
         IndexBuilding(b);

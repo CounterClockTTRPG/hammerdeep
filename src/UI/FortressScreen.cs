@@ -645,13 +645,14 @@ public partial class FortressScreen : Control
         var cols = new HBoxContainer();
         cols.AddThemeConstantOverride("separation", 10);
         outer.AddChild(cols);
-        VBoxContainer left = UITheme.V(3), right = UITheme.V(3);
+        VBoxContainer left = UITheme.V(3), right = UITheme.V(3), third = UITheme.V(3);
         cols.AddChild(left);
         cols.AddChild(right);
-        foreach (BuildKind kind in new[] { BuildKind.Workshop, BuildKind.Furniture, BuildKind.Construction, BuildKind.Monument })
+        cols.AddChild(third);
+        foreach (BuildKind kind in new[] { BuildKind.Workshop, BuildKind.Furniture, BuildKind.Construction, BuildKind.Mechanism, BuildKind.Monument })
         {
-            VBoxContainer v = kind == BuildKind.Workshop ? left : right;
-            v.AddChild(UITheme.L(kind switch { BuildKind.Workshop => "Workshops", BuildKind.Furniture => "Furniture (made in shops first)", BuildKind.Monument => $"Great projects ({F.Name} is {(F.Rank == 0 ? "an" : "a")} {F.RankName})", _ => "Constructions" }, 13, UITheme.Bronze, UITheme.Title));
+            VBoxContainer v = kind == BuildKind.Workshop ? left : kind is BuildKind.Mechanism or BuildKind.Monument ? third : right;
+            v.AddChild(UITheme.L(kind switch { BuildKind.Workshop => "Workshops", BuildKind.Furniture => "Furniture (made in shops first)", BuildKind.Mechanism => "Mechanisms (link a switch to what it works)", BuildKind.Monument => $"Great projects ({F.Name} is {(F.Rank == 0 ? "an" : "a")} {F.RankName})", _ => "Constructions" }, 13, UITheme.Bronze, UITheme.Title));
             foreach (BuildDef d in Tables.Buildings.Where(b => b.Kind == kind))
             {
                 string cost = string.Join(", ", d.Cost.Select(c => (c.Count > 1 ? c.Count + " " : "") + Tables.NeedName(c.Tag)));
@@ -920,6 +921,7 @@ public partial class FortressScreen : Control
 
     private void SelectAt(P3 c)
     {
+        if (LinkClick(c)) return;
         // What is exactly under the cursor wins: a dwarf or creature on that cell, then a
         // building (a dwarf at work beside it must not hide a whole workshop), then a dwarf or
         // creature within a cell -- a forgiving aim on open ground -- then a zone.
@@ -1130,6 +1132,7 @@ public partial class FortressScreen : Control
     /// <summary>A right-click: drop the drag box, else the tool, else the selection.</summary>
     private void RightClick()
     {
+        if (LinkFrom != null) { Building sw = LinkFrom; LinkFrom = null; SelectThing(sw); return; }
         if (_dragFrom != null) { _dragFrom = null; Map.Box = null; }
         else if (Tool != Tool.Select) Pick(Tool.Select);
         else { Selected = null; Follow = null; Map.SelDwarf = Map.SelBuilding = Map.SelZone = -1; RefreshInfo(true); }

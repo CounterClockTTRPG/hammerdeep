@@ -65,6 +65,8 @@ public partial class AgentRunner : Node
   weather KIND          (debug) the season's weather: fair, floods, drought, heat, hard
   ruin                  (debug) uncover the ancient vault and look at it
   time HOUR             (debug) set the hour of the day, 0..23 (the 3D light follows it)
+  shaft X Y Z0 Z1       (debug) cut a stair shaft at once
+  finish                (debug) every planned building is built at once, every link laid
   say [TOPIC]           (debug) the dwarves on the level say something (a thought id, flee, mood...)
   lay STYLE X0 Y0 X1 Y1 Z (debug) lay a floor style (0 bare .. 5 mosaic) over a box at once
   rank N                (debug) set the hold's rank, 0 Outpost .. 3 Seat of the Mountainhome
@@ -316,6 +318,30 @@ public partial class AgentRunner : Node
                 Root.Screen?.Jump(f.Ruin);
                 await Frames(4);
                 return $"the vault at {f.Ruin}";
+            }
+            case "shaft":
+            {
+                // (debug) cut a stair shaft at once: shaft X Y Z0 Z1 (up stair at the bottom, down stair at the top)
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                int sx = I(a[1]), sy = I(a[2]), z0 = Math.Min(I(a[3]), I(a[4])), z1 = Math.Max(I(a[3]), I(a[4]));
+                for (int z = z0; z <= z1; z++)
+                {
+                    int cell = f.World.Idx(sx, sy, z);
+                    f.World.SetShape(cell, z == z0 ? Shape.StairUp : z == z1 ? Shape.StairDown : Shape.StairUD);
+                    f.World.Set(cell, CellFlag.Hidden, false);
+                }
+                await Frames(3);
+                return $"shaft at {sx},{sy} from level {z0} to {z1}";
+            }
+            case "finish":
+            {
+                // (debug) every planned building is finished at once, and every link laid
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                int n = 0;
+                foreach (Building b in f.Buildings.Where(b => !b.Built).ToList()) { f.FinishNow(b); n++; }
+                foreach (Link l in f.Links.Where(l => !l.Built)) { l.Built = true; n++; }
+                await Frames(3);
+                return $"finished {n}";
             }
             case "say":
             {

@@ -101,6 +101,8 @@ public sealed partial class Fortress
             IndexBuilding(b);
             if (b.Def is "door" or "floodgate" && b.Built && b.Locked) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
             if (b.Def == "bridge" && b.Built && b.Raised && !b.OverAir) World.Locked.Add(World.Idx(b.X, b.Y, b.Z));
+            if (b.Def == "lift" && b.Built)
+                for (int z = b.Z; z <= b.Top; z++) { World.Lifts.Add(World.Idx(b.X, b.Y, z)); if (b.Raised) World.LiftStops.Add(World.Idx(b.X, b.Y, z)); }
         }
         RefreshStored();
     }
@@ -109,7 +111,7 @@ public sealed partial class Fortress
     {
         for (int y = b.Y; y < b.Y + b.H; y++)
             for (int x = b.X; x < b.X + b.W; x++)
-                BuildingAt[World.Idx(x, y, b.Z)] = b.Id;
+                for (int z = b.Z; z <= (b.Def == "lift" ? b.Top : b.Z); z++) BuildingAt[World.Idx(x, y, z)] = b.Id;
     }
 
     /// <summary>The seven founders and their wagon's load.</summary>
@@ -437,6 +439,7 @@ public sealed partial class Fortress
         long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
         long n0 = Path.TotalExpanded, s0 = Path.Searches;
         StepCreatures();
+        StepPlates();
         CreatureNodes += Path.TotalExpanded - n0; CreatureSearches += Path.Searches - s0;
         long t2 = System.Diagnostics.Stopwatch.GetTimestamp();
         if (Tick % FluidEvery == 0) Fluids();

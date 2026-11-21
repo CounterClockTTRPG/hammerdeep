@@ -44,6 +44,8 @@ public sealed class World
     public int SurfaceZ;
     /// <summary>Cells nobody may pass: locked doors.</summary>
     public readonly HashSet<int> Locked = new();
+    /// <summary>Cells of a lift shaft (fast up and down), and of a stopped one (no way up or down at all).</summary>
+    public readonly HashSet<int> Lifts = new(), LiftStops = new();
 
     public World(int w, int h, int d)
     {
@@ -135,10 +137,12 @@ public sealed class World
                 if (Shapes[dn] == Shape.Ramp && Depth[dn] < Deep && IsSolid(Shapes[i - W * H])) { to[n] = dn; cost[n++] = Tables.DiagTicks + 2; }
             }
         }
+        if (LiftStops.Count > 0 && LiftStops.Contains(i)) return n;
+        bool lift = Lifts.Count > 0 && Lifts.Contains(i);
         if (z + 1 < D && here is Shape.StairUp or Shape.StairUD && Shapes[i + W * H] is Shape.StairDown or Shape.StairUD && Depth[i + W * H] < Deep)
-        { to[n] = i + W * H; cost[n++] = Tables.StairTicks; }
+        { to[n] = i + W * H; cost[n++] = lift && Lifts.Contains(i + W * H) ? Tables.LiftTicks : Tables.StairTicks; }
         if (z > 0 && here is Shape.StairDown or Shape.StairUD && Shapes[i - W * H] is Shape.StairUp or Shape.StairUD && Depth[i - W * H] < Deep)
-        { to[n] = i - W * H; cost[n++] = Tables.StairTicks; }
+        { to[n] = i - W * H; cost[n++] = lift && Lifts.Contains(i - W * H) ? Tables.LiftTicks : Tables.StairTicks; }
         return n;
     }
 

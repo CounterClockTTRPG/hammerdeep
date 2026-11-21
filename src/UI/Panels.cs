@@ -245,6 +245,7 @@ public partial class FortressScreen
         if (d.Id == "well") v.AddChild(UITheme.Wrap("Thirsty dwarves draw water here, clean and without grumbling.", 13, UITheme.Dim, 320));
         if (d.Id is "msmelter" or "mforge") v.AddChild(UITheme.Wrap("Heated by the magma close by: no fuel is needed.", 13, UITheme.Dim, 320));
         if (d.Id == "trap") v.AddChild(UITheme.L(F.Tick >= b.ArmedAt ? "Armed." : $"Resetting ({(b.ArmedAt - F.Tick) / 10 + 1}%...)", 14, F.Tick >= b.ArmedAt ? UITheme.Good : UITheme.Ember));
+        MechanismInfo(v, b);
         if (b.MoodClaim >= 0)
         {
             Dwarf m = F.DwarfById(b.MoodClaim);

@@ -61,6 +61,12 @@ MODELS = {
     "runeforge": "a dwarven runeforge, a 3 x 3 m stone floor with an anvil carved with glowing blue runes, a rune-etched stone forge and engraving tools",
     "msmelter": "a dwarven magma smelter, a 3 x 3 m stone floor with a heavy obsidian furnace fed by a glowing magma channel, ore and ingots",
     "mforge": "a dwarven magma forge, a 3 x 3 m stone floor with an obsidian forge glowing with magma, a great anvil and hammers",
+    # mechanisms: 1 x 1 m, low
+    "lever": "a dwarven wall lever, a small iron lever in a carved stone block with a red handle knob, 1 x 1 m footprint, about 0.5 m high",
+    "plate": "a dwarven pressure plate, a square stone floor slab 0.9 m wide set slightly raised in a bronze frame with visible springs at the corners, very flat",
+    "hatch": "a dwarven trapdoor, a square wooden hatch 1 x 1 m with iron bands and hinges set flush in a stone frame, very flat",
+    "cage": "a dwarven cage trap, a 1 x 1 m stone floor plate with an iron cage hanging raised on a small frame above it, ready to drop, about 0.9 m high",
+    "launcher": "a dwarven bolt launcher, a heavy iron-bound wooden crossbow ballista on a squat stone base, aiming forward, 1 x 1 m footprint, about 0.6 m high",
     # great projects: 3 x 3, grand but no taller than about 1.4 m once fitted (the game caps the height)
     "greatgate": "a dwarven Great Gate, a 3 x 3 m squat gatehouse of dressed stone blocks with a heavy bronze-bound double door in the middle, carved runes over the arch",
     "cistern": "a dwarven cistern, a 3 x 3 m vaulted stone basin full of still water, with a carved rim, a bronze pump and wooden buckets",

@@ -275,6 +275,30 @@
    workshops to tier II and begins the Cistern. Six new achievements follow the ranks, a tier
    III workshop and the projects.
 
+26. **Rooms that matter, and the look of them.** A raised workshop shows its tier's model in
+   3D (`<shop>-t2`, `-t3`). Every piece of furniture says in its help what it does, with the
+   numbers. **Chests** are claimed like beds (the nearest to one's own bed): +2 a day, +4 when
+   it stands beside one's own bed. **Floor styles** (S): smoothed, flagstones, planks, tiles,
+   mosaic or bare, laid by masons over a dragged box -- only for the look (`World.Floors`).
+
+27. **Dwarves talk** (`Fortress.Talk`, `UI/Bubbles`). A strong new thought is said aloud (the
+   stronger, the likelier), and so are fleeing, a tantrum, a mood, madness: ~70 topics, lines
+   varied by trait, with the dwarf's god, clan and hold. One line a dwarf every 400 ticks;
+   bubbles for 4.5 s of real time in every view; a setting turns them off. Talk has its own
+   dice: it never changes the game.
+
+28. **Mechanisms** (`Fortress.Mechanisms`, `UI/MechanismPanel`). Two switches -- a **lever**
+   (a dwarf walks over and pulls it when asked) and a **pressure plate** (on while a foe, a
+   dwarf or anyone stands on it, off 80 ticks after) -- linked to what they work, a mechanism
+   a link, laid by a builder. On: a door locks, a floodgate opens, a drawbridge rises, a
+   **pit hatch** (over a channelled gap) opens and drops what is on it, a **cage trap**
+   catches the foe or beast on it (held until slain or let go), a **bolt launcher** fires
+   three bolts down its corridor (14 cells, at the first foe; reloads in 200 ticks), a
+   stonefall trap drops, a lift stops. Wires are drawn from switch to target, lit while on.
+   The **lift** goes in a stair shaft and runs its whole height: a ride between levels costs
+   2 ticks against the stairs' 8 (4 mechanisms, 6 blocks, 4 bars, 1200 work); stopped, the
+   shaft carries nobody.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

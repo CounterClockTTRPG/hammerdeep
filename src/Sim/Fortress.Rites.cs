@@ -94,7 +94,7 @@ public sealed partial class Fortress
     /// <summary>Raise or lower a drawbridge. Raised over a gap, it drops whatever stands on it; on a floor, it seals the cell.</summary>
     public void SetBridge(Building b, bool raised)
     {
-        if (b.Def != "bridge" || !b.Built || b.Raised == raised) return;
+        if (b.Def is not ("bridge" or "hatch") || !b.Built || b.Raised == raised) return;
         b.Raised = raised;
         int c = World.Idx(b.X, b.Y, b.Z);
         if (b.OverAir)

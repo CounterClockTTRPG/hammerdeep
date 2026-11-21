@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, TreesNear, Beasts, Weathers, Nobles, Happenings, Depths, ClanAmbitions, AchievementsList, Ranks, Chests, Floors, TalkLines, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, TreesNear, Beasts, Weathers, Nobles, Happenings, Depths, ClanAmbitions, AchievementsList, Ranks, Chests, Floors, TalkLines, Mechanisms, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -508,7 +508,7 @@ public partial class SmokeTest : Node
         foreach (BuildDef b in Tables.Buildings)
         {
             if (b.Kind == BuildKind.Workshop) { want.Add($"shop-{b.Id}-iso"); want.Add($"shop-{b.Id}-top"); }
-            else if (b.Kind == BuildKind.Furniture) want.Add("furn-" + b.Id);
+            else if (b.Kind == BuildKind.Furniture || (b.Kind == BuildKind.Mechanism && listed.Contains("furn-" + b.Id))) want.Add("furn-" + b.Id);
         }
         var missing = want.Where(n => !listed.Contains(n)).ToList();
         Check(missing.Count == 0, $"every clan, creature and building has a sprite in the manifest (missing: {string.Join(", ", missing)})");

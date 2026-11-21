@@ -49,6 +49,7 @@ public partial class FortressScreen
 
     private void DrawBubbles(UITheme.Drawn c)
     {
+        DrawWires(c);
         Font font = UITheme.Body;
         const int fs = 14;
         var placed = new List<Rect2>();
