@@ -13,6 +13,20 @@ public partial class FortressScreen
 
     private readonly List<(Shot shot, double born)> _shots = new();
 
+    /// <summary>A portrait in a thin frame of the clan's colour; the dead greyed.</summary>
+    public static Control Portrait(Texture2D face, int size, Color frame, bool dead = false)
+    {
+        var box = new PanelContainer { CustomMinimumSize = new Vector2(size + 4, size + 4), SizeFlagsVertical = Control.SizeFlags.ShrinkBegin };
+        var sb = new StyleBoxFlat { BgColor = frame.Darkened(0.5f), BorderColor = frame, ContentMarginLeft = 2, ContentMarginRight = 2, ContentMarginTop = 2, ContentMarginBottom = 2 };
+        sb.SetBorderWidthAll(2);
+        sb.SetCornerRadiusAll(3);
+        box.AddThemeStyleboxOverride("panel", sb);
+        var tex = new TextureRect { Texture = face, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, CustomMinimumSize = new Vector2(size, size), MouseFilter = Control.MouseFilterEnum.Ignore };
+        if (dead) tex.SelfModulate = new Color(0.55f, 0.55f, 0.55f);
+        box.AddChild(tex);
+        return box;
+    }
+
     private string Where(Building b) => $"{b.D.Name.ToLower()} at {b.X},{b.Y}" + (b.Z != Map.Z ? $" (level {b.Z})" : "");
 
     private void MechanismInfo(VBoxContainer v, Building b)

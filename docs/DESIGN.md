@@ -299,6 +299,11 @@
    2 ticks against the stairs' 8 (4 mechanisms, 6 blocks, 4 bars, 1200 work); stopped, the
    shaft carries nobody.
 
+29. **Portraits** (`scripts/portraits.mjs`, `Assets.Portrait`). Every dwarf has a face: drawn
+   by portraitgen (local, procedural) in its realistic style, five for each clan, sex and age
+   (the old ones grey), in the clan's colours and its people's skin and hair; a dwarf always
+   gets the same one. In the dwarf's panel and the dwarf list, framed in the clan's colour.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

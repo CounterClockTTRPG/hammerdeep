@@ -39,6 +39,38 @@ public static class Assets
         return _sprites[name] = t;
     }
 
+    /// <summary>The portraits (<c>assets/portraits</c>, from portraitgen by <c>scripts/portraits.mjs</c>).</summary>
+    public static readonly string PortraitDir = FileAccess.FileExists("res://assets/portraits/manifest.txt")
+        ? "res://assets/portraits"
+        : OS.GetExecutablePath().GetBaseDir() + "/assets/portraits";
+
+    /// <summary>How many portraits there are for each clan, sex and age.</summary>
+    public const int PortraitsEach = 5;
+
+    /// <summary>
+    /// A dwarf's own portrait: one of their clan's, by sex and by age (the old ones grey), always the same one for the
+    /// same dwarf. Null when there are none, or the player chose the drawn look.
+    /// </summary>
+    public static Texture2D Portrait(Dwarf d)
+    {
+        if (Profile.Current != null && !Profile.Current.PaintedArt) return null;
+        RaceDef race = Races.Of(d);
+        bool old = d.Age >= (race.Key == "stonekin" ? 200 : race.Key == "dwarf" ? 100 : 45);
+        int n = 1 + (int)(((uint)d.Id * 2654435761u) >> 8) % PortraitsEach;
+        string name = $"{d.Clan}-{(d.Female ? "f" : "m")}-{(old ? "old" : "young")}-{n}";
+        if (_portraits.TryGetValue(name, out Texture2D t)) return t;
+        t = null;
+        string path = $"{PortraitDir}/{name}.webp";
+        if (FileAccess.FileExists(path))
+        {
+            var image = new Image();
+            if (image.LoadWebpFromBuffer(FileAccess.GetFileAsBytes(path)) == Error.Ok) { image.GenerateMipmaps(); t = ImageTexture.CreateFromImage(image); }
+        }
+        return _portraits[name] = t;
+    }
+
+    private static readonly Dictionary<string, Texture2D> _portraits = new();
+
     /// <summary>The 3D models (<c>assets/models/*.glb</c>), made by the Blender agent through assetgen.</summary>
     public static readonly string ModelDir = FileAccess.FileExists("res://assets/models/manifest.txt")
         ? "res://assets/models"

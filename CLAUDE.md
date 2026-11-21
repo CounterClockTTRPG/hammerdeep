@@ -30,6 +30,8 @@ Design, scope and milestones: `docs/DESIGN.md`; every number: `src/Sim/Tables.cs
                                 http://192.168.86.29:8765, project hammerdeep): fetches finished ones,
                                 asks for missing ones (minutes each; run again later); --list, --force NAME
     python3 scripts/figures.py  the 3D dwarves' parts (body, outfits, clips, tools), same server and habits
+    node scripts/portraits.mjs  dwarf portraits via ../portraitgen (local, free; needs Pillow): 5 per clan, sex and
+                                age, in assets/portraits; --force to redraw, --sample to compare render styles
     bash scripts/assets.sh      generate missing sprites via ../assetgen (project `hammerdeep`, Replicate
                                 credits: ask first); --list, --force NAME, --recut (re-cut from the library, free)
 

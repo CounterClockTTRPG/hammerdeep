@@ -64,9 +64,24 @@ public partial class FortressScreen
     private void DwarfInfo(VBoxContainer v, Dwarf d)
     {
         ClanDef clan = Tables.Clan(d.Clan);
-        v.AddChild(UITheme.Heading(d.Name, 20));
         RaceDef race = Races.Of(d);
-        v.AddChild(UITheme.L($"{(race.Key == "dwarf" ? "" : race.Name + ", ")}of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"", 13, UITheme.C(clan.Color).Lightened(0.3f)));
+        string about = $"{(race.Key == "dwarf" ? "" : race.Name + ", ")}of clan {clan.Name}, aged {d.Age}  ·  \"{clan.Motto}\"";
+        if (Assets.Portrait(d) is Texture2D face)
+        {
+            // Their portrait beside the name, in a frame of the clan's colour.
+            HBoxContainer head = UITheme.H(10);
+            head.AddChild(Portrait(face, 84, UITheme.C(clan.Color), d.Dead));
+            VBoxContainer who = UITheme.V(2);
+            who.AddChild(UITheme.Heading(d.Name, 20));
+            who.AddChild(UITheme.Wrap(about, 13, UITheme.C(clan.Color).Lightened(0.3f), 226));
+            head.AddChild(who);
+            v.AddChild(head);
+        }
+        else
+        {
+            v.AddChild(UITheme.Heading(d.Name, 20));
+            v.AddChild(UITheme.L(about, 13, UITheme.C(clan.Color).Lightened(0.3f)));
+        }
         if (Fortress.AmbitionOf(d.Clan) is string ambition)
         {
             bool met = F.AmbitionsMet.Contains(d.Clan);
@@ -547,6 +562,7 @@ public partial class DwarfList : Overlay
         foreach (Dwarf d in F.Dwarves.OrderBy(d => d.Dead).ThenBy(d => d.Name))
         {
             HBoxContainer h = UITheme.H(10);
+            if (Assets.Portrait(d) is Texture2D face) h.AddChild(FortressScreen.Portrait(face, 34, UITheme.C(Tables.Clan(d.Clan).Color), d.Dead));
             Button name = UITheme.B(d.Name, () => { S.CloseOverlay(); S.SelectThing(d); S.Jump(F.World.Pos(d.Cell)); }, 14);
             name.CustomMinimumSize = new Vector2(220, 0);
             name.Alignment = HorizontalAlignment.Left;
