@@ -56,3 +56,8 @@ G gather, P stockpile, F farm, B build; Space pauses, 1 2 3 set the speed; `?` o
 - `src/Sim` -- the rules as plain data; `src/View` the views; `src/UI` the screens; `tests/` the self-check.
 - `assets/` -- fonts (Cinzel, Barlow, Inconsolata; SIL Open Font License, licences beside them),
   painted sprites and 3D models generated for this project.
+
+## Licence
+
+The code, the art and the models are under the [MIT License](LICENSE). The fonts in
+`assets/fonts` keep their own SIL Open Font License (the licence texts are beside them).
