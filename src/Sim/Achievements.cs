@@ -36,6 +36,12 @@ public static class Achievements
         new("refuge", "Open doors", "Shelter three who came asking.", f => S(f, "refugees") >= 3),
         new("clans", "Every clan content", "Meet four clans' ambitions in one hold.", f => f.AmbitionsMet.Count >= 4),
         new("trade", "Merchant prince", "Trade goods worth 5,000 with the caravans.", f => S(f, "traded_value") >= 5000),
+        new("hold", "A Hold", "Raise an outpost to a Hold.", f => f.Rank >= 1),
+        new("greathold", "A Great Hold", "Raise a hold to a Great Hold.", f => f.Rank >= 2),
+        new("seat", "Seat of the Mountainhome", "Raise a hold to the Seat of the Mountainhome.", f => f.Rank >= 3),
+        new("tier3", "Masterworks", "Raise a workshop to tier III.", f => f.Buildings.Any(b => b.Tier >= 3)),
+        new("project", "A great work", "Finish a great project.", f => f.ProjectsBuilt >= 1),
+        new("projects", "Wonders of the deep", "Finish all four great projects in one hold.", f => f.ProjectsBuilt >= 4),
         new("fallen", "Losing is fun", "Lose a hold.", f => f.Fallen),
     };
 

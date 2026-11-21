@@ -33,7 +33,7 @@ public partial class SmokeTest : Node
 
     private IEnumerable<Action> Sections() => new Action[]
     {
-        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, TreesNear, Beasts, Weathers, Nobles, Happenings, Depths, ClanAmbitions, AchievementsList, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
+        Tables_, Paths, Ramps, Digging, Channels, Hauling, Building, Crafting, Needs, Farming, Moods, Duels, Fleeing, Doors, Traps, Squads, Alarms, Raids, TreesNear, Beasts, Weathers, Nobles, Happenings, Depths, ClanAmbitions, AchievementsList, Ranks, Burial, Drawbridges, Grazing, Breeding, Butchery, Taming, Caravans, StrangeMoods, Madness, Prayer, Feasts, Runecraft, Musick, Regions, Floods, Floodgates, Magma, Wells, Peoples, TheWorld, Tutorials, Undoing, Sprites, Generator, Saving, Year,
     };
 
     private void Run(Action section)
@@ -704,8 +704,9 @@ public partial class SmokeTest : Node
         foreach (int id in f.Artifacts.Where(f.Items.ContainsKey)) GD.Print($"    artifact: {f.Items[id].Label}. {f.Items[id].Description}");
         GD.Print($"    larder: {f.Items.Values.Count(i => i.Kind == ItemKind.Meat)} meat, {f.Items.Values.Count(i => i.Kind == ItemKind.Egg)} eggs, {f.Items.Values.Count(i => i.Kind == ItemKind.Leather)} leather, {f.Living.Count(d => d.Armor >= 0 && f.Items[d.Armor].M.Key == "leather")} in leather armour");
         GD.Print($"    deaths by cause: {string.Join(", ", f.Dwarves.Where(d => d.Dead).GroupBy(d => d.DeathCause ?? "?").OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}"))}");
-        GD.Print($"    nobles: {S("nobles")} named; demands {S("demands_met")} met, {S("demands_failed")} failed{(f.NobleDwarf is Dwarf nb ? $"; now {Fortress.TitleOf(nb)} {nb.Name}" : "")}");
+        GD.Print($"    nobles: {S("nobles")} named; demands {S("demands_met")} met, {S("demands_failed")} failed{(f.NobleDwarf is Dwarf nb ? $"; now {f.TitleOf(nb)} {nb.Name}" : "")}");
         GD.Print($"    at the gate: {S("happenings")} happenings, {S("refugees")} refugees taken in{(f.BardUntil > f.Tick ? ", a bard wintering" : "")}");
+        GD.Print($"    rank: {f.RankName}; workshops {string.Join(",", f.Buildings.Where(b => b.D.Kind == BuildKind.Workshop && b.Built).GroupBy(b => b.Tier).OrderBy(g => g.Key).Select(g => $"{g.Count()} at {Fortress.Roman(g.Key)}"))}; projects {string.Join(",", f.Buildings.Where(b => b.D.Kind == BuildKind.Monument).Select(b => b.Def + (b.Built ? "" : " (building)")))}");
         GD.Print($"    clans: ambitions met {string.Join(",", f.AmbitionsMet)}; {S("brawls")} brawls");
         GD.Print($"    weather: {S("floods")} floods, {S("droughts")} droughts, {S("heatwaves")} heatwaves, {S("hard_winters")} hard winters");
         GD.Print($"    great beasts: came {string.Join(",", f.BeastsCome)}; slain {string.Join(",", f.BeastsSlain)}; {string.Join(" / ", f.Deeds)}");

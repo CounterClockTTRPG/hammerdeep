@@ -349,10 +349,39 @@ public sealed class Overseer
         _notes.Add($"{h.Title}: {(yes ? h.Options[0] : h.Options[^1])} ({F.Date})");
     }
 
+    /// <summary>The late game, as the overseer plays it: raise the workshops when the rank allows, keep blocks and
+    /// cut gems for the works, and begin each great project as it opens (one at a time, near the wagon).</summary>
+    private void Ambition()
+    {
+        if (F.Rank < 1) return;
+        foreach (string shop in new[] { "mason", "carpenter", "craftsdwarf", "kitchen", "brewery", "smelter", "forge" })
+            foreach (Building b in F.Buildings.Where(x => x.Built && x.Def == shop).ToList())
+            {
+                Recipe up = Tables.RecipesFor(shop).FirstOrDefault(r => r.Upgrade && r.Tier == b.Tier + 1);
+                if (up != null && F.CannotOrder(b, up) == null) F.AddOrder(b, up.Id, 1);
+            }
+        Order("mason", "blocks", 50, Have(i => i.Kind == ItemKind.Block));
+        if (Have(i => i.Kind == ItemKind.RoughGem) > 0) Order("craftsdwarf", "cutgem", 10, Have(i => i.Kind == ItemKind.CutGem));
+        if (F.Buildings.Any(b => b.D.Kind == BuildKind.Monument && !b.Built)) return;
+        string next = new[] { "cistern", "greatgate", "colossus", "halloflegends" }.FirstOrDefault(p => F.Rank >= Fortress.RankForProject(p) && !F.Buildings.Any(b => b.Def == p));
+        if (next == null) return;
+        P3 e = F.Embark;
+        for (int r = 6; r < 30; r += 2)
+            for (int dy = -r; dy <= r; dy += 2)
+                for (int dx = -r; dx <= r; dx += 2)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r || F.CanPlace(next, e.X + dx, e.Y + dy, e.Z) != null) continue;
+                    F.Place(next, e.X + dx, e.Y + dy, e.Z);
+                    _notes.Add($"Began a great project: {Tables.Build[next].Name} ({F.Date})");
+                    return;
+                }
+    }
+
     private void Maintain()
     {
         Answer();
         Humour();
+        Ambition();
         int pop = F.Alive;
         int drinks = Have(i => i.Kind == ItemKind.Drink), meals = Have(i => i.Kind == ItemKind.Meal);
         int food = Have(i => Tables.Matches("food", i));

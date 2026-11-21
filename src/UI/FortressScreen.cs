@@ -519,6 +519,8 @@ public partial class FortressScreen : Control
 
     private void RefreshHud()
     {
+        _name.Text = F.Rank > 0 ? $"{F.Name}, a {F.RankName}" : F.Name;
+        _name.TooltipText = F.NextRankNeeds != null ? $"{(F.Rank == 0 ? "An Outpost" : "A " + F.RankName)}. Next rank: {F.NextRankNeeds}." : "The Seat of the Mountainhome.";
         _date.Text = $"{F.Date}, {TimeOfDay()}{(F.Sky != Weather.Fair ? $", {Fortress.WeatherName(F.Sky)}" : "")}";
         for (int k = 0; k < 4; k++) _speedButtons[k].SetPressedNoSignal(Speed == k);
         int idle = F.Living.Count(d => d.Activity == "Idle");
@@ -625,10 +627,10 @@ public partial class FortressScreen : Control
         VBoxContainer left = UITheme.V(3), right = UITheme.V(3);
         cols.AddChild(left);
         cols.AddChild(right);
-        foreach (BuildKind kind in new[] { BuildKind.Workshop, BuildKind.Furniture, BuildKind.Construction })
+        foreach (BuildKind kind in new[] { BuildKind.Workshop, BuildKind.Furniture, BuildKind.Construction, BuildKind.Monument })
         {
             VBoxContainer v = kind == BuildKind.Workshop ? left : right;
-            v.AddChild(UITheme.L(kind switch { BuildKind.Workshop => "Workshops", BuildKind.Furniture => "Furniture (made in shops first)", _ => "Constructions" }, 13, UITheme.Bronze, UITheme.Title));
+            v.AddChild(UITheme.L(kind switch { BuildKind.Workshop => "Workshops", BuildKind.Furniture => "Furniture (made in shops first)", BuildKind.Monument => $"Great projects ({F.Name} is {(F.Rank == 0 ? "an" : "a")} {F.RankName})", _ => "Constructions" }, 13, UITheme.Bronze, UITheme.Title));
             foreach (BuildDef d in Tables.Buildings.Where(b => b.Kind == kind))
             {
                 string cost = string.Join(", ", d.Cost.Select(c => (c.Count > 1 ? c.Count + " " : "") + Tables.NeedName(c.Tag)));
@@ -637,6 +639,8 @@ public partial class FortressScreen : Control
                 b.Alignment = HorizontalAlignment.Left;
                 b.CustomMinimumSize = new Vector2(260, 0);
                 if (have == 0) b.AddThemeColorOverride("font_color", UITheme.Faint);
+                // A great project the hold has not the rank for: shown, with what it waits on.
+                if (d.Kind == BuildKind.Monument && F.Rank < Fortress.RankForProject(d.Id)) { b.Disabled = true; b.TooltipText = $"{d.Help}\nNeeds: {cost}\nThe hold must first be a {Fortress.RankNames[Fortress.RankForProject(d.Id)]}."; }
                 v.AddChild(b);
             }
         }

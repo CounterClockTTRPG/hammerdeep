@@ -195,6 +195,8 @@ public sealed class Building
     public int Builder = -1;
     /// <summary>Items delivered: building materials while it is being built, inputs while a workshop works.</summary>
     public List<int> Parts = new();
+    /// <summary>A workshop's tier, I to III: faster and finer, and the higher ones make more.</summary>
+    public int Tier = 1;
     public byte Mat;
     public int Quality;
     /// <summary>A bed's sleeper.</summary>

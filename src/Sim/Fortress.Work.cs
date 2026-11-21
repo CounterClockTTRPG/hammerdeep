@@ -852,7 +852,7 @@ public sealed partial class Fortress
             t.Stage = 1;
             t.Total = r.Work * 10;
         }
-        t.Work += (int)(10 * d.Speed(r.Labor) * (r.Shop == "runeforge" && SleeperShrine ? 2 : 1));
+        t.Work += (int)(10 * d.Speed(r.Labor) * (r.Shop == "runeforge" && SleeperShrine ? 2 : 1) * TierSpeed(b.Tier));
         if (t.Work < t.Total) return true;
         var inputs = t.Note.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).Where(Items.ContainsKey).Select(id => Items[id]).ToList();
         if (inputs.Count == 0) return false;
@@ -864,14 +864,23 @@ public sealed partial class Fortress
             else if (outp.Kind == ItemKind.Bar && first.M.Yields != null) mat = Tables.Mi(first.M.Yields);
             else if (first.Kind == ItemKind.Bar) mat = first.Mat;
             bool fine = outp.Kind is not (ItemKind.Bar or ItemKind.Charcoal or ItemKind.Seed or ItemKind.Drink or ItemKind.Block);
-            for (int k = 0; k < outp.Count; k++)
+            // A tier III kitchen or brewery makes one more each time.
+            int count = outp.Count + (b.Tier >= 3 && outp.Kind is ItemKind.Drink or ItemKind.Meal ? 1 : 0);
+            for (int k = 0; k < count; k++)
             {
-                int q = fine ? RollQuality(d, r.Labor) : 0;
+                // A raised workshop makes finer things.
+                int q = fine ? Math.Min(5, RollQuality(d, r.Labor) + b.Tier - 1) : 0;
                 Item made = Spawn(outp.Kind, mat, center, q);
                 made.Maker = d.Name;
                 if (q >= 3) AddThought(d, "good_work");
                 if (q >= 5) Say($"{d.Name} made a masterful {made.Name.Replace("masterful ", "")}!", LogKind.Good, center);
             }
+        }
+        if (r.Upgrade)
+        {
+            b.Tier = r.Tier;
+            Count("upgrades");
+            Say($"The {b.D.Name.ToLower()} is raised to tier {Roman(b.Tier)}: it works faster and finer{(b.Tier >= 3 ? ", and makes more" : "")}.", LogKind.Good, center);
         }
         if (r.Id == "butcher") Butcher(first, center);
         if (r.Shop == "runeforge") CarveRune(r, inputs, center, d);
@@ -968,7 +977,7 @@ public sealed partial class Fortress
             else
             {
                 // Water: a well if there is one near, else any cell beside a pond, stream or cave pool.
-                var p = (Buildings.Any(b => b.Built && b.Def == "well") ? Path.Nearest(d.Cell, BesideWell, 12000) : null) ?? Path.Nearest(d.Cell, BesideWater, 30000);
+                var p = (Buildings.Any(b => b.Built && b.Def is "well" or "cistern") ? Path.Nearest(d.Cell, BesideWell, 12000) : null) ?? Path.Nearest(d.Cell, BesideWater, 30000);
                 if (p == null) { d.NoWaterUntil = Tick + 600; return false; }
                 if (p.Count > 1) { SetPath(d, p); t.Stage = 1; return true; }
             }
@@ -1011,14 +1020,14 @@ public sealed partial class Fortress
         return _anyWell && BesideWell(c);
     }
 
-    private bool _anyWell => Buildings.Any(b => b.Built && b.Def == "well");
+    private bool _anyWell => Buildings.Any(b => b.Built && b.Def is "well" or "cistern");
 
     public bool BesideWell(int c)
     {
         P3 p = World.Pos(c);
         for (int dy = -1; dy <= 1; dy++)
             for (int dx = -1; dx <= 1; dx++)
-                if (World.In(p.X + dx, p.Y + dy, p.Z) && BuildingOn(World.Idx(p.X + dx, p.Y + dy, p.Z)) is { Built: true, Def: "well" }) return true;
+                if (World.In(p.X + dx, p.Y + dy, p.Z) && BuildingOn(World.Idx(p.X + dx, p.Y + dy, p.Z)) is { Built: true, Def: "well" or "cistern" }) return true;
         return false;
     }
 
@@ -1294,6 +1303,8 @@ public sealed partial class Fortress
                 if (s != Shape.Floor) return Blocked(s);
             }
         if (def is "msmelter" or "mforge" && !MagmaNear(x, y, z, bd.W, bd.H)) return "needs magma close by (beside it, or one level down)";
+        if (bd.Kind == BuildKind.Monument && Rank < RankForProject(def)) return $"a great project for a {RankNames[RankForProject(def)]} (the hold is a {RankName})";
+        if (bd.Kind == BuildKind.Monument && Buildings.Any(b => b.Def == def)) return "the hold has one already";
         return null;
     }
 

@@ -76,7 +76,7 @@ public partial class FortressScreen
         if (d.Dead) { v.AddChild(UITheme.L($"Dead: {d.DeathCause}.", 16, UITheme.Bad)); return; }
         if (F.Noble == d.Id)
         {
-            v.AddChild(UITheme.L($"{Fortress.TitleOf(d)} of {F.Name}", 14, UITheme.Gold, UITheme.Title));
+            v.AddChild(UITheme.L($"{F.TitleOf(d)} of {F.Name}", 14, UITheme.Gold, UITheme.Title));
             if (F.Mandate is Demand m)
                 v.AddChild(UITheme.Wrap($"Demands {m.Text} by {Tables.Seasons[(int)(m.Due / Tables.TicksPerSeason % 4)]}{(m.Kind == "ban" && m.Broken ? " -- already broken" : F.DemandMet ? " -- done, for now" : "")}.", 13, F.DemandMet ? UITheme.Good : UITheme.Ember, 320));
         }
@@ -312,19 +312,29 @@ public partial class FortressScreen
     private void WorkshopOrders(VBoxContainer v, Building b)
     {
         // The recipes first and the queue below: adding or cancelling never moves a button you are aiming for.
+        v.AddChild(UITheme.L($"Tier {Fortress.Roman(b.Tier)}{(b.Tier > 1 ? $": works {Fortress.TierSpeed(b.Tier):0.#}x as fast, finer{(b.Tier >= 3 ? ", and makes more" : "")}" : "")}", 13, b.Tier > 1 ? UITheme.Gold : UITheme.Dim));
         v.AddChild(UITheme.L("New order", 13, UITheme.Bronze, UITheme.Title));
-        foreach (Recipe r in Tables.RecipesFor(b.Def))
+        // Only the next upgrade is offered; what a higher tier makes is shown, greyed, with what it needs.
+        foreach (Recipe r in Tables.RecipesFor(b.Def).Where(r => !r.Upgrade || r.Tier == b.Tier + 1))
         {
+            string why = F.CannotOrder(b, r);
+            if (why == "already ordered") continue;
             HBoxContainer h = UITheme.H(4);
             string inputs = string.Join(" + ", r.Inputs.Select(n => Tables.NeedName(n.Tag)));
-            Label l = UITheme.L(r.Name, 14, UITheme.Text);
+            Label l = UITheme.L(r.Name + (why != null ? $"  ({why})" : ""), 14, why != null ? UITheme.Faint : r.Upgrade ? UITheme.Gold : UITheme.Text);
             l.TooltipText = $"{inputs}  ({Tables.LaborName(r.Labor)})";
             l.MouseFilter = MouseFilterEnum.Pass;
             l.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             h.AddChild(l);
-            h.AddChild(UITheme.B("+1", () => { F.AddOrder(b, r.Id, 1); RefreshInfo(true); }, 12, inputs));
-            h.AddChild(UITheme.B("+5", () => { F.AddOrder(b, r.Id, 5); RefreshInfo(true); }, 12, inputs));
-            h.AddChild(UITheme.B("∞", () => { F.AddOrder(b, r.Id, 1, true); RefreshInfo(true); }, 12, "Repeat for ever"));
+            if (r.Upgrade) { Button up = UITheme.B("Order", () => { F.AddOrder(b, r.Id, 1); RefreshInfo(true); }, 12, inputs); up.Disabled = why != null; h.AddChild(up); }
+            else
+            {
+                Button b1 = UITheme.B("+1", () => { F.AddOrder(b, r.Id, 1); RefreshInfo(true); }, 12, inputs);
+                Button b5 = UITheme.B("+5", () => { F.AddOrder(b, r.Id, 5); RefreshInfo(true); }, 12, inputs);
+                Button bi = UITheme.B("∞", () => { F.AddOrder(b, r.Id, 1, true); RefreshInfo(true); }, 12, "Repeat for ever");
+                b1.Disabled = b5.Disabled = bi.Disabled = why != null;
+                h.AddChild(b1); h.AddChild(b5); h.AddChild(bi);
+            }
             v.AddChild(h);
             // What it takes, and how much of that is to hand.
             bool short_ = false;

@@ -61,6 +61,11 @@ MODELS = {
     "runeforge": "a dwarven runeforge, a 3 x 3 m stone floor with an anvil carved with glowing blue runes, a rune-etched stone forge and engraving tools",
     "msmelter": "a dwarven magma smelter, a 3 x 3 m stone floor with a heavy obsidian furnace fed by a glowing magma channel, ore and ingots",
     "mforge": "a dwarven magma forge, a 3 x 3 m stone floor with an obsidian forge glowing with magma, a great anvil and hammers",
+    # great projects: 3 x 3, grand but no taller than about 1.4 m once fitted (the game caps the height)
+    "greatgate": "a dwarven Great Gate, a 3 x 3 m squat gatehouse of dressed stone blocks with a heavy bronze-bound double door in the middle, carved runes over the arch",
+    "cistern": "a dwarven cistern, a 3 x 3 m vaulted stone basin full of still water, with a carved rim, a bronze pump and wooden buckets",
+    "colossus": "a dwarven colossus, a 3 x 3 m stone plinth with a great statue of three bearded dwarf founders standing shoulder to shoulder, axes raised",
+    "halloflegends": "a dwarven Hall of Legends, a 3 x 3 m stone floor with tall engraved stone slabs telling stories in carved pictures, a bronze brazier in the middle",
 }
 
 # Creatures and the other peoples: "cr-<creature key>" and "race-<race key>", one posed figure each, standing

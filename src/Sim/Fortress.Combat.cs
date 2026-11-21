@@ -395,7 +395,8 @@ public sealed partial class Fortress
         int size = Math.Min(30, 2 + Rng.Int(3) + Wealth / 5000 + (Year - 1) * 2);
         // The warrens send what they think the hold can be bled by: a hold already bled thin is picked over,
         // not wiped out (raids sized by wealth and years alone ran a dwindling hold into the ground).
-        size = Math.Min(size, 2 + Alive / 2);
+        size = Math.Min(size, 2 + Alive / 2) + Rank;
+        size = GateRaid(size);
         LaunchRaid(size);
     }
 

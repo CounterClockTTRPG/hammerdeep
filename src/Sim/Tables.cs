@@ -60,7 +60,7 @@ public enum StockCat : ushort
 
 public enum Labor : byte { Mining, Woodcutting, Hauling, Construction, Carpentry, Masonry, Smelting, Smithing, Crafting, Cooking, Brewing, Farming, Gathering, Fighting, Husbandry, Butchery, Leatherwork }
 
-public enum BuildKind : byte { Workshop, Furniture, Construction }
+public enum BuildKind : byte { Workshop, Furniture, Construction, Monument }
 
 /// <summary>A material requirement: <see cref="Tables.Matches"/> reads the tag.</summary>
 public readonly record struct Need(string Tag, int Count = 1);
@@ -89,6 +89,9 @@ public sealed class Recipe
     public Need[] Inputs;
     public Output[] Outputs;
     public int Work = 300;
+    /// <summary>The workshop tier it needs; an upgrade raises the workshop to this tier.</summary>
+    public int Tier = 1;
+    public bool Upgrade;
 }
 
 public sealed class ThoughtDef
@@ -386,6 +389,16 @@ public static class Tables
         R("armor", "Breastplate", "forge", Labor.Smithing, 700, new[] { new Need("toolbar"), new Need("toolbar"), new Need("fuel") }, new Output(ItemKind.Armor));
         R("helm", "Helm", "forge", Labor.Smithing, 400, new[] { new Need("toolbar"), new Need("fuel") }, new Output(ItemKind.Helm));
         R("stew", "Cook stew", "kitchen", Labor.Cooking, 200, new[] { new Need("cookable"), new Need("cookable") }, new Output(ItemKind.Meal, 3));
+        // Tier II and III: what only a raised workshop can make.
+        void RT(int tier, string id, string name, string shop, Labor labor, int work, Need[] inputs, params Output[] outputs)
+        {
+            R(id, name, shop, labor, work, inputs, outputs);
+            Recipes[^1].Tier = tier;
+        }
+        RT(2, "jewelcraft", "Jewelled craft", "craftsdwarf", Labor.Crafting, 500, new[] { new Need("cutgem"), new Need("shiny") }, new Output(ItemKind.Craft));
+        RT(3, "sshammer", "Starsilver war hammer", "forge", Labor.Smithing, 700, new[] { new Need("bar:starsilver"), new Need("fuel") }, new Output(ItemKind.Weapon));
+        RT(3, "ssarmor", "Starsilver breastplate", "forge", Labor.Smithing, 900, new[] { new Need("bar:starsilver", 2), new Need("fuel") }, new Output(ItemKind.Armor));
+        RT(3, "sshelm", "Starsilver helm", "forge", Labor.Smithing, 500, new[] { new Need("bar:starsilver"), new Need("fuel") }, new Output(ItemKind.Helm));
         R("ale", "Brew ale", "brewery", Labor.Brewing, 300, new[] { new Need("brewable") }, new Output(ItemKind.Drink, 5), new Output(ItemKind.Seed, 1));
 
         void T(string id, string text, int value, int days) => Thoughts[id] = new ThoughtDef { Id = id, Text = text, Value = value, Ticks = days * TicksPerDay };
@@ -420,6 +433,9 @@ public static class Tables
         T("saw_corpse", "saw a rotting corpse", -4, 1);
         T("raid_won", "saw the raiders driven off", 10, 4);
         T("beast_dread", "dreads the great beast at the gates", -6, 3);
+        T("rank_up", "is proud of the hold's new standing", 10, 6);
+        T("colossus", "looked up at the Colossus", 3, 1);
+        T("legends", "heard the deeds of the hold told in the Hall of Legends", 2, 1);
         T("noble_pleased", "heard the noble was satisfied, for once", 3, 2);
         T("turned_away", "saw a stranger turned away into the wild", -3, 2);
         T("clan_pride", "is proud of what their clan has made of the hold", 8, 12);
@@ -503,6 +519,25 @@ public static class Tables
         C("hollyhock", "Hollyhock", 0x6aa84f, "Plant today, drink tomorrow.", "ironhand", Labor.Farming, Labor.Brewing, Labor.Cooking);
         C("graniteborn", "Graniteborn", 0x7d8088, "Slow, but we arrive.", "copperclaw", Labor.Mining, Labor.Hauling, Labor.Construction, Labor.Fighting);
         foreach (var (clan, race) in new[] { ("copperclaw", "delvling"), ("hollyhock", "rootfolk"), ("graniteborn", "stonekin") }) Clan(clan).Race = race;
+        LateGame();
+    }
+
+    /// <summary>The upgrades (a recipe at each workshop raising it a tier) and the great projects.</summary>
+    private static void LateGame()
+    {
+        foreach (BuildDef b in Buildings.Where(b => b.Kind == BuildKind.Workshop).ToList())
+        {
+            Recipes.Add(new Recipe { Id = "up2-" + b.Id, Name = $"Raise to tier II", Shop = b.Id, Labor = Labor.Masonry, Work = 1200, Tier = 2, Upgrade = true,
+                Inputs = new[] { new Need("block", 4), new Need("bar", 2) }, Outputs = Array.Empty<Output>() });
+            Recipes.Add(new Recipe { Id = "up3-" + b.Id, Name = $"Raise to tier III", Shop = b.Id, Labor = Labor.Masonry, Work = 2000, Tier = 3, Upgrade = true,
+                Inputs = new[] { new Need("block", 6), new Need("bar", 3), new Need("cutgem", 2) }, Outputs = Array.Empty<Output>() });
+        }
+        void P(string id, string name, char glyph, string key, int work, string help, params Need[] cost) =>
+            Add(new BuildDef { Id = id, Name = name, Kind = BuildKind.Monument, W = 3, H = 3, Labor = Labor.Masonry, Work = work, Glyph = glyph, Key = key, Help = help, Cost = cost });
+        P("greatgate", "Great Gate", 'E', "E", 4000, "A great project (a Hold): a gatehouse of dressed stone and bronze. Raids that come against the hold are smaller by a third.", new Need("block", 24), new Need("bar", 8), new Need("mechanism", 2));
+        P("cistern", "Cistern", 'I', "I", 3500, "A great project (a Hold): a vaulted cistern. Water to drink beside it through drought and the hardest winter.", new Need("block", 20), new Need("barrel", 6), new Need("bar", 4));
+        P("colossus", "Colossus", 'O', "O", 6000, "A great project (a Great Hold): a colossal statue of the founders. Everyone who looks up at it is lifted, every day.", new Need("block", 40), new Need("bar", 6), new Need("cutgem", 4));
+        P("halloflegends", "Hall of Legends", 'H', "H", 5000, "A great project (a Great Hold): engraved walls that tell the hold's deeds. The more beasts slain and artifacts made, the prouder everyone is.", new Need("block", 30), new Need("cutgem", 6), new Need("shiny", 4));
     }
 
     private static void Add(BuildDef b) { Buildings.Add(b); Build[b.Id] = b; }
@@ -521,7 +556,9 @@ public static class Tables
             case "ore": return it.Kind == ItemKind.Boulder && m.Kind == MatKind.Ore && m.Yields != null;
             case "fuel": return it.Kind == ItemKind.Charcoal || (it.Kind == ItemKind.Boulder && m.Fuel);
             case "roughgem": return it.Kind == ItemKind.RoughGem;
-            case "toolbar": return it.Kind == ItemKind.Bar && (m.Key is "iron" or "bronze" or "copper" or "starsilver");
+            case "toolbar": return it.Kind == ItemKind.Bar && (m.Key is "iron" or "bronze" or "copper");
+            case "block": return it.Kind == ItemKind.Block;
+            case "cutgem": return it.Kind == ItemKind.CutGem;
             case "cookable": return (it.Kind == ItemKind.Plant && m.Edible) || it.Kind is ItemKind.Meat or ItemKind.Egg;
             case "brewable": return it.Kind == ItemKind.Plant && m.Brewable;
             case "food": return it.Kind is ItemKind.Meal or ItemKind.Meat or ItemKind.Egg || (it.Kind == ItemKind.Plant && m.Edible);

@@ -252,6 +252,29 @@
    raider carries an axe, the brute a club; the Mountainhome trader is a dwarf in an ochre
    coat. Without a body, the posed model; without that, the sprite.
 
+25. **Ranks, raised workshops and great projects** (`Fortress.Ranks`) — the late game. A hold
+   rises (checked each season, one rank at a time) from Outpost to **Hold** (20 living, wealth
+   10,000), **Great Hold** (40, 40,000, a great project finished) and **Seat of the Mountainhome**
+   (60, 100,000, two projects, a great beast or the Warden slain). Each rank: an alert, +10
+   for everyone, two more migrants a season, raids one larger; at the Seat the noble is a king
+   or queen. The HUD shows the rank and, in its tooltip, what the next asks.
+   **Workshop tiers:** every workshop can be raised to tier II (a Hold: 4 blocks and 2 bars)
+   and tier III (a Great Hold: 6 blocks, 3 bars, 2 cut gems), by a work order at the shop
+   itself (masonry, 1200 and 2000 work). A tier works 1.3x / 1.6x as fast and adds +1 / +2 to
+   the quality of what it makes; a tier III kitchen or brewery makes one more each time.
+   Higher tiers unlock: jewelled crafts (a cut gem and something shiny) at a tier II
+   craftsdwarf's shop; starsilver war hammers, breastplates and helms only at a tier III forge.
+   The panel shows the tier, the next upgrade, and greys what a higher tier makes.
+   **Great projects** (3 x 3, one of each, masonry): the **Great Gate** (a Hold; 24 blocks,
+   8 bars, 2 mechanisms) takes a third off every raid; the **Cistern** (a Hold; 20 blocks,
+   6 barrels, 4 bars) is a well: water beside it through drought and hard winter; the
+   **Colossus** (a Great Hold; 40 blocks, 6 bars, 4 cut gems) lifts everyone +3 every day;
+   the **Hall of Legends** (a Great Hold; 30 blocks, 6 cut gems, 4 shiny) +2 a day, up to
+   +6, for the hold's deeds, beasts slain and artifacts. The overseer raises its workshops
+   and builds the projects as they open: in a three-year run it becomes a Hold, raises seven
+   workshops to tier II and begins the Cistern. Six new achievements follow the ranks, a tier
+   III workshop and the projects.
+
 ## The simulation
 
 - **Cells.** Each cell has a shape (Empty, Floor, Wall, StairUp/Down/UD, Ramp, Tree, Water,

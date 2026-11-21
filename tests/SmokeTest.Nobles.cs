@@ -17,7 +17,7 @@ public partial class SmokeTest
         f.NobleSeason();
         Dwarf n = f.NobleDwarf;
         Check(n != null, "at twenty, the Mountainhome names a noble");
-        Check(f.PauseFor != null && f.PauseFor.Contains(Fortress.TitleOf(n)), $"with an alert ({f.PauseFor})");
+        Check(f.PauseFor != null && f.PauseFor.Contains(f.TitleOf(n)), $"with an alert ({f.PauseFor})");
         Check(f.Mandate != null && f.Log.Any(l => l.Text.Contains(" demands ")), $"who demands something at once ({f.Mandate?.Text})");
 
         // A room: their own bed, with a chest and a table beside it.

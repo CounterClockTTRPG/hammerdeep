@@ -65,6 +65,7 @@ public partial class AgentRunner : Node
   weather KIND          (debug) the season's weather: fair, floods, drought, heat, hard
   ruin                  (debug) uncover the ancient vault and look at it
   time HOUR             (debug) set the hour of the day, 0..23 (the 3D light follows it)
+  rank N                (debug) set the hold's rank, 0 Outpost .. 3 Seat of the Mountainhome
   arm [NAME|all]        (debug) iron armour, helm, hammer and shield
   help";
 
@@ -313,6 +314,13 @@ public partial class AgentRunner : Node
                 Root.Screen?.Jump(f.Ruin);
                 await Frames(4);
                 return $"the vault at {f.Ruin}";
+            }
+            case "rank":
+            {
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                f.Rank = Math.Clamp(a.Length > 1 ? I(a[1]) : f.Rank + 1, 0, 3);
+                await Frames(3);
+                return $"{f.Name} is now a {f.RankName}";
             }
             case "time":
             {

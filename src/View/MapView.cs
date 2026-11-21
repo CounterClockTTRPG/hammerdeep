@@ -740,6 +740,7 @@ public partial class MapView : Node2D
             switch (d.Kind)
             {
                 case BuildKind.Workshop: if (!DrawShopSprite(b, r)) DrawWorkshop(b, r, mc); break;
+                case BuildKind.Monument: DrawWorkshop(b, r, mc); DrawRect(r.Grow(-1), new Color(UITheme.Gold, 0.55f), false, 1.5f); break;
                 default: if (!DrawFurnitureSprite(b, r)) DrawFurniture(b, r, mc); break;
             }
             if (b.Artifact) DrawRect(r.Grow(0.5f), new Color(1f, 0.85f, 0.3f, 0.5f + 0.3f * MathF.Sin(Time * 3)), false, 1);

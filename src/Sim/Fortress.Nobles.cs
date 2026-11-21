@@ -30,7 +30,8 @@ public partial class Fortress
 
     [System.Text.Json.Serialization.JsonIgnore] public Dwarf NobleDwarf => Noble >= 0 && DwarfById(Noble) is { Dead: false } d ? d : null;
 
-    public static string TitleOf(Dwarf d) => d.Female ? "Baroness" : "Baron";
+    /// <summary>A baron or baroness -- or, once the hold is the Seat of the Mountainhome, a king or queen.</summary>
+    public string TitleOf(Dwarf d) => Rank >= 3 ? (d.Female ? "Queen" : "King") : d.Female ? "Baroness" : "Baron";
 
     /// <summary>At each season's turn: judge the last demand, name a noble if the hold has earned one, make a new demand.</summary>
     internal void NobleSeason()

@@ -57,7 +57,7 @@ public partial class SmokeTest
         // Starsilver: the finest metal for a weapon, and the forge takes it.
         Item star = new Item { Kind = ItemKind.Weapon, Mat = Tables.Mi("starsilver") }, iron = new Item { Kind = ItemKind.Weapon, Mat = Tables.Mi("iron") };
         Check(Tables.WeaponMult(star) > Tables.WeaponMult(iron), "a starsilver hammer hits harder than iron");
-        Check(Tables.Matches("toolbar", new Item { Kind = ItemKind.Bar, Mat = Tables.Mi("starsilver") }), "and the forge takes starsilver bars");
+        Check(Tables.Recipe("sshammer").Tier == 3 && Tables.Recipe("sshammer").Inputs.Any(n => n.Tag == "bar:starsilver"), "and a tier III forge works starsilver bars");
         Eq(Tables.M("starvein").Yields, "starsilver", "starsilver ore smelts to starsilver");
     }
 }
