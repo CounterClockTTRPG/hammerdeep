@@ -31,11 +31,14 @@ cr-stalker cr-stalker-83ed7b
 cr-trader cr-trader-fc1580
 cr-warden cr-warden-4eb8a1
 craftsdwarf craftsdwarf-16356b
+craftsdwarf-t2 craftsdwarf-t2-198b47
+craftsdwarf-t3 craftsdwarf-t3-8b65dd
 depot depot-9ad041
 door door-e03638
 floodgate floodgate-58c196
 forge forge-d2182d
 furnace furnace-eafdf0
+furnace-t2 furnace-t2-bbe2d2
 greatgate greatgate-b2c5d8
 halloflegends halloflegends-baa0b1
 it-armor it-armor-e9f7b2
