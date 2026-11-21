@@ -259,6 +259,8 @@
   floor is the top of the cell below it.
 - **Movement.** 8-way on a level (no corner cutting), stairs between matching stair cells,
   ramps to the level above beside a wall. Step 5 ticks, diagonal 7, stairs 8.
+- **Wood.** Whatever the site, at least 45 trees stand within 40 cells of the wagon: on a bare
+  site the generator plants groves of 5-9 on the soil (wood for beds, barrels and the first shops).
 - **World.** Soil 2-5 deep over sandstone/limestone, then granite/slate/marble, basalt and
   obsidian near the bottom, magma pockets at z 1-2. Ores in veins by depth (coal, malachite,
   cassiterite, hematite shallower; argentite and gold deeper), gems richer with depth. A

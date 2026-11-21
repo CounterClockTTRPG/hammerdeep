@@ -12,6 +12,8 @@ namespace Hammerdeep;
 public static class WorldGen
 {
     public const int DefaultW = 192, DefaultH = 192, DefaultD = 50;
+    /// <summary>At least this many trees within <see cref="Reach"/> cells of the wagon, whatever the site.</summary>
+    public const int MinTrees = 45, Reach = 40;
 
     public sealed class Result
     {
@@ -280,6 +282,34 @@ public static class WorldGen
                 if (soil && wood > 0.55f - (land.Forest - 0.5f) * 0.3f && r < (wood - 0.5f) * 1.6f * land.Forest * 2) { W.Shapes[i] = Shape.Tree; W.Mats[i] = g > baseZ + 2 ? pine : oak; }
                 else if (soil && r > 0.965f) W.Set(i, CellFlag.Shrub, true);
             }
+
+        // Wood within reach, whatever the site: a hold cannot get going without logs (beds, barrels, the first
+        // workshops), and a bare site once left none. Groves are planted on the soil until there are enough near.
+        int Near()
+        {
+            int n = 0;
+            for (int y = Math.Max(0, embark.Y - Reach); y < Math.Min(h, embark.Y + Reach); y++)
+                for (int x = Math.Max(0, embark.X - Reach); x < Math.Min(w, embark.X + Reach); x++)
+                    if (W.Shapes[W.Idx(x, y, height[y * w + x])] == Shape.Tree) n++;
+            return n;
+        }
+        for (int tries = 0, have = Near(); have < MinTrees && tries < 200; tries++)
+        {
+            int cx = embark.X + rng.Range(-Reach + 4, Reach - 4), cy = embark.Y + rng.Range(-Reach + 4, Reach - 4);
+            if (Math.Abs(cx - embark.X) < 10 && Math.Abs(cy - embark.Y) < 10) continue;
+            for (int k = 0, n = rng.Range(5, 9); k < n * 3 && n > 0; k++)
+            {
+                int x = cx + rng.Range(-3, 3), y = cy + rng.Range(-3, 3);
+                if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+                int g = height[y * w + x], i = W.Idx(x, y, g);
+                if (W.Shapes[i] != Shape.Floor || Tables.Mats[W.Mats[i - w * h]].Kind != MatKind.Soil) continue;
+                W.Shapes[i] = Shape.Tree;
+                W.Mats[i] = g > baseZ + 2 ? pine : oak;
+                W.Set(i, CellFlag.Shrub, false);
+                have++;
+                n--;
+            }
+        }
 
         // Sky and fog: open columns from the top are outside; everything else starts hidden.
         for (int i = 0; i < W.N; i++) W.Flags[i] |= CellFlag.Hidden;
