@@ -557,6 +557,7 @@ public sealed partial class Fortress
         long until = Tick + (d.Has("cheerful") && v > 0 ? t.Ticks * 3 / 2 : t.Ticks);
         if (old != null) { old.Until = until; old.Value = v; return; }
         d.Thoughts.Add(new Thought { Id = id, Until = until, Value = v });
+        SpeakThought(d, id, v);
     }
 
     private void Moods()
@@ -579,6 +580,7 @@ public sealed partial class Fortress
                 d.Breaking = 300;
                 Release(d);
                 d.Task = new Task { Kind = TaskKind.Tantrum };
+                Speak(d, "tantrum");
                 Count("tantrums");
                 Say($"{d.Name} is throwing a tantrum!", LogKind.Bad, d.Cell);
             }

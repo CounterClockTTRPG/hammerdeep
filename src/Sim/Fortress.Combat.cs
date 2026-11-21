@@ -444,6 +444,7 @@ public sealed partial class Fortress
         Creature near = ThreatNear(d, OnDuty(d) ? 3 : 6);
         if (near == null) return null;
         if (OnDuty(d) || (d.Hp > 60 && Adjacent(d.Cell, near.Cell) && !d.Has("loner"))) return new Task { Kind = TaskKind.Fight, Item = near.Id };
+        Speak(d, "flee", 0.6);
         return new Task { Kind = TaskKind.Flee, Item = near.Id, Dest = FleeSpot(d, near) };
     }
 

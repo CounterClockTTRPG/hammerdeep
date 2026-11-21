@@ -1125,6 +1125,14 @@ public partial class MapView : Node2D
 
     private static readonly Color[] Beards = { new(0.45f, 0.28f, 0.14f), new(0.7f, 0.3f, 0.12f), new(0.75f, 0.72f, 0.68f), new(0.85f, 0.7f, 0.35f), new(0.2f, 0.15f, 0.12f) };
 
+    /// <summary>Where a dwarf's head is on the screen (for speech bubbles), in either view.</summary>
+    public Vector2 HeadOnScreen(Dwarf d)
+    {
+        Vector2 at = DwarfPos(d);
+        if (Is3D) return Three.ScreenOf(at, W.Pos(d.Cell).Z, 1.45f);
+        return GetGlobalTransformWithCanvas() * at - new Vector2(0, 16 * Cam.Zoom.Y);
+    }
+
     public Vector2 DwarfPos(Dwarf d)
     {
         Vector2 at = CellCenter(d.Cell);

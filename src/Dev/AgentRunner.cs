@@ -65,6 +65,7 @@ public partial class AgentRunner : Node
   weather KIND          (debug) the season's weather: fair, floods, drought, heat, hard
   ruin                  (debug) uncover the ancient vault and look at it
   time HOUR             (debug) set the hour of the day, 0..23 (the 3D light follows it)
+  say [TOPIC]           (debug) the dwarves on the level say something (a thought id, flee, mood...)
   lay STYLE X0 Y0 X1 Y1 Z (debug) lay a floor style (0 bare .. 5 mosaic) over a box at once
   rank N                (debug) set the hold's rank, 0 Outpost .. 3 Seat of the Mountainhome
   arm [NAME|all]        (debug) iron armour, helm, hammer and shield
@@ -315,6 +316,16 @@ public partial class AgentRunner : Node
                 Root.Screen?.Jump(f.Ruin);
                 await Frames(4);
                 return $"the vault at {f.Ruin}";
+            }
+            case "say":
+            {
+                // (debug) every dwarf on the level says something about TOPIC (a thought id, flee, mood...)
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                int n = 0;
+                foreach (Dwarf d in f.Living)
+                    if (f.World.Pos(d.Cell).Z == Root.Map.Z) { f.Tick += Fortress.SpeakGap; if (f.Speak(d, a.Length > 1 ? a[1] : "chatted")) n++; }
+                await Frames(3);
+                return $"{n} dwarves spoke";
             }
             case "lay":
             {

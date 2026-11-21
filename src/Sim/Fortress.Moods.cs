@@ -43,6 +43,7 @@ public sealed partial class Fortress
         kind ??= d.Has("gloomy") ? "macabre" : d.Has("artistic") ? "fey" : Rng.Pick(MoodKinds);
         d.Strange = kind;
         d.HadMood = true;
+        Speak(d, "mood");
         d.MoodLabor = craft.labor;
         d.MoodShop = -1;
         d.MoodStart = Tick;
@@ -239,6 +240,7 @@ public sealed partial class Fortress
         double r = Rng.Float();
         d.Insane = r < 0.4 ? "melancholy" : r < 0.7 ? "berserk" : "wanderer";
         Count("insane");
+        Speak(d, "insane");
         Say(d.Insane switch
         {
             "melancholy" => $"{d.Name} has been stricken by melancholy, denied the work.",

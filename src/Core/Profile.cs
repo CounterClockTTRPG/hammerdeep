@@ -28,6 +28,8 @@ public sealed class Profile
     public bool ThreeD;
     /// <summary>The painted sprites (assets/art) for figures and buildings; off draws them the original way, in code.</summary>
     public bool PaintedArt = true;
+    /// <summary>Speech bubbles over dwarves when they say something.</summary>
+    public bool SpeechBubbles = true;
     public float MusicVolume = 0.5f;
     public int LastSlot = 1;
     /// <summary>Achievements earned, by id: in which hold, and when ("Morbarrow, 3 Thaw, year 2").</summary>

@@ -112,6 +112,7 @@ public partial class FortressScreen : Control
         MouseFilter = MouseFilterEnum.Ignore;
         Theme = UITheme.Theme;
         _season = F.Season;
+        BuildBubbles();
         BuildTop();
         BuildToolbar();
         BuildInfo();
@@ -449,6 +450,7 @@ public partial class FortressScreen : Control
             if (!Profile.Scratch) Profile.SaveFortress(F);
         }
         _names.QueueRedraw();
+        StepBubbles();
         TickTutorial(delta);
         // The music follows the hold: battle when foes are close, the deep below the caverns, the hall otherwise.
         bool fighting = F.Creatures.Any(c => !c.Dead && (c.D.Hostile || c.Angry) && !c.Tame && F.World.Pos(c.Cell).Dist(F.Embark) < 40) && F.Living.Any(d => d.Task?.Kind is TaskKind.Fight or TaskKind.Flee);
@@ -1106,6 +1108,9 @@ public partial class FortressScreen : Control
         var art = new CheckBox { Text = "Painted art", ButtonPressed = Profile.Current.PaintedArt, FocusMode = FocusModeEnum.None, TooltipText = "Painted figures, creatures and buildings. Off: the original look, drawn by the game itself." };
         art.Toggled += on => { Profile.Current.PaintedArt = on; Profile.Current.Save(); };
         v.AddChild(art);
+        var talk = new CheckBox { Text = "Speech bubbles", ButtonPressed = Profile.Current.SpeechBubbles, FocusMode = FocusModeEnum.None, TooltipText = "Dwarves say what is on their mind, over their heads." };
+        talk.Toggled += on => { Profile.Current.SpeechBubbles = on; Profile.Current.Save(); };
+        v.AddChild(talk);
         v.AddChild(UITheme.B("Save and leave to the title", () => { CloseMenu(); Root.ShowTitle(); }, 18));
         v.AddChild(UITheme.B("Save and quit the game", () => { if (!Profile.Scratch) Profile.SaveFortress(F); GetTree().Quit(); }, 18));
         v.AddChild(UITheme.L("Ironman: the fortress saves every season and when you leave.", 13, UITheme.Faint));
