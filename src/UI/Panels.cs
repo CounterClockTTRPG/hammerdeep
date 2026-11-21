@@ -466,6 +466,9 @@ public partial class FortressScreen
         foreach (Item it in F.ItemsOn(c).Take(10))
         {
             v.AddChild(UITheme.L("· " + it.Name, 14, it.Artifact ? UITheme.Gold : UITheme.Text));
+            // Furniture waiting to be placed: what it is good for once it is.
+            string furniture = it.Kind switch { ItemKind.Bed => "bed", ItemKind.Table => "table", ItemKind.Chair => "chair", ItemKind.Door => "door", ItemKind.Chest => "chest", ItemKind.Statue => "statue", ItemKind.Coffin => "coffin", _ => null };
+            if (furniture != null && !it.Artifact) v.AddChild(UITheme.Wrap(Tables.Build[furniture].Help + " (Place it with B, Build.)", 12, UITheme.Dim, 320));
             if (it.Artifact && it.Description != null) v.AddChild(UITheme.Wrap(it.Description, 13, UITheme.Dim, 320));
         }
     }
