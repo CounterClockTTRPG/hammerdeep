@@ -328,7 +328,7 @@ public static class Tables
         B("table", "Table", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 't', "t", "With a chair beside it, a seat at a meal: dwarves who dine there are pleased (+3). Once the hold has tables, eating without a seat grates (-2). Put chairs beside it.", new Need("table"));
         B("chair", "Chair", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'h', "h", "A seat at a meal, set beside a table: dining there pleases (+3). A chair with no table beside it is no use.", new Need("chair"));
         B("door", "Door", BuildKind.Furniture, 1, 1, Labor.Construction, 60, '+', "d", "Shuts a corridor to wild creatures and most raiders (only brutes and great beasts batter doors down). Lock it from its panel to keep everyone out.", new Need("door"));
-        B("chest", "Chest", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'c', "c", "Somewhere to keep things. A noble wants one beside their bed, with a table, for a room fit for them.", new Need("chest"));
+        B("chest", "Chest", BuildKind.Furniture, 1, 1, Labor.Construction, 60, 'c', "c", "A chest of one's own: a dwarf claims a free one (the nearest to their bed) and keeps their things in it, which pleases them daily (+2; beside their own bed, a room of their own, +4). A noble wants one by their bed, with a table.", new Need("chest"));
         B("statue", "Statue", BuildKind.Furniture, 1, 1, Labor.Construction, 80, '&', "s", "Something to look at: any fine or masterwork furniture (a statue above all) or an artifact on display cheers dwarves passing within three cells (+4).", new Need("statue"));
         B("shrine", "Shrine", BuildKind.Furniture, 1, 1, Labor.Construction, 120, 'i', "i", "A small altar to one god: its faithful pray there, and are comforted (+5). Each clan has its own god; a temple serves them all.", new Need("stone"));
         B("temple", "Temple", BuildKind.Workshop, 3, 3, Labor.Construction, 600, 'A', "A", "A house for all the gods: anyone may pray here, the prayers are stronger, it holds the Feast of the Founding each Thaw and can calm restless spirits.", new Need("buildmat", 4));
@@ -412,6 +412,8 @@ public static class Tables
         T("slept_floor", "slept on the bare floor", -4, 1);
         T("slept_bed", "slept in a bed", 3, 1);
         T("slept_own", "slept in their own bed", 6, 1);
+        T("own_chest", "keeps their things in a chest of their own", 2, 1);
+        T("own_room", "has a room of their own: a bed, and their chest beside it", 4, 1);
         T("hungry", "is hungry", -6, 1);
         T("thirsty", "is thirsty", -6, 1);
         T("saw_death", "saw a dwarf die", -30, 8);

@@ -221,6 +221,7 @@ public partial class FortressScreen
             return;
         }
         if (d.Id == "bed") v.AddChild(UITheme.L(b.Owner >= 0 ? $"Sleeper: {F.DwarfById(b.Owner)?.Name}" : "Nobody has claimed it yet.", 14, UITheme.Text));
+        if (d.Id == "chest") v.AddChild(UITheme.L(b.Owner >= 0 ? $"{F.DwarfById(b.Owner)?.Name} keeps their things here." : "Nobody has claimed it yet.", 14, UITheme.Text));
         if (d.Id == "door")
         {
             v.AddChild(UITheme.L(b.Locked ? "Locked: nobody passes." : "Dwarves pass; beasts and raiders do not (brutes may batter it down).", 14, UITheme.Text));

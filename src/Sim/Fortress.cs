@@ -446,7 +446,7 @@ public sealed partial class Fortress
         if (Tick % 100 == 0) { Moods(); CorpseThoughts(); }
         if (Tick % 500 == 250) { StockWarning(); SupplyWarning(); }
         if (Tick % 500 == 300) BuildWarning();
-        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); DailyWeather(); DailyHappenings(); ProjectsDaily(); }
+        if (Tick % Tables.TicksPerDay == 500) { Mourning(); MaybeMood(); DailyWeather(); DailyHappenings(); ProjectsDaily(); ChestsDaily(); }
         if (Tick % Tables.TicksPerSeason == 0) NewSeason();
         else if (Tick % Tables.TicksPerSeason == Tables.TicksPerSeason - Tables.TicksPerDay * 4) CaravanWord();
         if (Tick % 20 == 0 && World.Topology != _lastTopo) { _lastTopo = World.Topology; Unreachable.Clear(); }
@@ -599,6 +599,7 @@ public sealed partial class Fortress
         d.DeathCause = cause;
         d.Activity = "Dead";
         if (d.Bed >= 0) { Building bed = BuildingById(d.Bed); if (bed != null) bed.Owner = -1; d.Bed = -1; }
+        if (d.Chest >= 0) { Building chest = BuildingById(d.Chest); if (chest != null) chest.Owner = -1; d.Chest = -1; }
         Item corpse = Spawn(ItemKind.Corpse, Tables.Mi("flesh"), d.Cell);
         corpse.Label = $"corpse of {d.Name}";
         corpse.Of = d.Id;

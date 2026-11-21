@@ -119,6 +119,8 @@ public sealed class Dwarf
     /// <summary>Item carried in hand (hauling), and tools carried for work.</summary>
     public int Carry = -1, Pick = -1, Axe = -1;
     public int Bed = -1;
+    /// <summary>Their own chest, where they keep their things.</summary>
+    public int Chest = -1;
     /// <summary>When they last came to blows (a dwarf brawls at most once a season).</summary>
     public long Brawled = -1000000;
     public long NextThink;

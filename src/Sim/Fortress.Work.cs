@@ -817,7 +817,7 @@ public sealed partial class Fortress
                 BuildingAt.Remove(c);
                 World.Changed.Add(c);
             }
-        foreach (Dwarf o in Dwarves) if (o.Bed == b.Id) o.Bed = -1;
+        foreach (Dwarf o in Dwarves) { if (o.Bed == b.Id) o.Bed = -1; if (o.Chest == b.Id) o.Chest = -1; }
     }
 
     private bool DoCraft(Dwarf d, Task t)

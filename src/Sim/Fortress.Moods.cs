@@ -316,6 +316,7 @@ public sealed partial class Fortress
         d.Activity = "Lost";
         d.DiedAt = Tick;
         if (d.Bed >= 0) { Building bed = BuildingById(d.Bed); if (bed != null) bed.Owner = -1; d.Bed = -1; }
+        if (d.Chest >= 0) { Building chest = BuildingById(d.Chest); if (chest != null) chest.Owner = -1; d.Chest = -1; }
         Count("lost");
     }
 
