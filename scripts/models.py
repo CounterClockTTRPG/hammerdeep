@@ -68,6 +68,18 @@ MODELS = {
     "halloflegends": "a dwarven Hall of Legends, a 3 x 3 m stone floor with tall engraved stone slabs telling stories in carved pictures, a bronze brazier in the middle",
 }
 
+# Raised workshops: "<shop>-t2" and "<shop>-t3", the same workshop grander (the game shows the one for its tier).
+_TIERS = {
+    2: "raised to its second tier and grander: dressed stone instead of rough timber, bronze fittings and trim, "
+       "more and finer tools, a tidier and larger version of the same work",
+    3: "raised to its third and finest tier, magnificent: carved stone with gold trim and inlaid runes, "
+       "hanging clan banners, the finest masterwork tools, the main work piece larger and ornate",
+}
+for _shop in ["carpenter", "mason", "craftsdwarf", "furnace", "smelter", "forge", "kitchen", "brewery", "butcher",
+              "tanner", "leatherworks", "runeforge", "msmelter", "mforge"]:
+    for _t, _how in _TIERS.items():
+        MODELS[f"{_shop}-t{_t}"] = f"{MODELS[_shop]}; {_how}; still on a 3 x 3 m footprint and low enough to read from above"
+
 # Creatures and the other peoples: "cr-<creature key>" and "race-<race key>", one posed figure each, standing
 # on the ground at the origin and facing forward (Blender -Y, glTF +Z); the game turns them to where they go.
 _POSE = "a single low-poly game figure in a neutral standing pose, flat colours, standing on the ground at the origin and facing forward (-Y)"

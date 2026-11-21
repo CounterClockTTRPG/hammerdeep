@@ -525,7 +525,8 @@ public partial class SmokeTest : Node
             bool Known(string m) => Tables.Build.ContainsKey(m)
                 || (m.StartsWith("cr-") && Tables.Creatures.ContainsKey(m[3..]))
                 || (m.StartsWith("race-") && Races.All.Any(r => r.Key == m[5..]))
-                || (m.StartsWith("it-") && Enum.TryParse<ItemKind>(m[3..], true, out _));
+                || (m.StartsWith("it-") && Enum.TryParse<ItemKind>(m[3..], true, out _))
+                || ((m.EndsWith("-t2") || m.EndsWith("-t3")) && Tables.Build.TryGetValue(m[..^3], out BuildDef wd) && wd.Kind == BuildKind.Workshop);
             Check(models.All(Known), $"every model is of a building, creature, people or item ({string.Join(", ", models.Where(m => !Known(m)))})");
             var broken = new List<string>();
             foreach (string m in models)

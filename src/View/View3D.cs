@@ -472,11 +472,12 @@ public partial class View3D : Node3D
         {
             if (!Shown(b.Z)) continue;
             seen.Add(b.Id);
-            if (!_buildings.TryGetValue(b.Id, out Node3D n) || (bool)n.GetMeta("built") != b.Built)
+            if (!_buildings.TryGetValue(b.Id, out Node3D n) || (bool)n.GetMeta("built") != b.Built || (int)n.GetMeta("tier") != b.Tier)
             {
                 n?.QueueFree();
                 n = MakeBuilding(b);
                 n.SetMeta("built", b.Built);
+                n.SetMeta("tier", b.Tier);
                 _things.AddChild(n);
                 _buildings[b.Id] = n;
             }
@@ -490,7 +491,8 @@ public partial class View3D : Node3D
     {
         BuildDef d = b.D;
         var root = new Node3D { Position = new Vector3(b.X + d.W / 2f, b.Z, b.Y + d.H / 2f) };
-        Node3D model = _painted ? Assets.Model(b.Def) : null;
+        // A raised workshop shows its tier's model (carpenter-t2, -t3), the base one until that is made.
+        Node3D model = !_painted ? null : (b.Tier > 1 ? Assets.Model($"{b.Def}-t{b.Tier}") : null) ?? Assets.Model(b.Def);
         if (model != null)
         {
             // Fit the model to the footprint, standing on the floor.

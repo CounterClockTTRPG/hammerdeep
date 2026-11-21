@@ -32,6 +32,7 @@ door door-e03638
 floodgate floodgate-58c196
 forge forge-d2182d
 furnace furnace-eafdf0
+greatgate greatgate-b2c5d8
 it-armor it-armor-e9f7b2
 it-bar it-bar-e8076b
 it-barrel it-barrel-8e9be3
