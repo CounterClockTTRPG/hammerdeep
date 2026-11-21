@@ -5,7 +5,7 @@ using Godot;
 
 namespace Hammerdeep;
 
-public enum Tool { Select, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Undesignate, Stockpile, Farm, Meeting, Pasture, Build, Deconstruct }
+public enum Tool { Select, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Pave, Undesignate, Stockpile, Farm, Meeting, Pasture, Build, Deconstruct }
 
 /// <summary>
 /// Playing a fortress: the clock (pause, 1x, 3x, 10x), the camera and the
@@ -211,6 +211,20 @@ public partial class FortressScreen : Control
         ToolB(Tool.StairUp, "Up stair", "U", "The bottom of a shaft.");
         ToolB(Tool.Chop, "Fell trees", "T", "Woodcutters fell trees for logs.");
         ToolB(Tool.Gather, "Gather plants", "G", "Pick wild shrubs for fruit and seed.");
+        ToolB(Tool.Pave, "Floor style", "S", "Lay floors in a style: smoothed, flagstones, planks, tiles or mosaic. Only for the look; masons lay them.");
+        _paveRow = new HFlowContainer();
+        _paveRow.AddThemeConstantOverride("h_separation", 3);
+        _paveRow.AddThemeConstantOverride("v_separation", 3);
+        for (int k = 0; k < Fortress.FloorStyles.Length; k++)
+        {
+            byte style = (byte)k;
+            Button sb = UITheme.B(Fortress.FloorStyles[k], () => { PaveStyle = style; Pick(Tool.Pave); }, 12, Fortress.FloorStyleHelp[k]);
+            sb.ToggleMode = true;
+            _paveButtons.Add(sb);
+            _paveRow.AddChild(sb);
+        }
+        _paveRow.Visible = false;
+        _toolbar.AddChild(_paveRow);
         ToolB(Tool.Undesignate, "Undesignate", "R", "Drag a box to clear designations in it.");
         _undo = Small("^Z  Undo", UndoLast);
         _undo.TooltipText = "Take back the last designation, zone or building placed (Ctrl+Z).";
@@ -591,6 +605,11 @@ public partial class FortressScreen : Control
         Map.Box = null;
         Map.Ghost = null;
         if (t != Tool.Build) BuildDef = null;
+        if (_paveRow != null)
+        {
+            _paveRow.Visible = t == Tool.Pave;
+            for (int k = 0; k < _paveButtons.Count; k++) _paveButtons[k].SetPressedNoSignal(k == PaveStyle);
+        }
         if (_buildPanel != null) { _buildPanel.QueueFree(); _buildPanel = null; }
         if (t == Tool.Build) { OpenBuildPalette(); }
         _toolHint.Text = t switch
@@ -759,7 +778,12 @@ public partial class FortressScreen : Control
         ClampCam();
     }
 
-    private bool BoxTool => Tool is Tool.Dig or Tool.Channel or Tool.StairUD or Tool.StairDown or Tool.StairUp or Tool.Chop or Tool.Gather or Tool.Undesignate or Tool.Stockpile or Tool.Farm or Tool.Meeting or Tool.Pasture;
+    /// <summary>The floor style the Floor style tool lays.</summary>
+    public byte PaveStyle = 2;
+    private HFlowContainer _paveRow;
+    private readonly List<Button> _paveButtons = new();
+
+    private bool BoxTool => Tool is Tool.Dig or Tool.Channel or Tool.StairUD or Tool.StairDown or Tool.StairUp or Tool.Chop or Tool.Gather or Tool.Pave or Tool.Undesignate or Tool.Stockpile or Tool.Farm or Tool.Meeting or Tool.Pasture;
 
     /// <summary>
     /// Trees and shrubs are marked where they are seen: over open air, the cell under the
@@ -785,9 +809,10 @@ public partial class FortressScreen : Control
             // Felling and gathering show which trees and plants the box will take.
             Tool.Chop => i => F.World.CanDesignate(i, Desig.Chop) && F.World.Desigs[i] != Desig.Chop,
             Tool.Gather => i => F.World.CanDesignate(i, Desig.Gather) && F.World.Desigs[i] != Desig.Gather,
+            Tool.Pave => i => F.World.CanDesignate(i, Desig.Pave) && !F.World.Has(i, CellFlag.Hidden) && F.World.Floors[i] != PaveStyle,
             _ => null,
         };
-        Map.BoxUsableName = Tool switch { Tool.Farm => "soil", Tool.Chop => "trees", Tool.Gather => "plants", _ => "grass" };
+        Map.BoxUsableName = Tool switch { Tool.Farm => "soil", Tool.Chop => "trees", Tool.Gather => "plants", Tool.Pave => "floor", _ => "grass" };
     }
 
     private void Click(InputEventMouseButton mb)
@@ -842,6 +867,14 @@ public partial class FortressScreen : Control
             Tool.Dig => Desig.Dig, Tool.Channel => Desig.Channel, Tool.StairUD => Desig.StairUD, Tool.StairDown => Desig.StairDown,
             Tool.StairUp => Desig.StairUp, Tool.Chop => Desig.Chop, Tool.Gather => Desig.Gather, Tool.Undesignate => Desig.None, _ => null,
         };
+        if (Tool == Tool.Pave)
+        {
+            if (Undos.Designate(F, a, b, Desig.Pave) == 0 && !F.Designated.Any(c => F.World.Desigs[c] == Desig.Pave)) { Toast("No floor there to lay."); Sfx.Deny(); return; }
+            F.Pave(a, b, PaveStyle);
+            Sfx.Place();
+            if (!F.Living.Any(d => d.Can(Labor.Masonry))) Toast("Nobody does masonry: give someone the labor (L) to lay floors.");
+            return;
+        }
         if (g != null)
         {
             int n = Undos.Designate(F, a, b, g.Value);
@@ -965,6 +998,7 @@ public partial class FortressScreen : Control
             case 'u': Pick(Tool.StairUp); return true;
             case 't': Pick(Tool.Chop); return true;
             case 'g': Pick(Tool.Gather); return true;
+            case 's': Pick(Tool.Pave); return true;
             case 'r': Pick(Tool.Undesignate); return true;
             case 'p': Pick(Tool.Stockpile); return true;
             case 'f': Pick(Tool.Farm); return true;

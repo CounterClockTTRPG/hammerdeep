@@ -457,10 +457,11 @@ public partial class FortressScreen
         if (w.Depth[c] > 0) v.AddChild(UITheme.L($"{(w.IsMagma(c) ? "Magma" : "Water")}, {w.Depth[c]}/7 deep{(w.Depth[c] >= World.Deep ? " -- too deep to walk" : "")}.", 14, w.IsMagma(c) ? UITheme.Ember : UITheme.Water));
         else if (w.Has(c, CellFlag.Wet) && s == Shape.Floor) v.AddChild(UITheme.L("Muddy: crops will grow here.", 13, UITheme.Dim));
         if (w.Has(c, CellFlag.Shrub)) v.AddChild(UITheme.L(w.IsOutside(c) ? "A bramble bush grows here." : "Glowmoss grows here.", 14, UITheme.Text));
+        if (w.Floors[c] != 0 && s == Shape.Floor) v.AddChild(UITheme.L($"Floor: {Fortress.FloorStyles[w.Floors[c]].ToLower()}.", 14, UITheme.Text));
         if (w.Desigs[c] != Desig.None)
         {
             HBoxContainer dh = UITheme.H(8);
-            dh.AddChild(UITheme.L($"Marked: {w.Desigs[c] switch { Desig.Dig => "dig", Desig.Channel => "channel", Desig.StairUD => "up/down stairs", Desig.StairDown => "down stair", Desig.StairUp => "up stair", Desig.Chop => "fell", Desig.Gather => "gather", _ => "remove" }}", 14, UITheme.Gold));
+            dh.AddChild(UITheme.L($"Marked: {w.Desigs[c] switch { Desig.Dig => "dig", Desig.Channel => "channel", Desig.StairUD => "up/down stairs", Desig.StairDown => "down stair", Desig.StairUp => "up stair", Desig.Chop => "fell", Desig.Gather => "gather", Desig.Pave => $"lay {Fortress.FloorStyles[F.Paving.GetValueOrDefault(c)].ToLower()}", _ => "remove" }}", 14, UITheme.Gold));
             dh.AddChild(UITheme.B("Cancel it", () => { Undos.Designate(F, p, p, Desig.None); RefreshInfo(true); }, 13));
             v.AddChild(dh);
         }

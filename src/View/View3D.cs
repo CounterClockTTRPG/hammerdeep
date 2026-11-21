@@ -404,7 +404,8 @@ public partial class View3D : Node3D
                     for (int k = 0; k < 3; k++) g.Box(new(x + 0.15f, z, y + 0.15f + k * 0.23f), new(x + 0.85f, z + 0.2f + k * 0.2f, y + 0.38f + k * 0.23f), st, st * 0.8f);
                 break;
             default:
-                g.Quad(new(x, fy, y), new(x + 1, fy, y), new(x + 1, fy, y + 1), new(x, fy, y + 1), Vector3.Up, fc);
+                if (s == Shape.Floor && W.Floors[i] != 0) Paved(g, i, m, x, y, fy, dim);
+                else g.Quad(new(x, fy, y), new(x + 1, fy, y), new(x + 1, fy, y + 1), new(x, fy, y + 1), Vector3.Up, fc);
                 break;
         }
         if (s == Shape.Tree) Tree(g, i, m, x, y, z, dim);
@@ -415,6 +416,47 @@ public partial class View3D : Node3D
             if (F.Season is 1 or 2 && outside) g.Box(new(x + 0.42f, z + 0.3f, y + 0.42f), new(x + 0.52f, z + 0.38f, y + 0.52f), new Color(0.7f, 0.15f, 0.25f), new Color(0.55f, 0.1f, 0.2f));
         }
         Liquid(water, i, x, y, z);
+    }
+
+    /// <summary>A floor laid in a style: a few flat pieces in the cell, over a darker bed for the joints.</summary>
+    private void Paved(Geo g, int i, Mat m, int x, int y, float fy, float dim)
+    {
+        Rgb sr = m.Kind is MatKind.Ore or MatKind.Gem or MatKind.Soil ? new Rgb(150, 142, 132) : m.Color;
+        Color stone = Col(sr) * dim, cream = new Color(0.87f, 0.82f, 0.71f) * dim;
+        void Piece(float x0, float y0, float x1, float y1, Color c, float lift = 0.002f) =>
+            g.Quad(new(x + x0, fy + lift, y + y0), new(x + x1, fy + lift, y + y0), new(x + x1, fy + lift, y + y1), new(x + x0, fy + lift, y + y1), Vector3.Up, c);
+        float h = Noise.Hash01(x, y, i, 21);
+        switch (W.Floors[i])
+        {
+            case 1:
+                Piece(0, 0, 1, 1, stone * (0.86f + h * 0.04f), 0);
+                break;
+            case 2:
+                Piece(0, 0, 1, 1, stone * 0.4f, 0);
+                for (int r = 0; r < 2; r++)
+                {
+                    float off = (y + r) % 2 == 0 ? 0 : 0.25f;
+                    for (float a = -off; a < 1; a += 0.5f)
+                        Piece(Mathf.Max(0, a) + 0.03f, r * 0.5f + 0.03f, Mathf.Min(1, a + 0.5f) - 0.03f, r * 0.5f + 0.47f, stone * (0.66f + Noise.Hash01((int)(a * 4) + x * 4, r + y * 2, i, 22) * 0.2f));
+                }
+                break;
+            case 3:
+                Color wood = new Color(0.54f, 0.37f, 0.22f) * dim;
+                Piece(0, 0, 1, 1, wood * 0.5f, 0);
+                for (int r = 0; r < 3; r++) Piece(0, r / 3f + 0.02f, 1, (r + 1) / 3f - 0.02f, wood * (0.86f + Noise.Hash01(x, y * 3 + r, i, 23) * 0.18f));
+                break;
+            case 4:
+                for (int r = 0; r < 2; r++)
+                    for (int q = 0; q < 2; q++)
+                        Piece(q * 0.5f, r * 0.5f, q * 0.5f + 0.5f, r * 0.5f + 0.5f, (x * 2 + q + y * 2 + r) % 2 == 0 ? stone.Lerp(cream, 0.35f) * 0.9f : stone * 0.45f, 0);
+                break;
+            default:
+                Piece(0, 0, 1, 1, stone.Lerp(cream, 0.5f) * 0.85f, 0);
+                Color blue = new Color(0.21f, 0.32f, 0.55f) * dim, gold = new Color(0.83f, 0.67f, 0.28f) * dim;
+                g.Quad(new(x + 0.5f, fy + 0.002f, y + 0.08f), new(x + 0.92f, fy + 0.002f, y + 0.5f), new(x + 0.5f, fy + 0.002f, y + 0.92f), new(x + 0.08f, fy + 0.002f, y + 0.5f), Vector3.Up, blue);
+                g.Quad(new(x + 0.5f, fy + 0.004f, y + 0.28f), new(x + 0.72f, fy + 0.004f, y + 0.5f), new(x + 0.5f, fy + 0.004f, y + 0.72f), new(x + 0.28f, fy + 0.004f, y + 0.5f), Vector3.Up, gold);
+                break;
+        }
     }
 
     private void Liquid(Geo water, int i, int x, int y, int z)
@@ -967,6 +1009,7 @@ public partial class View3D : Node3D
                 Desig.StairUD or Desig.StairDown or Desig.StairUp => new Color(0.4f, 0.9f, 1f),
                 Desig.Chop => new Color(0.6f, 1f, 0.4f),
                 Desig.Gather => new Color(0.6f, 1f, 0.8f),
+                Desig.Pave => new Color(0.95f, 0.75f, 0.55f),
                 Desig.Remove => new Color(1, 0.4f, 0.3f),
                 _ => new Color(1, 1, 1),
             };

@@ -65,6 +65,7 @@ public partial class AgentRunner : Node
   weather KIND          (debug) the season's weather: fair, floods, drought, heat, hard
   ruin                  (debug) uncover the ancient vault and look at it
   time HOUR             (debug) set the hour of the day, 0..23 (the 3D light follows it)
+  lay STYLE X0 Y0 X1 Y1 Z (debug) lay a floor style (0 bare .. 5 mosaic) over a box at once
   rank N                (debug) set the hold's rank, 0 Outpost .. 3 Seat of the Mountainhome
   arm [NAME|all]        (debug) iron armour, helm, hammer and shield
   help";
@@ -314,6 +315,23 @@ public partial class AgentRunner : Node
                 Root.Screen?.Jump(f.Ruin);
                 await Frames(4);
                 return $"the vault at {f.Ruin}";
+            }
+            case "lay":
+            {
+                // (debug) lay a floor style at once over a box: lay STYLE X0 Y0 X1 Y1 Z
+                Fortress f = Root.Fortress ?? throw new Exception("no fortress");
+                byte style = (byte)Math.Clamp(I(a[1]), 0, Fortress.FloorStyles.Length - 1);
+                int n = 0;
+                for (int y = Math.Min(I(a[3]), I(a[5])); y <= Math.Max(I(a[3]), I(a[5])); y++)
+                    for (int x = Math.Min(I(a[2]), I(a[4])); x <= Math.Max(I(a[2]), I(a[4])); x++)
+                    {
+                        if (!f.World.In(x, y, I(a[6]))) continue;
+                        int cell = f.World.Idx(x, y, I(a[6]));
+                        if (!f.World.CanDesignate(cell, Desig.Pave)) continue;
+                        f.World.Floors[cell] = style; f.World.Set(cell, CellFlag.Grass, false); f.World.Changed.Add(cell); n++;
+                    }
+                await Frames(3);
+                return $"laid {n} floors in {Fortress.FloorStyles[style].ToLower()}";
             }
             case "rank":
             {

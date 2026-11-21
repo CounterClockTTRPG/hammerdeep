@@ -450,6 +450,7 @@ public partial class MapView : Node2D
         bool outside = W.IsOutside(i);
         bool grass = W.Has(i, CellFlag.Grass) && outside;
         bool built = W.Has(i, CellFlag.Built);
+        if (W.Floors[i] != 0 && W.Shapes[i] == Shape.Floor) { PaintPaved(i, x, y, z, m, ox, oy, W.Floors[i]); return; }
         // Recessed ground: darker than walls; under the sky a little brighter.
         Rgb baseC = grass ? GrassColor((uint)i) : m.Color.Scale(outside ? 0.62f : 0.46f);
         if (!grass && W.Has(i, CellFlag.Wet)) baseC = baseC.Mix(new Rgb(52, 44, 34), 0.45f);
@@ -469,6 +470,54 @@ public partial class MapView : Node2D
                 Px(ox + k, oy + j, c);
             }
         // Walls cast a soft shadow onto the floor at their foot.
+        if (SolidAt(x, y - 1, z)) for (int k = 0; k < A; k++) { Px(ox + k, oy, Get(ox + k, oy).Scale(0.55f)); Px(ox + k, oy + 1, Get(ox + k, oy + 1).Scale(0.78f)); }
+        if (SolidAt(x - 1, y, z)) for (int j = 0; j < A; j++) { Px(ox, oy + j, Get(ox, oy + j).Scale(0.6f)); Px(ox + 1, oy + j, Get(ox + 1, oy + j).Scale(0.82f)); }
+    }
+
+    /// <summary>A floor laid in a style (Fortress.FloorStyles): smoothed, flagstones, planks, tiles, mosaic.</summary>
+    private void PaintPaved(int i, int x, int y, int z, Mat m, int ox, int oy, byte style)
+    {
+        Rgb stone = m.Kind is MatKind.Ore or MatKind.Gem or MatKind.Soil ? new Rgb(150, 142, 132) : m.Color;
+        Rgb wood = new(138, 94, 56), gold = new(212, 170, 72), blue = new(54, 82, 140), cream = new(222, 210, 182);
+        for (int j = 0; j < A; j++)
+            for (int k = 0; k < A; k++)
+            {
+                float f = Noise.Hash01(k, j, i, 13);
+                Rgb c;
+                switch (style)
+                {
+                    case 1: // smoothed: even, with a faint sheen across it
+                        c = stone.Scale(0.74f + ((k + j + x + y) % 7 == 0 ? 0.08f : 0f) + f * 0.03f);
+                        break;
+                    case 2: // flagstones: courses of 4 x 4 slabs, each its own shade, offset row by row
+                    {
+                        int row = (y * A + j) / 4, col = (x * A + k + (row % 2) * 2) / 4;
+                        bool mortar = (y * A + j) % 4 == 3 || (x * A + k + (row % 2) * 2) % 4 == 3;
+                        c = mortar ? stone.Scale(0.36f) : stone.Scale(0.6f + Noise.Hash01(col, row, z, 14) * 0.18f);
+                        break;
+                    }
+                    case 3: // planks: boards running east-west, a seam every third row, butt joints staggered
+                    {
+                        int gy = y * A + j, plank = gy / 3;
+                        bool seam = gy % 3 == 2 || (x * A + k + plank * 5) % 13 == 0;
+                        c = seam ? wood.Scale(0.45f) : wood.Scale(0.82f + Noise.Hash01(x * A + k, plank, z, 15) * 0.1f + (f > 0.9f ? -0.12f : 0f));
+                        break;
+                    }
+                    case 4: // tiles: a chequer of light and dark, two tiles to a cell
+                        c = ((x * A + k) / 4 + (y * A + j) / 4) % 2 == 0 ? stone.Mix(cream, 0.35f).Scale(0.85f) : stone.Scale(0.42f);
+                        if (k % 4 == 0 || j % 4 == 0) c = c.Scale(0.85f);
+                        break;
+                    default: // mosaic: a gold diamond in a ring of blue on pale stone, in 2 x 2 stones
+                    {
+                        float dx = System.Math.Abs(k / 2 - 1.5f), dy = System.Math.Abs(j / 2 - 1.5f), d = dx + dy;
+                        c = d < 1.1f ? gold : d < 2.1f ? blue : stone.Mix(cream, 0.5f).Scale(0.8f);
+                        c = c.Scale(0.88f + f * 0.16f);
+                        if ((k % 2 == 1 && f > 0.7f) || (j % 2 == 1 && f < 0.3f)) c = c.Scale(0.72f);
+                        break;
+                    }
+                }
+                Px(ox + k, oy + j, c);
+            }
         if (SolidAt(x, y - 1, z)) for (int k = 0; k < A; k++) { Px(ox + k, oy, Get(ox + k, oy).Scale(0.55f)); Px(ox + k, oy + 1, Get(ox + k, oy + 1).Scale(0.78f)); }
         if (SolidAt(x - 1, y, z)) for (int j = 0; j < A; j++) { Px(ox, oy + j, Get(ox, oy + j).Scale(0.6f)); Px(ox + 1, oy + j, Get(ox + 1, oy + j).Scale(0.82f)); }
     }
@@ -697,6 +746,7 @@ public partial class MapView : Node2D
                 Desig.StairUD or Desig.StairDown or Desig.StairUp => new Color(0.4f, 0.9f, 1f),
                 Desig.Chop => new Color(0.6f, 1f, 0.4f),
                 Desig.Gather => new Color(0.6f, 1f, 0.8f),
+                Desig.Pave => new Color(0.95f, 0.75f, 0.55f),
                 _ => new Color(1, 1, 1),
             };
             DrawRect(r, new Color(col, taken ? 0.32f : 0.18f));

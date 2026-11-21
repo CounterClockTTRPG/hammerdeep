@@ -95,6 +95,7 @@ public sealed class UndoStack
         Desig.StairUp => "an up stair",
         Desig.Chop => "felling",
         Desig.Gather => "gathering",
+        Desig.Pave => "laying floors",
         _ => g.ToString().ToLower(),
     };
 }

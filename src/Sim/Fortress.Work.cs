@@ -140,7 +140,7 @@ public sealed partial class Fortress
 
     // ---- choosing ---------------------------------------------------------------------
 
-    private enum Job { Build, Craft, Farm, Mine, Chop, Gather, Haul, Bury, Animals }
+    private enum Job { Build, Craft, Farm, Mine, Chop, Gather, Haul, Bury, Animals, Pave }
 
     private static Labor LaborOf(Job j) => j switch
     {
@@ -151,12 +151,13 @@ public sealed partial class Fortress
         Job.Gather => Labor.Gathering,
         Job.Haul => Labor.Hauling,
         Job.Animals => Labor.Husbandry,
+        Job.Pave => Labor.Masonry,
         _ => Labor.Crafting,
     };
 
     private static readonly (Job job, int pri)[] Jobs =
     {
-        (Job.Bury, 34), (Job.Build, 30), (Job.Animals, 24), (Job.Craft, 26), (Job.Farm, 26), (Job.Mine, 20), (Job.Chop, 16), (Job.Gather, 10), (Job.Haul, 6),
+        (Job.Bury, 34), (Job.Build, 30), (Job.Animals, 24), (Job.Craft, 26), (Job.Farm, 26), (Job.Mine, 20), (Job.Chop, 16), (Job.Gather, 10), (Job.Pave, 8), (Job.Haul, 6),
     };
 
     private void Choose(Dwarf d)
@@ -196,6 +197,7 @@ public sealed partial class Fortress
                     Job.Mine => d.Can(Labor.Mining) ? PlanDig(d, Labor.Mining) : null,
                     Job.Chop => d.Can(Labor.Woodcutting) ? PlanDig(d, Labor.Woodcutting) : null,
                     Job.Gather => d.Can(Labor.Gathering) ? PlanDig(d, Labor.Gathering) : null,
+                    Job.Pave => d.Can(Labor.Masonry) ? PlanDig(d, Labor.Masonry) : null,
                     Job.Haul => d.Can(Labor.Hauling) ? PlanHaul(d) : null,
                     Job.Bury => d.Can(Labor.Hauling) ? PlanBury(d) : null,
                     Job.Animals => d.Can(Labor.Husbandry) || d.Can(Labor.Butchery) ? PlanAnimals(d) : null,
@@ -217,6 +219,7 @@ public sealed partial class Fortress
         Desig.Chop => Labor.Woodcutting,
         Desig.Gather => Labor.Gathering,
         Desig.Remove => Labor.Construction,
+        Desig.Pave => Labor.Masonry,
         _ => null,
     };
 
@@ -577,7 +580,7 @@ public sealed partial class Fortress
         Desig g = World.Desigs[t.Cell];
         Labor labor = DesigLabor(g) ?? Labor.Mining;
         if (g == Desig.None || Claims.GetValueOrDefault(t.Cell, -1) != d.Id) return false;
-        d.Activity = t.Kind == TaskKind.Chop ? "Felling a tree" : t.Kind == TaskKind.Gather ? "Gathering plants" : "Digging";
+        d.Activity = t.Kind == TaskKind.Chop ? "Felling a tree" : t.Kind == TaskKind.Gather ? "Gathering plants" : g == Desig.Pave ? "Laying a floor" : "Digging";
         // Stage 0: the tool.
         if (t.Stage == 0)
         {
@@ -608,6 +611,7 @@ public sealed partial class Fortress
             {
                 TaskKind.Chop => 1300,
                 TaskKind.Gather => 500,
+                _ when g == Desig.Pave => 700,
                 _ => (int)((g == Desig.Channel ? 1400 : 1100) * m.Hard),
             };
             t.Stage = 2;
@@ -627,6 +631,8 @@ public sealed partial class Fortress
         W.Desigs[c] = Desig.None;
         Designated.Remove(c);
         Claims.Remove(c);
+        if (g == Desig.Pave) { FinishPave(c); return; }
+        W.Floors[c] = 0;
         // Digging out the cell under a down stair makes the stair's other end: the way down is open.
         if (g == Desig.Dig && c + W.W * W.H < W.N && W.Shapes[c + W.W * W.H] is Shape.StairDown or Shape.StairUD) g = Desig.StairUp;
         // Recutting a one-way stair (or cutting the other way into one) leaves a stair both ways.

@@ -12,7 +12,7 @@ public enum Shape : byte { Empty, Floor, Wall, StairUp, StairDown, StairUD, Ramp
 [Flags]
 public enum CellFlag : byte { None = 0, Hidden = 1, Built = 2, Shrub = 4, Grass = 8, Smooth = 16, Outside = 32, Wet = 64, Magma = 128 }
 
-public enum Desig : byte { None, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Remove }
+public enum Desig : byte { None, Dig, Channel, StairUD, StairDown, StairUp, Chop, Gather, Remove, Pave }
 
 /// <summary>
 /// The map: W x H x D cells in flat arrays, indexed (z*H + y)*W + x. Knows
@@ -27,6 +27,8 @@ public sealed class World
     public readonly byte[] Mats;
     public readonly CellFlag[] Flags;
     public readonly Desig[] Desigs;
+    /// <summary>The style a floor is laid in (Fortress.FloorStyles), 0 for bare.</summary>
+    public readonly byte[] Floors;
     /// <summary>Liquid in each cell, 0..7 (7 full); the Magma flag says which. Four or more cannot be walked.</summary>
     public readonly byte[] Depth;
     /// <summary>Cells whose liquid may move: the fluid pass looks only at these.</summary>
@@ -46,7 +48,7 @@ public sealed class World
     public World(int w, int h, int d)
     {
         W = w; H = h; D = d; N = w * h * d;
-        Shapes = new Shape[N]; Mats = new byte[N]; Flags = new CellFlag[N]; Desigs = new Desig[N]; Comp = new int[N]; Depth = new byte[N];
+        Shapes = new Shape[N]; Mats = new byte[N]; Flags = new CellFlag[N]; Desigs = new Desig[N]; Floors = new byte[N]; Comp = new int[N]; Depth = new byte[N];
     }
 
     public int Idx(int x, int y, int z) => (z * H + y) * W + x;
@@ -361,6 +363,7 @@ public sealed class World
             Desig.Chop => s == Shape.Tree,
             Desig.Gather => s == Shape.Floor && Has(i, CellFlag.Shrub),
             Desig.Remove => built && s is Shape.Wall or Shape.Floor or Shape.StairUD,
+            Desig.Pave => s == Shape.Floor,
             _ => false,
         };
     }
